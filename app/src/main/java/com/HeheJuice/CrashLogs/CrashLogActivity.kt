@@ -80,7 +80,6 @@ class CrashLogActivity : Activity() {
         initColors()
         buttonHeightPx = dpToPx(54f)
 
-        // Check permissions - if not all granted, show custom dialog
         if (!checkAllPermissions()) {
             showPermissionDialog()
             return
@@ -264,8 +263,8 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Material back arrow
-        val backDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_arrow_back_black_24dp)?.apply {
+        // Material back arrow - corrected name
+        val backDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_arrow_back_24dp)?.apply {
             setTint(primaryTextColor)
         }
         val backBtn = ImageView(this).apply {
@@ -466,7 +465,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG LOADING (fast) ==========
+    // ========== LOG LOADING ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -662,8 +661,8 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon (Material)
-        val lockDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_lock_black_24dp)?.apply {
+        // Lock icon (Material) - corrected name
+        val lockDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_lock_24dp)?.apply {
             setTint(primaryTextColor)
         }
         val iconIv = ImageView(this).apply {
@@ -695,7 +694,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list with status (Material check/cross)
+        // Permission list with status (Material check/close)
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -720,9 +719,9 @@ class CrashLogActivity : Activity() {
                 }
             }
 
-            // Status icon (Material check/close)
+            // Status icon (Material check/close) - corrected names
             val granted = isPermissionGranted(perm)
-            val iconRes = if (granted) MaterialR.drawable.ic_check_black_24dp else MaterialR.drawable.ic_close_black_24dp
+            val iconRes = if (granted) MaterialR.drawable.ic_check_24dp else MaterialR.drawable.ic_close_24dp
             val statusDrawable = AppCompatResources.getDrawable(this@CrashLogActivity, iconRes)?.apply {
                 setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
             }
@@ -1004,8 +1003,8 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
-            // Material icon
-            val iconRes = if (isError) MaterialR.drawable.ic_error_black_24dp else MaterialR.drawable.ic_warning_black_24dp
+            // Material icon - corrected names
+            val iconRes = if (isError) MaterialR.drawable.ic_error_24dp else MaterialR.drawable.ic_warning_24dp
             val icon = AppCompatResources.getDrawable(context, iconRes)?.apply { setTint(color) }
             val iconView = ImageView(context).apply {
                 setImageDrawable(icon)
