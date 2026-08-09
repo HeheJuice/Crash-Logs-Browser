@@ -21,8 +21,10 @@ import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.*
@@ -37,7 +39,6 @@ class CrashLogActivity : Activity() {
         private const val TAB_LOGS = 0
         private const val TAB_INFO = 1
         private const val TAG = "CrashLogs"
-        private const val PERMISSION_REQUEST_CODE = 1001
     }
 
     private var primaryTextColor: Int = 0
@@ -138,7 +139,7 @@ class CrashLogActivity : Activity() {
         logsLayout.addView(filterChipLayout)
 
         logCountHeader = TextView(this).apply {
-            text = getString(R.string.log_count, allLogs.size)
+            text = "📋 ${allLogs.size} Log Entries"
             textSize = 14f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(12f))
@@ -191,9 +192,9 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(infoSub)
 
-        // Version info
+        // Version info - removed BuildConfig reference
         val versionInfo = TextView(this).apply {
-            text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+            text = "Version 2.6"
             textSize = 13f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(16f))
@@ -256,7 +257,7 @@ class CrashLogActivity : Activity() {
         }
 
         val topBarTitle = TextView(this).apply {
-            text = getString(R.string.app_name)
+            text = "Crash Logs Browser"
             textSize = 16f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
@@ -551,19 +552,13 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Icon
         val iconTv = TextView(this).apply {
             text = "🔒"
             textSize = 48f
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
         }
         cardLayout.addView(iconTv)
 
-        // Title
         val titleTv = TextView(this).apply {
             text = "Permissions Required"
             textSize = 22f
@@ -574,7 +569,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
-        // Subtitle
         val subTv = TextView(this).apply {
             text = "This app needs the following permissions to read crash logs"
             textSize = 14f
@@ -584,7 +578,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -703,7 +696,6 @@ class CrashLogActivity : Activity() {
 
         cardLayout.addView(adbLayout)
 
-        // Buttons
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -737,7 +729,6 @@ class CrashLogActivity : Activity() {
                 setupUI()
             } else {
                 Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB.", Toast.LENGTH_LONG).show()
-                // Update permission status
                 dialog.dismiss()
                 showPermissionDialog()
             }
@@ -853,7 +844,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateLogCount() {
-        logCountHeader.text = getString(R.string.log_count, filteredLogs.size)
+        logCountHeader.text = "📋 ${filteredLogs.size} Log Entries"
     }
 
     private fun createStatCard(icon: String, label: String, value: String, color: Int): LinearLayout {
