@@ -7,7 +7,6 @@ import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.*
@@ -17,7 +16,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
-import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -192,7 +190,7 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(infoSub)
 
-        // Version info - removed BuildConfig reference
+        // Version info
         val versionInfo = TextView(this).apply {
             text = "Version 2.6"
             textSize = 13f
@@ -497,7 +495,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== PERMISSION CHECK ==========
+    // ========== PERMISSION CHECKS ==========
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
@@ -537,6 +535,66 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    private fun isPermissionGranted(permName: String): Boolean {
+        return when (permName) {
+            "READ_LOGS" -> checkReadLogsPermission()
+            "READ_DROPBOX_DATA" -> checkDropBoxPermission()
+            "PACKAGE_USAGE_STATS" -> checkUsageStatsPermission()
+            else -> false
+        }
+    }
+
+    // ========== ROOT PERMISSION GRANT ==========
+    private fun grantPermissionsWithRoot() {
+        Thread {
+            val commands = listOf(
+                "pm grant ${packageName} android.permission.READ_LOGS",
+                "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
+                "pm grant ${packageName} android.permission.PACKAGE_USAGE_STATS",
+                "appops set ${packageName} GET_USAGE_STATS allow"
+            )
+            
+            val success = runRootCommands(commands)
+            
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this, "✅ Permissions granted via root!", Toast.LENGTH_LONG).show()
+                    // Check again
+                    if (checkAllPermissions()) {
+                        setupUI()
+                    } else {
+                        Toast.makeText(this, "⚠️ Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
+                        showPermissionDialog()
+                    }
+                } else {
+                    Toast.makeText(this, "❌ Root permission required or failed", Toast.LENGTH_LONG).show()
+                    showPermissionDialog()
+                }
+            }
+        }.start()
+    }
+
+    private fun runRootCommands(commands: List<String>): Boolean {
+        return try {
+            val script = commands.joinToString(" ; ")
+            val process = ProcessBuilder("su", "-c", script).start()
+            
+            // Read output
+            val output = process.inputStream.bufferedReader().readText()
+            val error = process.errorStream.bufferedReader().readText()
+            
+            Log.d(TAG, "Root output: $output")
+            if (error.isNotEmpty()) {
+                Log.e(TAG, "Root error: $error")
+            }
+            
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Root command failed", e)
+            false
+        }
+    }
+
     // ========== PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
@@ -552,13 +610,19 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
+        // Icon
         val iconTv = TextView(this).apply {
             text = "🔒"
             textSize = 48f
             gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
         cardLayout.addView(iconTv)
 
+        // Title
         val titleTv = TextView(this).apply {
             text = "Permissions Required"
             textSize = 22f
@@ -569,6 +633,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
+        // Subtitle
         val subTv = TextView(this).apply {
             text = "This app needs the following permissions to read crash logs"
             textSize = 14f
@@ -578,6 +643,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
+        // Permission list
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -657,51 +723,76 @@ class CrashLogActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 topMargin = dpToPx(12f)
-                bottomMargin = dpToPx(16f)
+                bottomMargin = dpToPx(12f)
             }
         }
 
         val adbTitle = TextView(this).apply {
-            text = "📱 ADB Command"
+            text = "📱 Grant via ADB (one by one)"
             textSize = 14f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
         }
         adbLayout.addView(adbTitle)
 
-        val adbCommand = TextView(this).apply {
+        val adbCommand1 = TextView(this).apply {
             text = "adb shell pm grant ${packageName} android.permission.READ_LOGS"
-            textSize = 12f
+            textSize = 11f
             setTextColor(accentColor)
             setTypeface(Typeface.MONOSPACE)
             setPadding(0, dpToPx(4f), 0, 0)
         }
-        adbLayout.addView(adbCommand)
+        adbLayout.addView(adbCommand1)
 
         val adbCommand2 = TextView(this).apply {
             text = "adb shell pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
-            textSize = 12f
+            textSize = 11f
             setTextColor(accentColor)
             setTypeface(Typeface.MONOSPACE)
         }
         adbLayout.addView(adbCommand2)
 
         val adbCommand3 = TextView(this).apply {
-            text = "adb shell appops set ${packageName} GET_USAGE_STATS allow"
-            textSize = 12f
+            text = "adb shell pm grant ${packageName} android.permission.PACKAGE_USAGE_STATS"
+            textSize = 11f
             setTextColor(accentColor)
             setTypeface(Typeface.MONOSPACE)
         }
         adbLayout.addView(adbCommand3)
 
+        val adbNote = TextView(this).apply {
+            text = "⚠️ Some permissions may require a reboot to take effect"
+            textSize = 11f
+            setTextColor(secondaryTextColor)
+            setPadding(0, dpToPx(8f), 0, 0)
+        }
+        adbLayout.addView(adbNote)
+
         cardLayout.addView(adbLayout)
 
+        // Root grant button
+        val rootGrantBtn = createAnimatedButton(
+            "🔓 Grant with Root (Auto)",
+            Color.WHITE,
+            Color.parseColor("#FF6B00"),
+            buttonHeightPx
+        ) {
+            dialog.dismiss()
+            grantPermissionsWithRoot()
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
+        }
+        cardLayout.addView(rootGrantBtn)
+
+        // Buttons row
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 buttonHeightPx
-            )
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
         }
 
         val exitBtn = createAnimatedButton(
@@ -728,7 +819,7 @@ class CrashLogActivity : Activity() {
                 dialog.dismiss()
                 setupUI()
             } else {
-                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
                 showPermissionDialog()
             }
@@ -753,15 +844,7 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    private fun isPermissionGranted(permName: String): Boolean {
-        return when (permName) {
-            "READ_LOGS" -> checkReadLogsPermission()
-            "READ_DROPBOX_DATA" -> checkDropBoxPermission()
-            "PACKAGE_USAGE_STATS" -> checkUsageStatsPermission()
-            else -> false
-        }
-    }
-
+    // ========== UI HELPERS ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
