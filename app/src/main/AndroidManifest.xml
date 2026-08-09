@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.HeheJuice.CrashLogs">
+
+    <!-- Permission to read system logs -->
+    <uses-permission android:name="android.permission.READ_LOGS" />
+    
+    <!-- Permission to read DropBox crash data -->
+    <uses-permission android:name="android.permission.READ_DROPBOX_DATA" />
+    
+    <!-- Permission to get app usage statistics -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -12,7 +23,8 @@
         <activity
             android:name=".CrashLogActivity"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
