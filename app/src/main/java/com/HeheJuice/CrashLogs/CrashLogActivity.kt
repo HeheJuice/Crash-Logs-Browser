@@ -28,8 +28,11 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.*
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.R as MaterialR
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -77,7 +80,7 @@ class CrashLogActivity : Activity() {
         initColors()
         buttonHeightPx = dpToPx(54f)
 
-        // Check permissions first
+        // Check permissions - if not all granted, show custom dialog
         if (!checkAllPermissions()) {
             showPermissionDialog()
             return
@@ -118,7 +121,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Filter chips
         val filterChipLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -192,7 +194,6 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(infoSub)
 
-        // Version info - fetch dynamically
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
         } catch (e: Exception) {
@@ -206,7 +207,6 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(versionInfo)
 
-        // Stats row (will be updated after logs load)
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -221,7 +221,6 @@ class CrashLogActivity : Activity() {
 
         infoCardLayout.addView(statsRow)
 
-        // Refresh button
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogsAsync()
             Toast.makeText(this, "Refreshing logs...", Toast.LENGTH_SHORT).show()
@@ -232,7 +231,6 @@ class CrashLogActivity : Activity() {
 
         infoLayout.addView(infoCardLayout)
 
-        // Add layouts to scroll content
         scrollContent.addView(logsLayout)
         scrollContent.addView(infoLayout)
         scrollView.addView(scrollContent)
@@ -266,9 +264,12 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        val backArrowDrawable = createArrowBackDrawable()
+        // Material back arrow
+        val backDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_arrow_back_black_24dp)?.apply {
+            setTint(primaryTextColor)
+        }
         val backBtn = ImageView(this).apply {
-            setImageDrawable(backArrowDrawable)
+            setImageDrawable(backDrawable)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(backBtnBgColor)
@@ -465,7 +466,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG LOADING (optimized) ==========
+    // ========== LOG LOADING (fast) ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -482,7 +483,6 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateStats() {
-        // Find stats row in info layout
         val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
         val statsRow = infoCard.findViewWithTag<LinearLayout>("statsRow") ?: return
         for (i in 0 until statsRow.childCount) {
@@ -499,7 +499,6 @@ class CrashLogActivity : Activity() {
     private fun loadLogs() {
         allLogs.clear()
         try {
-            // Use -t 200 to get last 200 lines (fast)
             val process = Runtime.getRuntime().exec("logcat -d -v time -s AndroidRuntime:E ActivityManager:I -t 200")
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             var line: String?
@@ -558,15 +557,11 @@ class CrashLogActivity : Activity() {
     }
 
     private fun checkReadLogsPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            checkCallingOrSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun checkDropBoxPermission(): Boolean {
-        return checkCallingOrSelfPermission("android.permission.READ_DROPBOX_DATA") == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_DROPBOX_DATA) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun checkUsageStatsPermission(): Boolean {
@@ -652,7 +647,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== PERMISSION DIALOG ==========
+    // ========== CUSTOM PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -667,8 +662,10 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon - custom drawable
-        val lockDrawable = createLockDrawable()
+        // Lock icon (Material)
+        val lockDrawable = AppCompatResources.getDrawable(this, MaterialR.drawable.ic_lock_black_24dp)?.apply {
+            setTint(primaryTextColor)
+        }
         val iconIv = ImageView(this).apply {
             setImageDrawable(lockDrawable)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
@@ -698,7 +695,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list
+        // Permission list with status (Material check/cross)
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -723,9 +720,12 @@ class CrashLogActivity : Activity() {
                 }
             }
 
-            // Status icon - custom drawable
+            // Status icon (Material check/close)
             val granted = isPermissionGranted(perm)
-            val statusDrawable = createStatusDrawable(granted)
+            val iconRes = if (granted) MaterialR.drawable.ic_check_black_24dp else MaterialR.drawable.ic_close_black_24dp
+            val statusDrawable = AppCompatResources.getDrawable(this@CrashLogActivity, iconRes)?.apply {
+                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+            }
             val statusIv = ImageView(this).apply {
                 setImageDrawable(statusDrawable)
                 layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
@@ -899,92 +899,6 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== CUSTOM DRAWABLES ==========
-    private fun createStatusDrawable(granted: Boolean): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
-                style = Paint.Style.FILL_AND_STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val radius = bounds.width() * 0.4f
-                canvas.drawCircle(cx, cy, radius, paint)
-                paint.color = Color.WHITE
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = dpToPx(2.5f).toFloat()
-                if (granted) {
-                    val path = Path().apply {
-                        moveTo(cx - radius * 0.4f, cy)
-                        lineTo(cx - radius * 0.1f, cy + radius * 0.5f)
-                        lineTo(cx + radius * 0.6f, cy - radius * 0.5f)
-                    }
-                    canvas.drawPath(path, paint)
-                } else {
-                    val offset = radius * 0.5f
-                    canvas.drawLine(cx - offset, cy - offset, cx + offset, cy + offset, paint)
-                    canvas.drawLine(cx + offset, cy - offset, cx - offset, cy + offset, paint)
-                }
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    private fun createLockDrawable(): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val w = bounds.width() * 0.3f
-                val h = bounds.height() * 0.5f
-                canvas.drawRoundRect(cx - w, cy - h*0.2f, cx + w, cy + h*0.8f, dpToPx(4f).toFloat(), dpToPx(4f).toFloat(), paint)
-                canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
-                canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
-                canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    private fun createArrowBackDrawable(): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2.5f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val size = dpToPx(6.5f)
-                val path = Path().apply {
-                    moveTo(cx + size * 0.4f, cy - size)
-                    lineTo(cx - size * 0.5f, cy)
-                    lineTo(cx + size * 0.4f, cy + size)
-                }
-                canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
     // ========== UI HELPERS ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -1090,16 +1004,17 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
-            // Icon - custom drawable
-            val iconDrawable = createStatIconDrawable(isError, color)
-            val icon = ImageView(context).apply {
-                setImageDrawable(iconDrawable)
+            // Material icon
+            val iconRes = if (isError) MaterialR.drawable.ic_error_black_24dp else MaterialR.drawable.ic_warning_black_24dp
+            val icon = AppCompatResources.getDrawable(context, iconRes)?.apply { setTint(color) }
+            val iconView = ImageView(context).apply {
+                setImageDrawable(icon)
                 layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f)).apply {
                     gravity = Gravity.CENTER
                     bottomMargin = dpToPx(4f)
                 }
             }
-            addView(icon)
+            addView(iconView)
 
             val valueTv = TextView(context).apply {
                 text = value
@@ -1117,47 +1032,6 @@ class CrashLogActivity : Activity() {
                 gravity = Gravity.CENTER
             }
             addView(labelTv)
-        }
-    }
-
-    private fun createStatIconDrawable(isError: Boolean, color: Int): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = color
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val r = bounds.width() * 0.4f
-                if (isError) {
-                    // Exclamation mark in a circle (error)
-                    canvas.drawCircle(cx, cy, r, paint)
-                    paint.style = Paint.Style.FILL_AND_STROKE
-                    paint.strokeWidth = dpToPx(2.5f).toFloat()
-                    canvas.drawLine(cx, cy - r * 0.4f, cx, cy + r * 0.1f, paint)
-                    canvas.drawCircle(cx, cy + r * 0.4f, dpToPx(2f).toFloat(), paint)
-                } else {
-                    // Warning triangle
-                    val path = Path().apply {
-                        moveTo(cx, cy - r)
-                        lineTo(cx - r * 0.9f, cy + r * 0.6f)
-                        lineTo(cx + r * 0.9f, cy + r * 0.6f)
-                        close()
-                    }
-                    canvas.drawPath(path, paint)
-                    paint.style = Paint.Style.FILL_AND_STROKE
-                    paint.strokeWidth = dpToPx(2.5f).toFloat()
-                    canvas.drawLine(cx, cy - r * 0.2f, cx, cy + r * 0.3f, paint)
-                    canvas.drawCircle(cx, cy + r * 0.6f, dpToPx(2f).toFloat(), paint)
-                }
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
     }
 
