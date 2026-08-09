@@ -6,6 +6,7 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
+import android.app.ProgressDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -15,6 +16,8 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.util.Log
 import android.util.TypedValue
@@ -26,8 +29,10 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.*
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.R as MaterialR
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -66,6 +71,7 @@ class CrashLogActivity : Activity() {
     private lateinit var logCountHeader: TextView
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
+    private lateinit var progressOverlay: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -82,6 +88,7 @@ class CrashLogActivity : Activity() {
         }
 
         setupUI()
+        loadLogsAsync()
     }
 
     private fun setupUI() {
@@ -137,7 +144,7 @@ class CrashLogActivity : Activity() {
         logsLayout.addView(filterChipLayout)
 
         logCountHeader = TextView(this).apply {
-            text = "📋 ${allLogs.size} Log Entries"
+            text = "${allLogs.size} Log Entries"
             textSize = 14f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(12f))
@@ -153,7 +160,6 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        loadLogs()
         logAdapter = LogAdapter(filteredLogs)
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
@@ -216,16 +222,15 @@ class CrashLogActivity : Activity() {
         val crashCount = allLogs.count { it.type == "Crash" }
         val anrCount = allLogs.count { it.type == "ANR" }
 
-        statsRow.addView(createStatCard("💥", "Crashes", crashCount.toString(), redBtnColor))
-        statsRow.addView(createStatCard("⏳", "ANRs", anrCount.toString(), accentColor))
+        statsRow.addView(createStatCard("Crash", crashCount.toString(), redBtnColor, MaterialR.drawable.ic_error_black_24dp))
+        statsRow.addView(createStatCard("ANR", anrCount.toString(), accentColor, MaterialR.drawable.ic_warning_black_24dp))
 
         infoCardLayout.addView(statsRow)
 
-        // Actions - only refresh button, removed clear all
+        // Actions - only refresh button
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
-            loadLogs()
-            updateFilter(currentFilter)
-            Toast.makeText(this, "Logs refreshed", Toast.LENGTH_SHORT).show()
+            loadLogsAsync()
+            Toast.makeText(this, "Refreshing logs...", Toast.LENGTH_SHORT).show()
         }.apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
         }
@@ -267,7 +272,11 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        val backArrowDrawable = object : Drawable() {
+        // Back arrow drawable using Material icon
+        val backArrowDrawable = ContextCompat.getDrawable(this, MaterialR.drawable.ic_arrow_back_black_24dp)?.apply {
+            setTint(primaryTextColor)
+        } ?: object : Drawable() {
+            // fallback
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = primaryTextColor
                 style = Paint.Style.STROKE
@@ -485,8 +494,66 @@ class CrashLogActivity : Activity() {
             insets
         }
 
+        // Progress overlay
+        progressOverlay = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            visibility = View.GONE
+            setBackgroundColor(Color.parseColor("#80000000"))
+            val progressBar = ProgressBar(this@CrashLogActivity).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                )
+                indeterminateDrawable = ContextCompat.getDrawable(
+                    this@CrashLogActivity,
+                    android.R.drawable.progress_indeterminate_horizontal
+                )?.apply {
+                    setTint(accentColor)
+                }
+            }
+            addView(progressBar)
+        }
+        rootFrameLayout.addView(progressOverlay)
+
         setContentView(rootFrameLayout)
         applyEntranceAnimations(listOf(logsLayout))
+    }
+
+    // ========== LOAD LOGS ASYNC ==========
+    private fun loadLogsAsync() {
+        progressOverlay.visibility = View.VISIBLE
+        Thread {
+            val startTime = System.currentTimeMillis()
+            loadLogs()
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d(TAG, "Logs loaded in ${elapsed}ms")
+            runOnUiThread {
+                progressOverlay.visibility = View.GONE
+                updateLogCount()
+                logAdapter.updateLogs(filteredLogs)
+                // Update stats on info tab
+                updateStats()
+            }
+        }.start()
+    }
+
+    private fun updateStats() {
+        // Find the stats row in info layout and update counts
+        val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
+        val statsRow = infoCard.getChildAt(4) as? LinearLayout ?: return // index may vary, but we'll find it by loop
+        for (i in 0 until statsRow.childCount) {
+            val card = statsRow.getChildAt(i) as? LinearLayout ?: continue
+            val valueTv = card.getChildAt(1) as? TextView ?: continue
+            val label = (card.getChildAt(2) as? TextView)?.text.toString()
+            when (label) {
+                "Crashes" -> valueTv.text = allLogs.count { it.type == "Crash" }.toString()
+                "ANR" -> valueTv.text = allLogs.count { it.type == "ANR" }.toString()
+            }
+        }
     }
 
     // ========== PERMISSION CHECKS ==========
@@ -552,13 +619,16 @@ class CrashLogActivity : Activity() {
             runOnUiThread {
                 if (success) {
                     Toast.makeText(this, "Permissions granted via root!", Toast.LENGTH_LONG).show()
-                    // Check again
-                    if (checkAllPermissions()) {
-                        setupUI()
-                    } else {
-                        Toast.makeText(this, "Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
-                        showPermissionDialog()
-                    }
+                    // Force a re-check with a small delay to let system settle
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (checkAllPermissions()) {
+                            setupUI()
+                            loadLogsAsync()
+                        } else {
+                            Toast.makeText(this, "Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
+                            showPermissionDialog()
+                        }
+                    }, 500)
                 } else {
                     Toast.makeText(this, "Root permission required or failed", Toast.LENGTH_LONG).show()
                     showPermissionDialog()
@@ -602,32 +672,10 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Icon - lock drawable (programmatic)
-        val lockDrawable = object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val w = bounds.width() * 0.3f
-                val h = bounds.height() * 0.5f
-                // Lock body
-                canvas.drawRoundRect(cx - w, cy - h*0.2f, cx + w, cy + h*0.8f, dpToPx(4f).toFloat(), dpToPx(4f).toFloat(), paint)
-                // Lock shackle
-                canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
-                // Keyhole
-                canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
-                canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
+        // Lock icon from Material
+        val lockDrawable = ContextCompat.getDrawable(this, MaterialR.drawable.ic_lock_black_24dp)?.apply {
+            setTint(primaryTextColor)
+        } ?: createLockDrawable() // fallback
         val iconIv = ImageView(this).apply {
             setImageDrawable(lockDrawable)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
@@ -648,7 +696,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
-        // Subtitle
         val subTv = TextView(this).apply {
             text = "This app needs the following permissions to read crash logs"
             textSize = 14f
@@ -658,7 +705,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list with drawable status
+        // Permission list
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -683,7 +730,7 @@ class CrashLogActivity : Activity() {
                 }
             }
 
-            // Status drawable
+            // Status icon
             val granted = isPermissionGranted(perm)
             val statusDrawable = createStatusDrawable(granted)
             val statusIv = ImageView(this).apply {
@@ -832,6 +879,7 @@ class CrashLogActivity : Activity() {
             if (checkAllPermissions()) {
                 dialog.dismiss()
                 setupUI()
+                loadLogsAsync()
             } else {
                 Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
@@ -858,9 +906,14 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // Helper to create status drawable (check or cross)
+    // ========== DRAWABLE HELPERS ==========
     private fun createStatusDrawable(granted: Boolean): Drawable {
-        return object : Drawable() {
+        // Use Material check/cross if available, else fallback
+        val iconRes = if (granted) MaterialR.drawable.ic_check_black_24dp else MaterialR.drawable.ic_close_black_24dp
+        return ContextCompat.getDrawable(this, iconRes)?.apply {
+            setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+        } ?: object : Drawable() {
+            // fallback if resources missing
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
                 style = Paint.Style.FILL_AND_STROKE
@@ -870,14 +923,11 @@ class CrashLogActivity : Activity() {
                 val cx = bounds.exactCenterX()
                 val cy = bounds.exactCenterY()
                 val radius = bounds.width() * 0.4f
-                // Draw circle background
                 canvas.drawCircle(cx, cy, radius, paint)
-                // Draw check or cross
                 paint.color = Color.WHITE
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = dpToPx(2.5f).toFloat()
                 if (granted) {
-                    // Check mark
                     val path = Path().apply {
                         moveTo(cx - radius * 0.4f, cy)
                         lineTo(cx - radius * 0.1f, cy + radius * 0.5f)
@@ -885,11 +935,35 @@ class CrashLogActivity : Activity() {
                     }
                     canvas.drawPath(path, paint)
                 } else {
-                    // Cross
                     val offset = radius * 0.5f
                     canvas.drawLine(cx - offset, cy - offset, cx + offset, cy + offset, paint)
                     canvas.drawLine(cx + offset, cy - offset, cx - offset, cy + offset, paint)
                 }
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private fun createLockDrawable(): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = primaryTextColor
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val w = bounds.width() * 0.3f
+                val h = bounds.height() * 0.5f
+                canvas.drawRoundRect(cx - w, cy - h*0.2f, cx + w, cy + h*0.8f, dpToPx(4f).toFloat(), dpToPx(4f).toFloat(), paint)
+                canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
+                canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
+                canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
             override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
@@ -983,7 +1057,7 @@ class CrashLogActivity : Activity() {
         logCountHeader.text = "${filteredLogs.size} Log Entries"
     }
 
-    private fun createStatCard(icon: String, label: String, value: String, color: Int): LinearLayout {
+    private fun createStatCard(label: String, value: String, color: Int, iconResId: Int): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -1002,12 +1076,14 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
-            val iconTv = TextView(context).apply {
-                text = icon
-                textSize = 24f
-                gravity = Gravity.CENTER
+            val icon = ImageView(context).apply {
+                setImageDrawable(ContextCompat.getDrawable(context, iconResId)?.apply { setTint(color) })
+                layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f)).apply {
+                    gravity = Gravity.CENTER
+                    bottomMargin = dpToPx(4f)
+                }
             }
-            addView(iconTv)
+            addView(icon)
 
             val valueTv = TextView(context).apply {
                 text = value
@@ -1059,7 +1135,6 @@ class CrashLogActivity : Activity() {
 
         filteredLogs.clear()
         filteredLogs.addAll(allLogs)
-        updateLogCount()
     }
 
     private fun extractTimestamp(line: String): String {
