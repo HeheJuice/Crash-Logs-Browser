@@ -6,7 +6,6 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
-import android.app.ProgressDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -29,10 +28,8 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.*
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.R as MaterialR
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -71,7 +68,6 @@ class CrashLogActivity : Activity() {
     private lateinit var logCountHeader: TextView
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
-    private lateinit var progressOverlay: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -144,7 +140,7 @@ class CrashLogActivity : Activity() {
         logsLayout.addView(filterChipLayout)
 
         logCountHeader = TextView(this).apply {
-            text = "${allLogs.size} Log Entries"
+            text = "Loading logs..."
             textSize = 14f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(12f))
@@ -210,24 +206,22 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(versionInfo)
 
-        // Stats
+        // Stats row (will be updated after logs load)
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
+            tag = "statsRow"
         }
 
-        val crashCount = allLogs.count { it.type == "Crash" }
-        val anrCount = allLogs.count { it.type == "ANR" }
-
-        statsRow.addView(createStatCard("Crash", crashCount.toString(), redBtnColor, MaterialR.drawable.ic_error_black_24dp))
-        statsRow.addView(createStatCard("ANR", anrCount.toString(), accentColor, MaterialR.drawable.ic_warning_black_24dp))
+        statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
+        statsRow.addView(createStatCard("ANR", "0", accentColor, false))
 
         infoCardLayout.addView(statsRow)
 
-        // Actions - only refresh button
+        // Refresh button
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogsAsync()
             Toast.makeText(this, "Refreshing logs...", Toast.LENGTH_SHORT).show()
@@ -272,34 +266,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Back arrow drawable using Material icon
-        val backArrowDrawable = ContextCompat.getDrawable(this, MaterialR.drawable.ic_arrow_back_black_24dp)?.apply {
-            setTint(primaryTextColor)
-        } ?: object : Drawable() {
-            // fallback
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2.5f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val size = dpToPx(6.5f)
-                val path = Path().apply {
-                    moveTo(cx + size * 0.4f, cy - size)
-                    lineTo(cx - size * 0.5f, cy)
-                    lineTo(cx + size * 0.4f, cy + size)
-                }
-                canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-
+        val backArrowDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backArrowDrawable)
             background = GradientDrawable().apply {
@@ -494,57 +461,30 @@ class CrashLogActivity : Activity() {
             insets
         }
 
-        // Progress overlay
-        progressOverlay = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            visibility = View.GONE
-            setBackgroundColor(Color.parseColor("#80000000"))
-            val progressBar = ProgressBar(this@CrashLogActivity).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.CENTER
-                )
-                indeterminateDrawable = ContextCompat.getDrawable(
-                    this@CrashLogActivity,
-                    android.R.drawable.progress_indeterminate_horizontal
-                )?.apply {
-                    setTint(accentColor)
-                }
-            }
-            addView(progressBar)
-        }
-        rootFrameLayout.addView(progressOverlay)
-
         setContentView(rootFrameLayout)
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOAD LOGS ASYNC ==========
+    // ========== LOG LOADING (optimized) ==========
     private fun loadLogsAsync() {
-        progressOverlay.visibility = View.VISIBLE
+        logCountHeader.text = "Loading logs..."
         Thread {
-            val startTime = System.currentTimeMillis()
+            val start = System.currentTimeMillis()
             loadLogs()
-            val elapsed = System.currentTimeMillis() - startTime
+            val elapsed = System.currentTimeMillis() - start
             Log.d(TAG, "Logs loaded in ${elapsed}ms")
             runOnUiThread {
-                progressOverlay.visibility = View.GONE
                 updateLogCount()
                 logAdapter.updateLogs(filteredLogs)
-                // Update stats on info tab
                 updateStats()
             }
         }.start()
     }
 
     private fun updateStats() {
-        // Find the stats row in info layout and update counts
+        // Find stats row in info layout
         val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
-        val statsRow = infoCard.getChildAt(4) as? LinearLayout ?: return // index may vary, but we'll find it by loop
+        val statsRow = infoCard.findViewWithTag<LinearLayout>("statsRow") ?: return
         for (i in 0 until statsRow.childCount) {
             val card = statsRow.getChildAt(i) as? LinearLayout ?: continue
             val valueTv = card.getChildAt(1) as? TextView ?: continue
@@ -554,6 +494,62 @@ class CrashLogActivity : Activity() {
                 "ANR" -> valueTv.text = allLogs.count { it.type == "ANR" }.toString()
             }
         }
+    }
+
+    private fun loadLogs() {
+        allLogs.clear()
+        try {
+            // Use -t 200 to get last 200 lines (fast)
+            val process = Runtime.getRuntime().exec("logcat -d -v time -s AndroidRuntime:E ActivityManager:I -t 200")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                line?.let {
+                    if (it.contains("FATAL EXCEPTION") || it.contains("ANR in")) {
+                        val timestamp = extractTimestamp(it)
+                        val appName = extractAppName(it)
+                        val type = if (it.contains("ANR")) "ANR" else "Crash"
+                        if (appName.isNotEmpty()) {
+                            allLogs.add(LogEntry(timestamp, appName, type))
+                        }
+                    }
+                }
+            }
+            process.waitFor()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read logcat", e)
+        }
+
+        if (allLogs.isEmpty()) {
+            loadMockData()
+        }
+
+        filteredLogs.clear()
+        filteredLogs.addAll(allLogs)
+    }
+
+    private fun extractTimestamp(line: String): String {
+        val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
+        val match = pattern.find(line)
+        return match?.value?.replace("-", "/")?.substring(0, 15) ?: "Unknown"
+    }
+
+    private fun extractAppName(line: String): String {
+        val pattern = Regex("\\(([^)]+)\\)")
+        val match = pattern.find(line)
+        return match?.groupValues?.get(1)?.split(":")?.firstOrNull() ?: "Unknown"
+    }
+
+    private fun loadMockData() {
+        allLogs.addAll(listOf(
+            LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR"),
+            LogEntry("08/08, 9:33:32 am", "Settings", "Crash"),
+            LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR"),
+            LogEntry("07/08, 10:20:12 pm", "System App", "Crash"),
+            LogEntry("07/08, 10:20:05 pm", "Settings", "Crash"),
+            LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR"),
+            LogEntry("07/08, 5:41:57 pm", "Settings", "ANR"),
+        ))
     }
 
     // ========== PERMISSION CHECKS ==========
@@ -619,7 +615,6 @@ class CrashLogActivity : Activity() {
             runOnUiThread {
                 if (success) {
                     Toast.makeText(this, "Permissions granted via root!", Toast.LENGTH_LONG).show()
-                    // Force a re-check with a small delay to let system settle
                     Handler(Looper.getMainLooper()).postDelayed({
                         if (checkAllPermissions()) {
                             setupUI()
@@ -672,10 +667,8 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon from Material
-        val lockDrawable = ContextCompat.getDrawable(this, MaterialR.drawable.ic_lock_black_24dp)?.apply {
-            setTint(primaryTextColor)
-        } ?: createLockDrawable() // fallback
+        // Lock icon - custom drawable
+        val lockDrawable = createLockDrawable()
         val iconIv = ImageView(this).apply {
             setImageDrawable(lockDrawable)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
@@ -730,7 +723,7 @@ class CrashLogActivity : Activity() {
                 }
             }
 
-            // Status icon
+            // Status icon - custom drawable
             val granted = isPermissionGranted(perm)
             val statusDrawable = createStatusDrawable(granted)
             val statusIv = ImageView(this).apply {
@@ -906,14 +899,9 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== DRAWABLE HELPERS ==========
+    // ========== CUSTOM DRAWABLES ==========
     private fun createStatusDrawable(granted: Boolean): Drawable {
-        // Use Material check/cross if available, else fallback
-        val iconRes = if (granted) MaterialR.drawable.ic_check_black_24dp else MaterialR.drawable.ic_close_black_24dp
-        return ContextCompat.getDrawable(this, iconRes)?.apply {
-            setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
-        } ?: object : Drawable() {
-            // fallback if resources missing
+        return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
                 style = Paint.Style.FILL_AND_STROKE
@@ -964,6 +952,32 @@ class CrashLogActivity : Activity() {
                 canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
                 canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
                 canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private fun createArrowBackDrawable(): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = primaryTextColor
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2.5f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val size = dpToPx(6.5f)
+                val path = Path().apply {
+                    moveTo(cx + size * 0.4f, cy - size)
+                    lineTo(cx - size * 0.5f, cy)
+                    lineTo(cx + size * 0.4f, cy + size)
+                }
+                canvas.drawPath(path, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
             override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
@@ -1057,7 +1071,7 @@ class CrashLogActivity : Activity() {
         logCountHeader.text = "${filteredLogs.size} Log Entries"
     }
 
-    private fun createStatCard(label: String, value: String, color: Int, iconResId: Int): LinearLayout {
+    private fun createStatCard(label: String, value: String, color: Int, isError: Boolean): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -1076,8 +1090,10 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
+            // Icon - custom drawable
+            val iconDrawable = createStatIconDrawable(isError, color)
             val icon = ImageView(context).apply {
-                setImageDrawable(ContextCompat.getDrawable(context, iconResId)?.apply { setTint(color) })
+                setImageDrawable(iconDrawable)
                 layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f)).apply {
                     gravity = Gravity.CENTER
                     bottomMargin = dpToPx(4f)
@@ -1104,61 +1120,45 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    private fun loadLogs() {
-        allLogs.clear()
-        
-        // Try to read logcat
-        try {
-            val process = Runtime.getRuntime().exec("logcat -d -v time -s AndroidRuntime:E ActivityManager:I")
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                line?.let {
-                    if (it.contains("FATAL EXCEPTION") || it.contains("ANR in")) {
-                        val timestamp = extractTimestamp(it)
-                        val appName = extractAppName(it)
-                        val type = if (it.contains("ANR")) "ANR" else "Crash"
-                        if (appName.isNotEmpty()) {
-                            allLogs.add(LogEntry(timestamp, appName, type))
-                        }
+    private fun createStatIconDrawable(isError: Boolean, color: Int): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val r = bounds.width() * 0.4f
+                if (isError) {
+                    // Exclamation mark in a circle (error)
+                    canvas.drawCircle(cx, cy, r, paint)
+                    paint.style = Paint.Style.FILL_AND_STROKE
+                    paint.strokeWidth = dpToPx(2.5f).toFloat()
+                    canvas.drawLine(cx, cy - r * 0.4f, cx, cy + r * 0.1f, paint)
+                    canvas.drawCircle(cx, cy + r * 0.4f, dpToPx(2f).toFloat(), paint)
+                } else {
+                    // Warning triangle
+                    val path = Path().apply {
+                        moveTo(cx, cy - r)
+                        lineTo(cx - r * 0.9f, cy + r * 0.6f)
+                        lineTo(cx + r * 0.9f, cy + r * 0.6f)
+                        close()
                     }
+                    canvas.drawPath(path, paint)
+                    paint.style = Paint.Style.FILL_AND_STROKE
+                    paint.strokeWidth = dpToPx(2.5f).toFloat()
+                    canvas.drawLine(cx, cy - r * 0.2f, cx, cy + r * 0.3f, paint)
+                    canvas.drawCircle(cx, cy + r * 0.6f, dpToPx(2f).toFloat(), paint)
                 }
             }
-            process.waitFor()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read logcat", e)
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
-
-        if (allLogs.isEmpty()) {
-            loadMockData()
-        }
-
-        filteredLogs.clear()
-        filteredLogs.addAll(allLogs)
-    }
-
-    private fun extractTimestamp(line: String): String {
-        val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
-        val match = pattern.find(line)
-        return match?.value?.replace("-", "/")?.substring(0, 15) ?: "Unknown"
-    }
-
-    private fun extractAppName(line: String): String {
-        val pattern = Regex("\\(([^)]+)\\)")
-        val match = pattern.find(line)
-        return match?.groupValues?.get(1)?.split(":")?.firstOrNull() ?: "Unknown"
-    }
-
-    private fun loadMockData() {
-        allLogs.addAll(listOf(
-            LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR"),
-            LogEntry("08/08, 9:33:32 am", "Settings", "Crash"),
-            LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR"),
-            LogEntry("07/08, 10:20:12 pm", "System App", "Crash"),
-            LogEntry("07/08, 10:20:05 pm", "Settings", "Crash"),
-            LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR"),
-            LogEntry("07/08, 5:41:57 pm", "Settings", "ANR"),
-        ))
     }
 
     private fun updatePillPosition(progress: Float) {
