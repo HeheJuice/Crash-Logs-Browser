@@ -175,7 +175,7 @@ class CrashLogActivity : Activity() {
         }
 
         val infoTitle = TextView(this).apply {
-            text = "📊 Crash Logs Browser"
+            text = "Crash Logs Browser"
             textSize = 24f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
@@ -190,9 +190,14 @@ class CrashLogActivity : Activity() {
         }
         infoCardLayout.addView(infoSub)
 
-        // Version info
+        // Version info - fetch dynamically
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
+        } catch (e: Exception) {
+            "Unknown"
+        }
         val versionInfo = TextView(this).apply {
-            text = "Version 2.6"
+            text = "Version $versionName"
             textSize = 13f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(16f))
@@ -216,8 +221,8 @@ class CrashLogActivity : Activity() {
 
         infoCardLayout.addView(statsRow)
 
-        // Actions
-        val refreshBtn = createAnimatedButton("🔄 Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
+        // Actions - only refresh button, removed clear all
+        val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogs()
             updateFilter(currentFilter)
             Toast.makeText(this, "Logs refreshed", Toast.LENGTH_SHORT).show()
@@ -225,17 +230,6 @@ class CrashLogActivity : Activity() {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
         }
         infoCardLayout.addView(refreshBtn)
-
-        val clearBtn = createAnimatedButton("🗑️ Clear All Logs", Color.WHITE, redBtnColor, buttonHeightPx) {
-            allLogs.clear()
-            filteredLogs.clear()
-            logAdapter.notifyDataSetChanged()
-            updateLogCount()
-            Toast.makeText(this, "All logs cleared", Toast.LENGTH_SHORT).show()
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(12f)
-        }
-        infoCardLayout.addView(clearBtn)
 
         infoLayout.addView(infoCardLayout)
 
@@ -356,7 +350,7 @@ class CrashLogActivity : Activity() {
         }
 
         logsPillBtn = TextView(this).apply {
-            text = "📋 Logs"
+            text = "Logs"
             textSize = 14f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
@@ -369,7 +363,7 @@ class CrashLogActivity : Activity() {
         }
 
         infoPillBtn = TextView(this).apply {
-            text = "ℹ️ Info"
+            text = "Info"
             textSize = 14f
             setTextColor(secondaryTextColor)
             setTypeface(null, Typeface.BOLD)
@@ -550,7 +544,6 @@ class CrashLogActivity : Activity() {
             val commands = listOf(
                 "pm grant ${packageName} android.permission.READ_LOGS",
                 "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
-                "pm grant ${packageName} android.permission.PACKAGE_USAGE_STATS",
                 "appops set ${packageName} GET_USAGE_STATS allow"
             )
             
@@ -558,16 +551,16 @@ class CrashLogActivity : Activity() {
             
             runOnUiThread {
                 if (success) {
-                    Toast.makeText(this, "✅ Permissions granted via root!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Permissions granted via root!", Toast.LENGTH_LONG).show()
                     // Check again
                     if (checkAllPermissions()) {
                         setupUI()
                     } else {
-                        Toast.makeText(this, "⚠️ Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
                         showPermissionDialog()
                     }
                 } else {
-                    Toast.makeText(this, "❌ Root permission required or failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Root permission required or failed", Toast.LENGTH_LONG).show()
                     showPermissionDialog()
                 }
             }
@@ -579,7 +572,6 @@ class CrashLogActivity : Activity() {
             val script = commands.joinToString(" ; ")
             val process = ProcessBuilder("su", "-c", script).start()
             
-            // Read output
             val output = process.inputStream.bufferedReader().readText()
             val error = process.errorStream.bufferedReader().readText()
             
@@ -610,17 +602,40 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Icon
-        val iconTv = TextView(this).apply {
-            text = "🔒"
-            textSize = 48f
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+        // Icon - lock drawable (programmatic)
+        val lockDrawable = object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = primaryTextColor
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val w = bounds.width() * 0.3f
+                val h = bounds.height() * 0.5f
+                // Lock body
+                canvas.drawRoundRect(cx - w, cy - h*0.2f, cx + w, cy + h*0.8f, dpToPx(4f).toFloat(), dpToPx(4f).toFloat(), paint)
+                // Lock shackle
+                canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
+                // Keyhole
+                canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
+                canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
-        cardLayout.addView(iconTv)
+        val iconIv = ImageView(this).apply {
+            setImageDrawable(lockDrawable)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
+                gravity = Gravity.CENTER
+                bottomMargin = dpToPx(8f)
+            }
+        }
+        cardLayout.addView(iconIv)
 
         // Title
         val titleTv = TextView(this).apply {
@@ -629,7 +644,7 @@ class CrashLogActivity : Activity() {
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(0, dpToPx(8f), 0, dpToPx(4f))
+            setPadding(0, 0, 0, dpToPx(4f))
         }
         cardLayout.addView(titleTv)
 
@@ -643,7 +658,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list
+        // Permission list with drawable status
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -668,17 +683,16 @@ class CrashLogActivity : Activity() {
                 }
             }
 
-            val statusTv = TextView(this).apply {
-                text = if (isPermissionGranted(perm)) "✅" else "❌"
-                textSize = 18f
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
+            // Status drawable
+            val granted = isPermissionGranted(perm)
+            val statusDrawable = createStatusDrawable(granted)
+            val statusIv = ImageView(this).apply {
+                setImageDrawable(statusDrawable)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
                     marginEnd = dpToPx(12f)
                 }
             }
-            permLayout.addView(statusTv)
+            permLayout.addView(statusIv)
 
             val textLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -728,7 +742,7 @@ class CrashLogActivity : Activity() {
         }
 
         val adbTitle = TextView(this).apply {
-            text = "📱 Grant via ADB (one by one)"
+            text = "Grant via ADB (one by one)"
             textSize = 14f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
@@ -753,7 +767,7 @@ class CrashLogActivity : Activity() {
         adbLayout.addView(adbCommand2)
 
         val adbCommand3 = TextView(this).apply {
-            text = "adb shell pm grant ${packageName} android.permission.PACKAGE_USAGE_STATS"
+            text = "adb shell appops set ${packageName} GET_USAGE_STATS allow"
             textSize = 11f
             setTextColor(accentColor)
             setTypeface(Typeface.MONOSPACE)
@@ -761,7 +775,7 @@ class CrashLogActivity : Activity() {
         adbLayout.addView(adbCommand3)
 
         val adbNote = TextView(this).apply {
-            text = "⚠️ Some permissions may require a reboot to take effect"
+            text = "Some permissions may require a reboot to take effect"
             textSize = 11f
             setTextColor(secondaryTextColor)
             setPadding(0, dpToPx(8f), 0, 0)
@@ -772,7 +786,7 @@ class CrashLogActivity : Activity() {
 
         // Root grant button
         val rootGrantBtn = createAnimatedButton(
-            "🔓 Grant with Root (Auto)",
+            "Grant with Root (Auto)",
             Color.WHITE,
             Color.parseColor("#FF6B00"),
             buttonHeightPx
@@ -842,6 +856,45 @@ class CrashLogActivity : Activity() {
 
         dialog.setCancelable(false)
         dialog.show()
+    }
+
+    // Helper to create status drawable (check or cross)
+    private fun createStatusDrawable(granted: Boolean): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
+                style = Paint.Style.FILL_AND_STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val radius = bounds.width() * 0.4f
+                // Draw circle background
+                canvas.drawCircle(cx, cy, radius, paint)
+                // Draw check or cross
+                paint.color = Color.WHITE
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = dpToPx(2.5f).toFloat()
+                if (granted) {
+                    // Check mark
+                    val path = Path().apply {
+                        moveTo(cx - radius * 0.4f, cy)
+                        lineTo(cx - radius * 0.1f, cy + radius * 0.5f)
+                        lineTo(cx + radius * 0.6f, cy - radius * 0.5f)
+                    }
+                    canvas.drawPath(path, paint)
+                } else {
+                    // Cross
+                    val offset = radius * 0.5f
+                    canvas.drawLine(cx - offset, cy - offset, cx + offset, cy + offset, paint)
+                    canvas.drawLine(cx + offset, cy - offset, cx - offset, cy + offset, paint)
+                }
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
     }
 
     // ========== UI HELPERS ==========
@@ -927,7 +980,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateLogCount() {
-        logCountHeader.text = "📋 ${filteredLogs.size} Log Entries"
+        logCountHeader.text = "${filteredLogs.size} Log Entries"
     }
 
     private fun createStatCard(icon: String, label: String, value: String, color: Int): LinearLayout {
