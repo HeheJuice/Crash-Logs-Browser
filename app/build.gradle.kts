@@ -11,8 +11,8 @@ android {
         applicationId = "com.HeheJuice.CrashLogs"
         minSdk = 35
         targetSdk = 36
-        versionCode = 26
-        versionName = "V.2.6"
+        versionCode = 10
+        versionName = "V.1.0"
     }
 
     signingConfigs {
