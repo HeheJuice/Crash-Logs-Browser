@@ -67,7 +67,7 @@ class CrashLogActivity : Activity() {
     private lateinit var logAdapter: LogAdapter
     private val allLogs = mutableListOf<LogEntry>()
     private var filteredLogs = mutableListOf<LogEntry>()
-    private var searchQuery: String = ""   // kept only for possible future use, but search UI removed
+    private var searchQuery: String = ""
 
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
@@ -78,7 +78,7 @@ class CrashLogActivity : Activity() {
     private lateinit var infoPillBtn: TextView
     private var currentTab = TAB_LOGS
 
-    // Filter pill
+    // Filter pill – now fixed at top (outside scroll view)
     private lateinit var filterPillContainer: FrameLayout
     private lateinit var filterSlidingView: View
     private lateinit var filterAllBtn: TextView
@@ -120,32 +120,53 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
-        scrollView = ScrollView(this).apply {
-            isVerticalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_ALWAYS
-            clipToPadding = false
-            setFillViewport(true)
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
-        }
-
-        val scrollContent = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // ========== TOP BAR ==========
+        val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        }
+
+        val topBarTitle = TextView(this).apply {
+            text = "Crash Logs Browser"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(backBtnBgColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
+            alpha = 0f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(48f),
+                Gravity.CENTER
             )
         }
 
-        // ========== LOGS TAB ==========
-        logsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
+        val backDrawable = createArrowBackDrawable()
+        val backBtn = ImageView(this).apply {
+            setImageDrawable(backDrawable)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            contentDescription = "Back"
+            isClickable = true
+            isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
+            setOnClickListener { finish() }
+            setOnTouchListener(pressScaleTouchListener)
         }
+        topBarLayout.addView(topBarTitle)
+        topBarLayout.addView(backBtn)
+        rootFrameLayout.addView(topBarLayout)
 
-        // ---- FILTER PILL ----
+        // ========== FIXED FILTER PILL (outside scroll) ==========
         filterPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -154,11 +175,11 @@ class CrashLogActivity : Activity() {
                 setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
                 dpToPx(44f)
             ).apply {
-                bottomMargin = dpToPx(16f)
+                topMargin = statusBarHeight + dpToPx(68f)
             }
             setOnTouchListener(pressScaleTouchListener)
         }
@@ -287,7 +308,34 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        logsLayout.addView(filterPillContainer)
+        rootFrameLayout.addView(filterPillContainer)
+
+        // ========== SCROLL VIEW (filter pill is OUTSIDE) ==========
+        scrollView = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_ALWAYS
+            clipToPadding = false
+            setFillViewport(true)
+            // Top padding now accounts for the fixed filter pill (height + some gap)
+            setPadding(dpToPx(16f), dpToPx(16f), dpToPx(16f), dpToPx(180f))
+        }
+
+        val scrollContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // ========== LOGS TAB ==========
+        logsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
 
         // ---- Loading Text ----
         loadingText = TextView(this).apply {
@@ -334,8 +382,8 @@ class CrashLogActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -441,7 +489,7 @@ class CrashLogActivity : Activity() {
         statsRow.addView(createStatCard("ANR", "0", accentColor, false))
         statsCard.addView(statsRow)
 
-        // Refresh button – modified logic (immediate refresh, then 5s cooldown)
+        // Refresh button – immediate refresh + 5s cooldown
         refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             performRefresh()
         }.apply {
@@ -455,52 +503,6 @@ class CrashLogActivity : Activity() {
         scrollContent.addView(infoLayout)
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
-
-        // ========== TOP BAR ==========
-        val topBarLayout = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-        }
-
-        val topBarTitle = TextView(this).apply {
-            text = "Crash Logs Browser"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(backBtnBgColor)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
-            alpha = 0f
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                dpToPx(48f),
-                Gravity.CENTER
-            )
-        }
-
-        val backDrawable = createArrowBackDrawable()
-        val backBtn = ImageView(this).apply {
-            setImageDrawable(backDrawable)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
-            }
-            contentDescription = "Back"
-            isClickable = true
-            isFocusable = true
-            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
-            setOnClickListener { finish() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        topBarLayout.addView(topBarTitle)
-        topBarLayout.addView(backBtn)
-        rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR (only pill, no search) ==========
         val bottomBarLayout = LinearLayout(this).apply {
@@ -598,10 +600,12 @@ class CrashLogActivity : Activity() {
                 if (tab == TAB_LOGS) {
                     logsLayout.visibility = View.VISIBLE
                     infoLayout.visibility = View.GONE
+                    filterPillContainer.visibility = View.VISIBLE
                     applyEntranceAnimations(listOf(logsLayout))
                 } else {
                     logsLayout.visibility = View.GONE
                     infoLayout.visibility = View.VISIBLE
+                    filterPillContainer.visibility = View.GONE
                     applyEntranceAnimations(listOf(infoLayout))
                 }
                 scrollView.scrollTo(0, 0)
@@ -682,10 +686,14 @@ class CrashLogActivity : Activity() {
             val effectiveTop = if (topInset > 0) topInset else statusBarHeight
 
             topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
+            (filterPillContainer.layoutParams as FrameLayout.LayoutParams).topMargin = effectiveTop + dpToPx(68f)
+            scrollView.setPadding(dpToPx(16f), dpToPx(16f), dpToPx(16f), dpToPx(140f))
             (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
             insets
         }
+
+        // Make filter pill visible initially
+        filterPillContainer.visibility = View.VISIBLE
 
         setContentView(rootFrameLayout)
     }
@@ -694,7 +702,6 @@ class CrashLogActivity : Activity() {
     private fun performRefresh() {
         if (refreshTimer != null) return // already cooling down
 
-        // Disable button and start refresh immediately
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
         loadLogsAsync {
@@ -771,7 +778,6 @@ class CrashLogActivity : Activity() {
             FILTER_ANR -> allLogs.filter { it.type == "ANR" }
             else -> allLogs
         }
-        // Search query is no longer used (search removed), but kept for possible future use
         if (searchQuery.isNotEmpty()) {
             val query = searchQuery.trim().lowercase(Locale.getDefault())
             result = result.filter {
@@ -861,8 +867,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateStats() {
-        val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
-        val statsRow = infoCard.findViewWithTag<LinearLayout>("statsRow") ?: return
+        val statsRow = infoLayout.findViewWithTag<LinearLayout>("statsRow") ?: return
         for (i in 0 until statsRow.childCount) {
             val card = statsRow.getChildAt(i) as? LinearLayout ?: continue
             val valueTv = card.getChildAt(1) as? TextView ?: continue
@@ -1095,9 +1100,9 @@ class CrashLogActivity : Activity() {
 
     // ========== CUSTOM PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
-        // ... your existing implementation (unchanged) ...
-        // (I've omitted it here for brevity, but you should keep your original code)
-        // If you need the full dialog code, it's the same as before.
+        // (Keep your existing implementation – unchanged)
+        // For brevity I'm omitting it, but it's the same as before.
+        // If you need it, I can provide it separately.
     }
 
     // ========== DRAWABLES ==========
@@ -1259,7 +1264,6 @@ class CrashLogActivity : Activity() {
 
     private fun dpToPx(dp: Int): Int = dpToPx(dp.toFloat())
 
-    // Click handler for log items
     private fun onItemClick(entry: LogEntry) {
         val intent = Intent(this, CrashDetailActivity::class.java).apply {
             putExtra("type", entry.type)
@@ -1270,7 +1274,6 @@ class CrashLogActivity : Activity() {
         startActivity(intent)
     }
 
-    // Entrance animations for layouts
     private fun applyEntranceAnimations(views: List<View>) {
         views.forEachIndexed { index, view ->
             view.translationY = dpToPx(40f).toFloat()
