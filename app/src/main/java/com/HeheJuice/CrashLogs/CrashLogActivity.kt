@@ -323,139 +323,137 @@ class CrashLogActivity : Activity() {
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
-        // ========== INFO TAB ==========
-        infoLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
+        
+       // ========== INFO TAB ==========
+infoLayout = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    visibility = View.GONE
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.MATCH_PARENT
+    )
+}
 
-        // ---- Card 1: App Info ----
-        val appInfoCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = createCardBackground()
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dpToPx(16f)
-            }
-        }
+// ---- Card 1: App Info ----
+val appInfoCard = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    background = createCardBackground()
+    setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply {
+        bottomMargin = dpToPx(16f)
+    }
+}
 
-        val appNameTitle = TextView(this).apply {
-            text = "Crash Logs Browser"
-            textSize = 22f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-        }
-        appInfoCard.addView(appNameTitle)
+val appNameTitle = TextView(this).apply {
+    text = "Crash Logs Browser"
+    textSize = 22f
+    setTextColor(primaryTextColor)
+    setTypeface(null, Typeface.BOLD)
+}
+appInfoCard.addView(appNameTitle)
 
-        val versionName = try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
-        } catch (e: Exception) {
-            "Unknown"
-        }
-        val versionText = TextView(this).apply {
-            text = "Version $versionName"
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(4f), 0, dpToPx(8f))
-        }
-        appInfoCard.addView(versionText)
+val versionName = try {
+    packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
+} catch (e: Exception) {
+    "Unknown"
+}
+val versionText = TextView(this).apply {
+    text = "Version $versionName"
+    textSize = 14f
+    setTextColor(secondaryTextColor)
+    setPadding(0, dpToPx(4f), 0, dpToPx(8f))
+}
+appInfoCard.addView(versionText)
 
-        val descriptionText = TextView(this).apply {
-            text = "View and monitor app crashes and ANRs"
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-            setPadding(0, 0, 0, dpToPx(16f))
-        }
-        appInfoCard.addView(descriptionText)
+val descriptionText = TextView(this).apply {
+    text = "View and monitor app crashes and ANRs"
+    textSize = 14f
+    setTextColor(secondaryTextColor)
+    setPadding(0, 0, 0, dpToPx(16f))
+}
+appInfoCard.addView(descriptionText)
 
-        val updatePill = TextView(this).apply {
-            text = "Check for Updates"
-setOnClickListener {
+// Update pill
+val updatePill = TextView(this).apply {
+    text = "Check for Updates"
+    textSize = 13f
+    setTextColor(Color.WHITE)
+    setTypeface(null, Typeface.BOLD)
+    gravity = Gravity.CENTER
+    setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
+    background = GradientDrawable().apply {
+        cornerRadius = dpToPx(100f).toFloat()
+        setColor(accentColor)
+    }
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+    isClickable = true
+    isFocusable = true
+    setOnClickListener {
+        // Launch the update checker
         startActivity(Intent(this@CrashLogActivity, DetailsActivity::class.java))
     }
-            textSize = 13f
-            setTextColor(Color.WHITE)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
-            background = GradientDrawable().apply {
-                cornerRadius = dpToPx(100f).toFloat()
-                setColor(accentColor)
-            }
+    setOnTouchListener(pressScaleTouchListener)
+}
+appInfoCard.addView(updatePill)
 
+infoLayout.addView(appInfoCard)
 
+// ---- Card 2: Statistics ----
+val statsCard = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    background = createCardBackground()
+    setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply {
+        bottomMargin = dpToPx(16f)
+    }
+}
 
+val statsTitle = TextView(this).apply {
+    text = "Statistics"
+    textSize = 20f
+    setTextColor(primaryTextColor)
+    setTypeface(null, Typeface.BOLD)
+    setPadding(0, 0, 0, dpToPx(16f))
+}
+statsCard.addView(statsTitle)
 
+val statsRow = LinearLayout(this).apply {
+    orientation = LinearLayout.HORIZONTAL
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+    tag = "statsRow"
+}
+statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
+statsRow.addView(createStatCard("ANR", "0", accentColor, false))
+statsCard.addView(statsRow)
 
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                Toast.makeText(this@CrashLogActivity, "Checking for updates...", Toast.LENGTH_SHORT).show()
-            }
-            setOnTouchListener(pressScaleTouchListener)
+// Refresh button
+val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
+    loadLogsAsync {
+        animateFilterPillTo(0f) {
+            switchFilterTab(FILTER_ALL)
+            Toast.makeText(this@CrashLogActivity, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
         }
-        appInfoCard.addView(updatePill)
+    }
+}.apply {
+    (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
+}
+statsCard.addView(refreshBtn)
 
-        infoLayout.addView(appInfoCard)
+infoLayout.addView(statsCard)
 
-        // ---- Card 2: Statistics ----
-        val statsCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = createCardBackground()
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dpToPx(16f)
-            }
-        }
-
-        val statsTitle = TextView(this).apply {
-            text = "Statistics"
-            textSize = 20f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, 0, dpToPx(16f))
-        }
-        statsCard.addView(statsTitle)
-
-        val statsRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            tag = "statsRow"
-        }
-        statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
-        statsRow.addView(createStatCard("ANR", "0", accentColor, false))
-        statsCard.addView(statsRow)
-
-        val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
-            loadLogsAsync {
-                animateFilterPillTo(0f) {
-                    switchFilterTab(FILTER_ALL)
-                    Toast.makeText(this@CrashLogActivity, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
-        }
-        statsCard.addView(refreshBtn)
-
-        infoLayout.addView(statsCard)
+// Continue with the rest of setupUI...
 
         // ----- Add both layouts to scroll content -----
         scrollContent.addView(logsLayout)
