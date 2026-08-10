@@ -231,11 +231,9 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-// Filter drag listener - smooth full-range tracking
-// Filter drag listener – direct container width mapping
 filterPillContainer.setOnTouchListener { view, event ->
-    val containerWidth = view.width - view.paddingLeft - view.paddingRight
-    if (containerWidth <= 0) return@setOnTouchListener true
+    val x0 = filterAllBtn.left.toFloat() + filterAllBtn.width / 2f
+    val x1 = filterAnrBtn.left.toFloat() + filterAnrBtn.width / 2f
 
     when (event.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
@@ -248,22 +246,21 @@ filterPillContainer.setOnTouchListener { view, event ->
                 .setInterpolator(DecelerateInterpolator(1.5f))
                 .start()
 
-            val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-            val progress = touchX / containerWidth
+            val touchX = event.x - filterPillContainer.paddingLeft
+            val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
             updateFilterPillPosition(progress)
             true
         }
         MotionEvent.ACTION_MOVE -> {
-            val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-            val progress = touchX / containerWidth
+            val touchX = event.x - filterPillContainer.paddingLeft
+            val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
             updateFilterPillPosition(progress)
             true
         }
         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-            val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-            val progress = touchX / containerWidth
+            val touchX = event.x - filterPillContainer.paddingLeft
+            val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
 
-            // Snap to thirds (0.0 -> ALL, 0.5 -> CRASH, 1.0 -> ANR)
             val targetProgress = when {
                 progress < 0.33f -> 0f
                 progress < 0.66f -> 0.5f
