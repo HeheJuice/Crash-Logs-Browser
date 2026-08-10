@@ -63,7 +63,6 @@ class CrashLogActivity : Activity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var logAdapter: LogAdapter
     private val allLogs = mutableListOf<LogEntry>()
-    private var currentFilter = FILTER_ALL
     private var filteredLogs = mutableListOf<LogEntry>()
     
     private lateinit var logsLayout: LinearLayout
@@ -647,12 +646,6 @@ class CrashLogActivity : Activity() {
     private fun switchFilterTab(filter: Int) {
         if (currentFilterTab != filter) {
             currentFilterTab = filter
-            val filterName = when (filter) {
-                FILTER_ALL -> "ALL"
-                FILTER_CRASH -> "CRASH"
-                else -> "ANR"
-            }
-            currentFilter = filterName
 
             filteredLogs.clear()
             filteredLogs.addAll(
@@ -1453,7 +1446,7 @@ class LogAdapter(
                 appIcon.setImageDrawable(defaultIcon)
             }
 
-            // Rounded badge – compute corner radius in pixels using TypedValue
+            // Rounded badge
             val radiusPx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 100f,
