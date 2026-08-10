@@ -20,6 +20,8 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -34,9 +36,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import moe.shizuku.api.Shizuku
-import moe.shizuku.manager.ShizukuManager
-import moe.shizuku.privileged.Shell
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
@@ -1082,67 +1081,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== SHIZUKU GRANT ==========
-    private fun grantPermissionsWithShizuku() {
-        // Check if Shizuku is available and running
-        try {
-            if (!Shizuku.pingBinder()) {
-                Toast.makeText(this, "Shizuku service not running. Please start Shizuku first.", Toast.LENGTH_LONG).show()
-                return
-            }
-
-            // Check permission for Shizuku API
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (checkSelfPermission(ShizukuManager.PERMISSION) != PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Shizuku permission not granted. Please authorize in Shizuku app.", Toast.LENGTH_LONG).show()
-                    return
-                }
-            }
-
-            // Run commands via Shizuku shell
-            val commands = listOf(
-                "pm grant ${packageName} android.permission.READ_LOGS",
-                "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
-                "appops set ${packageName} GET_USAGE_STATS allow"
-            )
-
-            Toast.makeText(this, "Granting via Shizuku...", Toast.LENGTH_SHORT).show()
-
-            Thread {
-                var allSuccess = true
-                for (cmd in commands) {
-                    val result = Shell.run(cmd)
-                    if (result.isError) {
-                        Log.e(TAG, "Shizuku command failed: $cmd -> ${result.err}")
-                        allSuccess = false
-                    } else {
-                        Log.d(TAG, "Shizuku command succeeded: $cmd -> ${result.out}")
-                    }
-                }
-
-                runOnUiThread {
-                    if (allSuccess) {
-                        Toast.makeText(this, "Permissions granted via Shizuku!", Toast.LENGTH_LONG).show()
-                        if (checkAllPermissions()) {
-                            setupUI()
-                            loadLogsAsync {}
-                        } else {
-                            Toast.makeText(this, "Some permissions still not granted. Try rebooting or check Shizuku logs.", Toast.LENGTH_LONG).show()
-                            showPermissionDialog()
-                        }
-                    } else {
-                        Toast.makeText(this, "Some commands failed. Check Shizuku logs.", Toast.LENGTH_LONG).show()
-                        showPermissionDialog()
-                    }
-                }
-            }.start()
-        } catch (e: Exception) {
-            Log.e(TAG, "Shizuku exception", e)
-            Toast.makeText(this, "Shizuku error: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    // ========== CUSTOM PERMISSION DIALOG (SIMPLIFIED) ==========
+    // ========== CUSTOM PERMISSION DIALOG (with ADB, status, and Check Again) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1157,7 +1096,6 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon
         val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
             setTint(primaryTextColor)
         }
@@ -1170,7 +1108,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(iconIv)
 
-        // Title
         val titleTv = TextView(this).apply {
             text = "Permissions Required"
             textSize = 22f
@@ -1181,7 +1118,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
-        // Subtitle
         val subTv = TextView(this).apply {
             text = "This app needs the following permissions to read crash logs"
             textSize = 14f
@@ -1191,7 +1127,135 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // --- Grant with Root ---
+        // ---- Permission status list ----
+        val permissions = listOf(
+            "READ_LOGS" to "Read system logs",
+            "READ_DROPBOX_DATA" to "Access crash data",
+            "PACKAGE_USAGE_STATS" to "App usage statistics"
+        )
+
+        for ((perm, desc) in permissions) {
+            val permLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(inputBgColor)
+                    cornerRadius = dpToPx(12f).toFloat()
+                    setStroke(dpToPx(1f), cardBorderColor)
+                }
+                setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(8f)
+                }
+            }
+
+            val granted = isPermissionGranted(perm)
+            val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
+            val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
+                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+            }
+            val statusIv = ImageView(this).apply {
+                setImageDrawable(statusDrawable)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
+                    marginEnd = dpToPx(12f)
+                }
+            }
+            permLayout.addView(statusIv)
+
+            val textLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            val permName = TextView(this).apply {
+                text = perm
+                textSize = 14f
+                setTextColor(primaryTextColor)
+                setTypeface(null, Typeface.BOLD)
+            }
+            textLayout.addView(permName)
+
+            val permDesc = TextView(this).apply {
+                text = desc
+                textSize = 12f
+                setTextColor(secondaryTextColor)
+            }
+            textLayout.addView(permDesc)
+
+            permLayout.addView(textLayout)
+            cardLayout.addView(permLayout)
+        }
+
+        // ---- ADB commands block ----
+        val adbLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(redBtnColor)
+                setAlpha(30)
+                cornerRadius = dpToPx(12f).toFloat()
+                setStroke(dpToPx(1f), redBtnColor)
+            }
+            setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12f)
+                bottomMargin = dpToPx(12f)
+            }
+        }
+
+        val adbTitle = TextView(this).apply {
+            text = "Grant via ADB (one by one)"
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+        }
+        adbLayout.addView(adbTitle)
+
+        val adbCommand1 = TextView(this).apply {
+            text = "adb shell pm grant ${packageName} android.permission.READ_LOGS"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+            setPadding(0, dpToPx(4f), 0, 0)
+        }
+        adbLayout.addView(adbCommand1)
+
+        val adbCommand2 = TextView(this).apply {
+            text = "adb shell pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+        }
+        adbLayout.addView(adbCommand2)
+
+        val adbCommand3 = TextView(this).apply {
+            text = "adb shell appops set ${packageName} GET_USAGE_STATS allow"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+        }
+        adbLayout.addView(adbCommand3)
+
+        val adbNote = TextView(this).apply {
+            text = "Some permissions may require a reboot to take effect"
+            textSize = 11f
+            setTextColor(secondaryTextColor)
+            setPadding(0, dpToPx(8f), 0, 0)
+        }
+        adbLayout.addView(adbNote)
+
+        cardLayout.addView(adbLayout)
+
+        // ---- Grant with Root ----
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -1205,33 +1269,55 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        // --- Grant with Shizuku ---
-        val shizukuGrantBtn = createAnimatedButton(
-            "Grant with Shizuku",
-            Color.WHITE,
-            Color.parseColor("#3F51B5"),
-            buttonHeightPx
-        ) {
-            dialog.dismiss()
-            grantPermissionsWithShizuku()
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
+        // ---- Button row: Exit App & Check Again ----
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                buttonHeightPx
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
         }
-        cardLayout.addView(shizukuGrantBtn)
 
-        // --- Exit App button (full width) ---
         val exitBtn = createAnimatedButton(
             "Exit App",
             primaryTextColor,
             secondaryBtnColor,
-            buttonHeightPx
+            LinearLayout.LayoutParams.MATCH_PARENT
         ) {
             dialog.dismiss()
             finish()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(12f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginEnd = dpToPx(6f)
+            }
         }
-        cardLayout.addView(exitBtn)
+
+        val checkBtn = createAnimatedButton(
+            "Check Again",
+            Color.WHITE,
+            accentColor,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ) {
+            if (checkAllPermissions()) {
+                dialog.dismiss()
+                setupUI()
+                loadLogsAsync {}
+            } else {
+                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+                showPermissionDialog()
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginStart = dpToPx(6f)
+            }
+        }
+
+        btnRow.addView(exitBtn)
+        btnRow.addView(checkBtn)
+        cardLayout.addView(btnRow)
 
         dialog.setContentView(cardLayout)
 
