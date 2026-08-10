@@ -6,9 +6,8 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.*
@@ -158,12 +157,19 @@ class CrashLogActivity : Activity() {
         }
 
         logAdapter = LogAdapter(filteredLogs, this, packageManager) { entry ->
-            showCrashDetailsDialog(entry)
+            // Launch CrashDetailActivity
+            val intent = Intent(this@CrashLogActivity, CrashDetailActivity::class.java).apply {
+                putExtra("type", entry.type)
+                putExtra("appName", entry.appName)
+                putExtra("timestamp", entry.timestamp)
+                putExtra("details", entry.details)
+            }
+            startActivity(intent)
         }
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
-        // ========== INFO TAB ==========
+        // ========== INFO TAB (unchanged) ==========
         infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
@@ -237,7 +243,7 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== TOP BAR ==========
+        // ========== TOP BAR (unchanged) ==========
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -283,7 +289,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR ==========
+        // ========== BOTTOM BAR (unchanged) ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -464,188 +470,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== FULL-SCREEN CRASH DETAILS DIALOG ==========
-    private fun showCrashDetailsDialog(entry: LogEntry) {
-        val dialog = Dialog(this, android.R.style.Theme_DeviceDefault)
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
-        dialog.window?.apply {
-            setFlags(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        }
-
-        val rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(cardBgColor)
-            }
-            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-
-        // Header: Close (left), Title (center), Copy (right)
-        val headerLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        // Left: Close (back arrow)
-        val closeBtn = ImageView(this).apply {
-            setImageDrawable(createArrowBackDrawable())
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
-            }
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { dialog.dismiss() }
-            setOnTouchListener(pressScaleTouchListener)
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                gravity = Gravity.CENTER_VERTICAL
-            }
-        }
-        headerLayout.addView(closeBtn)
-
-        // Center: Title
-        val titleTv = TextView(this).apply {
-            text = "${entry.type} Details"
-            textSize = 22f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dpToPx(8f)
-                marginEnd = dpToPx(8f)
-            }
-        }
-        headerLayout.addView(titleTv)
-
-        // Right: Copy (use View as common type)
-        val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
-        val copyBtn: View
-        if (copyDrawable != null) {
-            copyBtn = ImageView(this).apply {
-                setImageDrawable(copyDrawable)
-                setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(backBtnBgColor)
-                }
-                setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-                isClickable = true
-                isFocusable = true
-                setOnClickListener { copyToClipboard(entry.details) }
-                setOnTouchListener(pressScaleTouchListener)
-                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-            }
-        } else {
-            copyBtn = TextView(this).apply {
-                text = "Copy"
-                textSize = 14f
-                setTextColor(primaryTextColor)
-                setTypeface(null, Typeface.BOLD)
-                gravity = Gravity.CENTER
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(backBtnBgColor)
-                }
-                setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
-                isClickable = true
-                isFocusable = true
-                setOnClickListener { copyToClipboard(entry.details) }
-                setOnTouchListener(pressScaleTouchListener)
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(48f)).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-            }
-        }
-        headerLayout.addView(copyBtn)
-
-        rootLayout.addView(headerLayout)
-
-        // Separator
-        val sep = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(1f)
-            )
-            setBackgroundColor(cardBorderColor)
-        }
-        rootLayout.addView(sep)
-
-        // Info row (package and time)
-        val infoLayout2 = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dpToPx(12f), 0, dpToPx(12f))
-        }
-        val pkgTv = TextView(this).apply {
-            text = "Package: ${entry.appName}"
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-        }
-        infoLayout2.addView(pkgTv)
-        val timeTv = TextView(this).apply {
-            text = "Time: ${entry.timestamp}"
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-        }
-        infoLayout2.addView(timeTv)
-        rootLayout.addView(infoLayout2)
-
-        // Scrollable details (fill remaining space)
-        val scrollDetails = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        }
-        val detailsTv = TextView(this).apply {
-            text = entry.details.ifEmpty { "No detailed log available." }
-            textSize = 12f
-            setTextColor(primaryTextColor)
-            setTypeface(Typeface.MONOSPACE)
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            background = GradientDrawable().apply {
-                setColor(inputBgColor)
-                cornerRadius = dpToPx(8f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
-            }
-        }
-        scrollDetails.addView(detailsTv)
-        rootLayout.addView(scrollDetails)
-
-        dialog.setContentView(rootLayout)
-        dialog.window?.apply {
-            setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        dialog.show()
-    }
-
-    // ========== COPY TO CLIPBOARD ==========
-    private fun copyToClipboard(text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Crash Log", text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-    }
-
-    // ========== ENHANCED LOG PARSING ==========
+    // ========== LOG PARSING (enhanced) ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -726,11 +551,17 @@ class CrashLogActivity : Activity() {
     }
 
     private fun isRealCrashLine(line: String): Boolean {
+        // Covers: Java/Kotlin exceptions, ANR, native crashes, signals, abort
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
                 line.contains("SIGABRT") ||
+                line.contains("SIGSEGV") ||
+                line.contains("signal 11") ||
+                line.contains("signal 6") ||
                 (line.contains("Abort message") && line.contains("FATAL")) ||
-                (line.contains("backtrace:") && line.contains("pid:"))
+                (line.contains("backtrace:") && line.contains("pid:")) ||
+                line.contains("Native crash") ||
+                (line.contains("Process:") && line.contains(" crashed"))
     }
 
     private fun extractTimestamp(line: String): String {
@@ -773,7 +604,7 @@ class CrashLogActivity : Activity() {
         ))
     }
 
-    // ========== PERMISSION CHECKS ==========
+    // ========== PERMISSION CHECKS (unchanged) ==========
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
@@ -822,7 +653,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== ROOT PERMISSION GRANT ==========
+    // ========== ROOT PERMISSION GRANT (unchanged) ==========
     private fun grantPermissionsWithRoot() {
         Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
         Thread {
@@ -871,7 +702,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG ==========
+    // ========== CUSTOM PERMISSION DIALOG (unchanged) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1144,7 +975,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== UI HELPERS ==========
+    // ========== UI HELPERS (unchanged) ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
@@ -1452,11 +1283,29 @@ class LogAdapter(
             appNameText.text = log.appName
             typeBadge.text = log.type
 
+            // Load app icon – with case-insensitive fallback
+            var iconLoaded = false
             try {
+                // Try exact match
                 val appInfo = pm.getApplicationInfo(log.appName, 0)
-                val icon = pm.getApplicationIcon(appInfo)
-                appIcon.setImageDrawable(icon)
+                appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
+                iconLoaded = true
             } catch (e: PackageManager.NameNotFoundException) {
+                // Try to find by package name (ignore case)
+                try {
+                    val packages = pm.getInstalledApplications(0)
+                    for (pkg in packages) {
+                        if (pkg.packageName.equals(log.appName, ignoreCase = true)) {
+                            appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
+                            iconLoaded = true
+                            break
+                        }
+                    }
+                } catch (e2: Exception) {
+                    // Fall through
+                }
+            }
+            if (!iconLoaded) {
                 appIcon.setImageDrawable(defaultIcon)
             }
 
