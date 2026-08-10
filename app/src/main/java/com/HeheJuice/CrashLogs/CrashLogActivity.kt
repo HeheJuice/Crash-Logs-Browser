@@ -819,7 +819,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // 2. Read from DropBox (improved)
+        // 2. Read from DropBox (updated)
         if (checkDropBoxPermission()) {
             loadDropBoxLogs()
         }
@@ -851,11 +851,11 @@ class CrashLogActivity : Activity() {
     // ===== UPDATED: Robust package extraction for both logcat and DropBox =====
     private fun extractPackageName(block: List<String>): String {
         for (line in block) {
-            // Standard Process / Package line
-            val processMatch = Regex("(?:Process|Package):\\s*([\\w.:]+)").find(line)
+            // Standard Process / Package / Process name line
+            val processMatch = Regex("(?:Process|Package|Process name):\\s*([\\w.:]+)").find(line)
             if (processMatch != null) {
                 val pkg = processMatch.groupValues[1].substringBefore(":")
-                if (pkg.isNotBlank()) return pkg
+                if (pkg.isNotBlank() && pkg != "System") return pkg
             }
             // Native Tombstone process line (>>> com.example.app <<<)
             val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
@@ -869,17 +869,11 @@ class CrashLogActivity : Activity() {
                 val pkg = cmdlineMatch.groupValues[1].substringAfterLast("/").substringBefore(":")
                 if (pkg.isNotBlank()) return pkg
             }
-            // Parentheses process name
-            val parenMatch = Regex("\\(([\\w.]+)\\)").find(line)
-            if (parenMatch != null) {
-                val pkg = parenMatch.groupValues[1]
-                if (pkg.isNotBlank() && pkg.contains(".")) return pkg
-            }
         }
         return "Unknown Process"
     }
 
-    // ===== UPDATED: DropBox loading with filtering =====
+    // ===== UPDATED: DropBox loading with 64KB buffer and fallback =====
     private fun loadDropBoxLogs() {
         try {
             val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
@@ -895,12 +889,15 @@ class CrashLogActivity : Activity() {
             while (entry != null) {
                 val tag = entry.tag
                 if (tags.contains(tag)) {
-                    val text = entry.getText(0) ?: ""
+                    // Fetch up to 64KB of log content per entry
+                    val text = entry.getText(65536) ?: ""
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
-                    // Extract package/process using the improved extractor
-                    val pkg = extractPackageName(text.lines())
-                    // Filter out unidentifiable system noise and generic framework fallbacks
-                    if (pkg != "Unknown Process" && pkg != "System Process" && !pkg.startsWith("com.android.system")) {
+                    var pkg = extractPackageName(text.lines())
+                    // Fallback to tag name if package detection fails
+                    if (pkg == "Unknown Process") {
+                        pkg = tag
+                    }
+                    if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
                         val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
                             .format(Date(entry.timeMillis))
                         allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
