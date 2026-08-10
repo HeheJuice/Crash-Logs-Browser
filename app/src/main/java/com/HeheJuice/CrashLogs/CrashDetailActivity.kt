@@ -4,14 +4,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.PixelFormat
+import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -20,13 +19,14 @@ import androidx.core.content.ContextCompat
 
 class CrashDetailActivity : AppCompatActivity() {
 
-    private lateinit var primaryTextColor: Int
-    private lateinit var secondaryTextColor: Int
-    private lateinit var accentColor: Int
-    private lateinit var inputBgColor: Int
-    private lateinit var cardBgColor: Int
-    private lateinit var cardBorderColor: Int
-    private lateinit var backBtnBgColor: Int
+    // Use var with default values instead of lateinit for primitive types
+    private var primaryTextColor: Int = 0
+    private var secondaryTextColor: Int = 0
+    private var accentColor: Int = 0
+    private var inputBgColor: Int = 0
+    private var cardBgColor: Int = 0
+    private var cardBorderColor: Int = 0
+    private var backBtnBgColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -201,8 +201,8 @@ class CrashDetailActivity : AppCompatActivity() {
         Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
-    private fun createArrowBackDrawable(): android.graphics.drawable.Drawable {
-        return object : android.graphics.drawable.Drawable() {
+    private fun createArrowBackDrawable(): Drawable {
+        return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = primaryTextColor
                 style = Paint.Style.STROKE
@@ -210,11 +210,11 @@ class CrashDetailActivity : AppCompatActivity() {
                 strokeCap = Paint.Cap.ROUND
                 strokeJoin = Paint.Join.ROUND
             }
-            override fun draw(canvas: android.graphics.Canvas) {
+            override fun draw(canvas: Canvas) {
                 val cx = bounds.exactCenterX()
                 val cy = bounds.exactCenterY()
                 val size = dpToPx(6.5f)
-                val path = android.graphics.Path().apply {
+                val path = Path().apply {
                     moveTo(cx + size * 0.4f, cy - size)
                     lineTo(cx - size * 0.5f, cy)
                     lineTo(cx + size * 0.4f, cy + size)
@@ -222,7 +222,7 @@ class CrashDetailActivity : AppCompatActivity() {
                 canvas.drawPath(path, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
             @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
     }
