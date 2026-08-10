@@ -59,6 +59,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
+        // Back button (48dp, 8dp padding)
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -76,6 +77,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(backBtn)
 
+        // Title
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -89,6 +91,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
+        // Copy button (48dp, 12dp padding to make icon smaller)
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -99,7 +102,7 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
@@ -133,6 +136,7 @@ class CrashDetailActivity : Activity() {
 
         rootLayout.addView(headerLayout)
 
+        // Separator
         val sep = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -142,6 +146,7 @@ class CrashDetailActivity : Activity() {
         }
         rootLayout.addView(sep)
 
+        // Info row (package and time)
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dpToPx(12f), 0, dpToPx(12f))
@@ -160,6 +165,7 @@ class CrashDetailActivity : Activity() {
         infoLayout.addView(timeTv)
         rootLayout.addView(infoLayout)
 
+        // Scrollable details
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,

@@ -529,7 +529,6 @@ class CrashLogActivity : Activity() {
                             i++
                         }
                         var appName = extractPackageName(block)
-                        // Keep system entries; if unknown, label as "System Process"
                         if (appName == "System Process / Unknown") {
                             appName = "System Process"
                         }
@@ -552,7 +551,6 @@ class CrashLogActivity : Activity() {
     }
 
     private fun isRealCrashLine(line: String): Boolean {
-        // Broad detection to capture all possible crash-related lines
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
                 line.contains("SIGABRT") ||
