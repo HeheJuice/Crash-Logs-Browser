@@ -20,8 +20,6 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -36,6 +34,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import moe.shizuku.api.Shizuku
+import moe.shizuku.manager.ShizukuManager
+import moe.shizuku.privileged.Shell
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
@@ -232,7 +233,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ---- TOUCH HANDLING – using full container width (FINAL FALLBACK) ----
+        // ---- TOUCH HANDLING – using full container width ----
         filterPillContainer.setOnTouchListener { view, event ->
             val containerWidth = view.width - view.paddingLeft - view.paddingRight
             if (containerWidth <= 0) return@setOnTouchListener true
@@ -467,7 +468,7 @@ class CrashLogActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
-            setBackgroundColor(rootBgColor) // Matches root background to hide scrolling elements underneath
+            setBackgroundColor(rootBgColor)
             elevation = dpToPx(4f).toFloat()
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
         }
@@ -508,8 +509,6 @@ class CrashLogActivity : Activity() {
 
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
-
-        // Add top bar AFTER scrollView so it renders on top
         rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR (pill only) ==========
@@ -608,7 +607,6 @@ class CrashLogActivity : Activity() {
                 if (tab == TAB_LOGS) {
                     logsLayout.visibility = View.VISIBLE
                     infoLayout.visibility = View.GONE
-                    // No animation – set to fully visible
                     logsLayout.alpha = 1f
                     logsLayout.translationY = 0f
                 } else {
@@ -694,11 +692,8 @@ class CrashLogActivity : Activity() {
             }
             val effectiveTop = if (topInset > 0) topInset else statusBarHeight
 
-            // Update top bar padding
             topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(8f), dpToPx(16f), dpToPx(8f))
-            // Update scroll view padding (only top changes, bottom can stay)
             scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(60f), dpToPx(16f), dpToPx(140f))
-            // Update bottom bar margin
             (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
             insets
         }
@@ -706,7 +701,7 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH (immediate refresh + 5s cooldown) ==========
+    // ========== REFRESH ==========
     private fun performRefresh() {
         if (refreshTimer != null) return
 
@@ -778,7 +773,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== APPLY FILTERS (tab only) ==========
+    // ========== APPLY FILTERS ==========
     private fun applyFilters() {
         val result = when (currentFilterTab) {
             FILTER_CRASH -> allLogs.filter { it.type == "Crash" }
@@ -788,7 +783,6 @@ class CrashLogActivity : Activity() {
         filteredLogs.clear()
         filteredLogs.addAll(result)
         logAdapter.updateLogs(filteredLogs)
-        // No animation – reset to fully visible
         recyclerView.alpha = 1f
         recyclerView.translationY = 0f
     }
@@ -1088,7 +1082,67 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG ==========
+    // ========== SHIZUKU GRANT ==========
+    private fun grantPermissionsWithShizuku() {
+        // Check if Shizuku is available and running
+        try {
+            if (!Shizuku.pingBinder()) {
+                Toast.makeText(this, "Shizuku service not running. Please start Shizuku first.", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            // Check permission for Shizuku API
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (checkSelfPermission(ShizukuManager.PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Shizuku permission not granted. Please authorize in Shizuku app.", Toast.LENGTH_LONG).show()
+                    return
+                }
+            }
+
+            // Run commands via Shizuku shell
+            val commands = listOf(
+                "pm grant ${packageName} android.permission.READ_LOGS",
+                "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
+                "appops set ${packageName} GET_USAGE_STATS allow"
+            )
+
+            Toast.makeText(this, "Granting via Shizuku...", Toast.LENGTH_SHORT).show()
+
+            Thread {
+                var allSuccess = true
+                for (cmd in commands) {
+                    val result = Shell.run(cmd)
+                    if (result.isError) {
+                        Log.e(TAG, "Shizuku command failed: $cmd -> ${result.err}")
+                        allSuccess = false
+                    } else {
+                        Log.d(TAG, "Shizuku command succeeded: $cmd -> ${result.out}")
+                    }
+                }
+
+                runOnUiThread {
+                    if (allSuccess) {
+                        Toast.makeText(this, "Permissions granted via Shizuku!", Toast.LENGTH_LONG).show()
+                        if (checkAllPermissions()) {
+                            setupUI()
+                            loadLogsAsync {}
+                        } else {
+                            Toast.makeText(this, "Some permissions still not granted. Try rebooting or check Shizuku logs.", Toast.LENGTH_LONG).show()
+                            showPermissionDialog()
+                        }
+                    } else {
+                        Toast.makeText(this, "Some commands failed. Check Shizuku logs.", Toast.LENGTH_LONG).show()
+                        showPermissionDialog()
+                    }
+                }
+            }.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Shizuku exception", e)
+            Toast.makeText(this, "Shizuku error: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // ========== CUSTOM PERMISSION DIALOG (SIMPLIFIED) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1103,6 +1157,7 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
+        // Lock icon
         val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
             setTint(primaryTextColor)
         }
@@ -1115,6 +1170,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(iconIv)
 
+        // Title
         val titleTv = TextView(this).apply {
             text = "Permissions Required"
             textSize = 22f
@@ -1125,6 +1181,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
+        // Subtitle
         val subTv = TextView(this).apply {
             text = "This app needs the following permissions to read crash logs"
             textSize = 14f
@@ -1134,132 +1191,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        val permissions = listOf(
-            "READ_LOGS" to "Read system logs",
-            "READ_DROPBOX_DATA" to "Access crash data",
-            "PACKAGE_USAGE_STATS" to "App usage statistics"
-        )
-
-        for ((perm, desc) in permissions) {
-            val permLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                background = GradientDrawable().apply {
-                    setColor(inputBgColor)
-                    cornerRadius = dpToPx(12f).toFloat()
-                    setStroke(dpToPx(1f), cardBorderColor)
-                }
-                setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    bottomMargin = dpToPx(8f)
-                }
-            }
-
-            val granted = isPermissionGranted(perm)
-            val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
-            val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
-                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
-            }
-            val statusIv = ImageView(this).apply {
-                setImageDrawable(statusDrawable)
-                layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
-                    marginEnd = dpToPx(12f)
-                }
-            }
-            permLayout.addView(statusIv)
-
-            val textLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1f
-                )
-            }
-
-            val permName = TextView(this).apply {
-                text = perm
-                textSize = 14f
-                setTextColor(primaryTextColor)
-                setTypeface(null, Typeface.BOLD)
-            }
-            textLayout.addView(permName)
-
-            val permDesc = TextView(this).apply {
-                text = desc
-                textSize = 12f
-                setTextColor(secondaryTextColor)
-            }
-            textLayout.addView(permDesc)
-
-            permLayout.addView(textLayout)
-            cardLayout.addView(permLayout)
-        }
-
-        val adbLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(redBtnColor)
-                setAlpha(30)
-                cornerRadius = dpToPx(12f).toFloat()
-                setStroke(dpToPx(1f), redBtnColor)
-            }
-            setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-                bottomMargin = dpToPx(12f)
-            }
-        }
-
-        val adbTitle = TextView(this).apply {
-            text = "Grant via ADB (one by one)"
-            textSize = 14f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-        }
-        adbLayout.addView(adbTitle)
-
-        val adbCommand1 = TextView(this).apply {
-            text = "adb shell pm grant ${packageName} android.permission.READ_LOGS"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-            setPadding(0, dpToPx(4f), 0, 0)
-        }
-        adbLayout.addView(adbCommand1)
-
-        val adbCommand2 = TextView(this).apply {
-            text = "adb shell pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-        }
-        adbLayout.addView(adbCommand2)
-
-        val adbCommand3 = TextView(this).apply {
-            text = "adb shell appops set ${packageName} GET_USAGE_STATS allow"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-        }
-        adbLayout.addView(adbCommand3)
-
-        val adbNote = TextView(this).apply {
-            text = "Some permissions may require a reboot to take effect"
-            textSize = 11f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(8f), 0, 0)
-        }
-        adbLayout.addView(adbNote)
-
-        cardLayout.addView(adbLayout)
-
+        // --- Grant with Root ---
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -1273,54 +1205,33 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        val btnRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                buttonHeightPx
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
+        // --- Grant with Shizuku ---
+        val shizukuGrantBtn = createAnimatedButton(
+            "Grant with Shizuku",
+            Color.WHITE,
+            Color.parseColor("#3F51B5"),
+            buttonHeightPx
+        ) {
+            dialog.dismiss()
+            grantPermissionsWithShizuku()
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
         }
+        cardLayout.addView(shizukuGrantBtn)
 
+        // --- Exit App button (full width) ---
         val exitBtn = createAnimatedButton(
             "Exit App",
             primaryTextColor,
             secondaryBtnColor,
-            LinearLayout.LayoutParams.MATCH_PARENT
+            buttonHeightPx
         ) {
             dialog.dismiss()
             finish()
         }.apply {
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                marginEnd = dpToPx(6f)
-            }
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(12f)
         }
-
-        val checkBtn = createAnimatedButton(
-            "Check Again",
-            Color.WHITE,
-            accentColor,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        ) {
-            if (checkAllPermissions()) {
-                dialog.dismiss()
-                setupUI()
-                loadLogsAsync {}
-            } else {
-                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
-                dialog.dismiss()
-                showPermissionDialog()
-            }
-        }.apply {
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                marginStart = dpToPx(6f)
-            }
-        }
-
-        btnRow.addView(exitBtn)
-        btnRow.addView(checkBtn)
-        cardLayout.addView(btnRow)
+        cardLayout.addView(exitBtn)
 
         dialog.setContentView(cardLayout)
 
@@ -1564,7 +1475,6 @@ class LogAdapter(
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
 
-            // Card background
             val cardDrawable = GradientDrawable().apply {
                 setColor(cardBg)
                 cornerRadius = TypedValue.applyDimension(
@@ -1583,12 +1493,10 @@ class LogAdapter(
             }
             cardLayout.background = cardDrawable
 
-            // Magisk special
             val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
             val badgeText = if (isMagisk) "Magisk" else log.type
             typeBadge.text = badgeText
 
-            // Load icon
             var iconLoaded = false
             if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 try {
@@ -1612,7 +1520,6 @@ class LogAdapter(
                 appIcon.setImageDrawable(defaultIcon)
             }
 
-            // Badge color
             val radiusPx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 100f,
