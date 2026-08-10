@@ -33,6 +33,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.*
 
 class CrashLogActivity : Activity() {
 
@@ -155,8 +157,9 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        // Pass context and packageManager to adapter
-        logAdapter = LogAdapter(filteredLogs, this, packageManager)
+        logAdapter = LogAdapter(filteredLogs, this, packageManager) { entry ->
+            showCrashDetailsDialog(entry)
+        }
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
@@ -262,7 +265,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Back arrow – programmatic (can be replaced with arrow_back_24px if downloaded)
+        // Back arrow – programmatic
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -462,7 +465,117 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG LOADING ==========
+    // ========== CRASH DETAILS DIALOG ==========
+    private fun showCrashDetailsDialog(entry: LogEntry) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createCardBackground()
+            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+        }
+
+        // Header
+        val headerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val titleTv = TextView(this).apply {
+            text = "${entry.type} Details"
+            textSize = 20f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        headerLayout.addView(titleTv)
+
+        val closeBtn = TextView(this).apply {
+            text = "✕"
+            textSize = 24f
+            setTextColor(secondaryTextColor)
+            setPadding(dpToPx(16f), 0, 0, 0)
+            isClickable = true
+            setOnClickListener { dialog.dismiss() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        headerLayout.addView(closeBtn)
+        rootLayout.addView(headerLayout)
+
+        // Separator
+        val sep = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(1f)
+            )
+            setBackgroundColor(cardBorderColor)
+        }
+        rootLayout.addView(sep)
+
+        // Package and timestamp
+        val infoLayout2 = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dpToPx(12f), 0, dpToPx(12f))
+        }
+        val pkgTv = TextView(this).apply {
+            text = "Package: ${entry.appName}"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+        }
+        infoLayout2.addView(pkgTv)
+
+        val timeTv = TextView(this).apply {
+            text = "Time: ${entry.timestamp}"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+        }
+        infoLayout2.addView(timeTv)
+        rootLayout.addView(infoLayout2)
+
+        // Scrollable details
+        val scrollDetails = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(400f)
+            )
+        }
+        val detailsTv = TextView(this).apply {
+            text = entry.details.ifEmpty { "No detailed log available." }
+            textSize = 12f
+            setTextColor(primaryTextColor)
+            setTypeface(Typeface.MONOSPACE)
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            background = GradientDrawable().apply {
+                setColor(inputBgColor)
+                cornerRadius = dpToPx(8f).toFloat()
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+        }
+        scrollDetails.addView(detailsTv)
+        rootLayout.addView(scrollDetails)
+
+        // Close button
+        val closeButton = createAnimatedButton("Close", Color.WHITE, accentColor, buttonHeightPx) {
+            dialog.dismiss()
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
+        }
+        rootLayout.addView(closeButton)
+
+        dialog.setContentView(rootLayout)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout((resources.displayMetrics.widthPixels * 0.92).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.show()
+    }
+
+    // ========== LOG LOADING (enhanced) ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -495,22 +608,51 @@ class CrashLogActivity : Activity() {
     private fun loadLogs() {
         allLogs.clear()
         try {
-            val process = Runtime.getRuntime().exec("logcat -d -v time -s AndroidRuntime:E ActivityManager:I -t 200")
+            // Get more lines (last 500) to capture native crashes that may appear later
+            val process = Runtime.getRuntime().exec("logcat -d -v time -t 500")
             val reader = BufferedReader(InputStreamReader(process.inputStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                line?.let {
-                    if (it.contains("FATAL EXCEPTION") || it.contains("ANR in")) {
-                        val timestamp = extractTimestamp(it)
-                        val appName = extractAppName(it)
-                        val type = if (it.contains("ANR")) "ANR" else "Crash"
-                        if (appName.isNotEmpty()) {
-                            allLogs.add(LogEntry(timestamp, appName, type))
+            val lines = reader.readLines()
+            process.waitFor()
+
+            // Parse blocks
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i]
+                // Detect crash patterns
+                if (isCrashLine(line)) {
+                    // Collect block
+                    val block = mutableListOf<String>()
+                    val timestamp = extractTimestamp(line)
+                    val appName = extractAppName(line)
+                    val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
+                    // Add the line itself
+                    block.add(line)
+                    // Continue collecting lines until we hit a new timestamp or end
+                    i++
+                    while (i < lines.size) {
+                        val nextLine = lines[i]
+                        // Check if next line is a new log entry (starts with timestamp)
+                        if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*"))) {
+                            // If it's another crash, we stop (will be handled in next iteration)
+                            if (isCrashLine(nextLine)) {
+                                break
+                            }
+                            // If it's a normal log line, we include it (could be part of the crash)
+                            block.add(nextLine)
+                            i++
+                        } else {
+                            // Not a timestamp line (e.g., continuation of stack trace) -> include it
+                            block.add(nextLine)
+                            i++
                         }
                     }
+                    if (appName.isNotEmpty()) {
+                        allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                    }
+                } else {
+                    i++
                 }
             }
-            process.waitFor()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read logcat", e)
         }
@@ -523,6 +665,17 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
+    private fun isCrashLine(line: String): Boolean {
+        return line.contains("FATAL EXCEPTION") ||
+                line.contains("ANR in") ||
+                line.contains("SIGABRT") ||
+                line.contains("signal") ||
+                line.contains("Native crash") ||
+                line.contains("Abort message") ||
+                line.contains("backtrace:") ||
+                (line.contains("FATAL") && line.contains("pid"))
+    }
+
     private fun extractTimestamp(line: String): String {
         val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
         val match = pattern.find(line)
@@ -530,20 +683,28 @@ class CrashLogActivity : Activity() {
     }
 
     private fun extractAppName(line: String): String {
+        // Try to extract package name
         val pattern = Regex("\\(([^)]+)\\)")
         val match = pattern.find(line)
-        return match?.groupValues?.get(1)?.split(":")?.firstOrNull() ?: "Unknown"
+        val candidate = match?.groupValues?.get(1)?.split(":")?.firstOrNull()
+        if (!candidate.isNullOrBlank() && candidate.contains(".")) {
+            return candidate
+        }
+        // If not found, look for "Process: com.example"
+        val processPattern = Regex("Process:\\s*([\\w.]+)")
+        val processMatch = processPattern.find(line)
+        return processMatch?.groupValues?.get(1) ?: "Unknown"
     }
 
     private fun loadMockData() {
         allLogs.addAll(listOf(
-            LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR"),
-            LogEntry("08/08, 9:33:32 am", "com.android.settings", "Crash"),
-            LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR"),
-            LogEntry("07/08, 10:20:12 pm", "com.android.systemui", "Crash"),
-            LogEntry("07/08, 10:20:05 pm", "com.android.settings", "Crash"),
-            LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR"),
-            LogEntry("07/08, 5:41:57 pm", "com.android.settings", "ANR"),
+            LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR", "Mock ANR details\nStack trace..."),
+            LogEntry("08/08, 9:33:32 am", "com.android.settings", "Crash", "Mock crash details\nSignal..."),
+            LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR", "Mock ANR..."),
+            LogEntry("07/08, 10:20:12 pm", "com.android.systemui", "Crash", "Mock crash..."),
+            LogEntry("07/08, 10:20:05 pm", "com.android.settings", "Crash", "Mock crash..."),
+            LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR", "Mock ANR..."),
+            LogEntry("07/08, 5:41:57 pm", "com.android.settings", "ANR", "Mock ANR..."),
         ))
     }
 
@@ -673,7 +834,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(iconIv)
 
-        // Title
         val titleTv = TextView(this).apply {
             text = "Permissions Required"
             textSize = 22f
@@ -693,7 +853,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list with status (using check_circle / cancel)
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -821,7 +980,6 @@ class CrashLogActivity : Activity() {
 
         cardLayout.addView(adbLayout)
 
-        // Root grant button
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -835,7 +993,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        // Buttons row
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -898,7 +1055,6 @@ class CrashLogActivity : Activity() {
 
     // ========== DRAWABLES ==========
 
-    // Back arrow – programmatic (can be replaced with arrow_back_24px if downloaded)
     private fun createArrowBackDrawable(): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1030,7 +1186,6 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
-            // Use error_24px for crashes, warning_24px for ANR
             val iconRes = if (isError) R.drawable.error_24px else R.drawable.warning_24px
             val iconDrawable = ContextCompat.getDrawable(context, iconRes)?.apply { setTint(color) }
             val iconView = ImageView(context).apply {
@@ -1186,14 +1341,16 @@ class CrashLogActivity : Activity() {
 data class LogEntry(
     val timestamp: String,
     val appName: String,
-    val type: String
+    val type: String,
+    val details: String = ""
 )
 
 // ========== LOG ADAPTER ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
-    private val packageManager: PackageManager
+    private val packageManager: PackageManager,
+    private val onItemClick: (LogEntry) -> Unit
 ) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
 
     private val defaultIcon = ContextCompat.getDrawable(
@@ -1209,7 +1366,7 @@ class LogAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_log, parent, false)
-        return LogViewHolder(view)
+        return LogViewHolder(view, onItemClick)
     }
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
@@ -1218,7 +1375,10 @@ class LogAdapter(
 
     override fun getItemCount(): Int = logs.size
 
-    class LogViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class LogViewHolder(
+        itemView: View,
+        private val onItemClick: (LogEntry) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
         private val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
         private val timestampText: TextView = itemView.findViewById(R.id.timestampText)
         private val appNameText: TextView = itemView.findViewById(R.id.appNameText)
@@ -1229,6 +1389,7 @@ class LogAdapter(
             appNameText.text = log.appName  // show package name
             typeBadge.text = log.type
 
+            // Load app icon
             try {
                 val appInfo = pm.getApplicationInfo(log.appName, 0)
                 val icon = pm.getApplicationIcon(appInfo)
@@ -1254,6 +1415,8 @@ class LogAdapter(
                     )
                 }
             }
+
+            itemView.setOnClickListener { onItemClick(log) }
         }
     }
 }
