@@ -10,7 +10,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }  // ← JitPack for Shizuku
+        // JitPack is no longer needed – Shizuku is on Maven Central
     }
 }
 rootProject.name = "Crash-Logs-Browser"
