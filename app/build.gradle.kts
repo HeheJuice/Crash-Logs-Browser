@@ -53,7 +53,7 @@ dependencies {
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.recyclerview:recyclerview:1.3.0")
 
-    // Shizuku from JitPack (supports moe.shizuku.api / moe.shizuku.privileged)
-    implementation("com.github.RikkaApps:Shizuku-API:13.1.5")
-    implementation("com.github.RikkaApps:Shizuku-Provider:13.1.5")
+    // Shizuku – official Maven Central artifacts (moe.shizuku.privileged)
+    implementation("moe.shizuku.privileged:api:13.1.5")
+    implementation("moe.shizuku.privileged:provider:13.1.5")
 }
