@@ -529,7 +529,10 @@ class CrashLogActivity : Activity() {
                             i++
                         }
                         val appName = extractPackageName(block)
-                        allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                        // 🔥 IMPORTANT: Skip if package name is "System Process / Unknown"
+                        if (appName != "System Process / Unknown") {
+                            allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                        }
                     } else {
                         i++
                     }
@@ -547,23 +550,20 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
-    // STRICTER CRASH DETECTION – only real crash signatures
     private fun isRealCrashLine(line: String): Boolean {
-        // Java/Kotlin crashes
-        if (line.contains("FATAL EXCEPTION")) return true
-        // ANR
-        if (line.contains("ANR in")) return true
-        // Native crashes: SIGABRT, SIGSEGV, signal 11/6, Abort message
-        if (line.contains("SIGABRT") || line.contains("SIGSEGV")) return true
-        if (line.contains("signal 11") || line.contains("signal 6")) return true
-        if (line.contains("Abort message") && line.contains("FATAL")) return true
-        if (line.contains("backtrace:") && line.contains("pid:")) return true
-        if (line.contains("Native crash")) return true
-        // Only match "Process: ... crashed" if it's part of a crash dump (contains pid or signal)
-        if (line.contains("Process:") && line.contains(" crashed")) {
-            if (line.contains("pid:") || line.contains("signal")) return true
-        }
-        return false
+        // Broad detection – captures almost everything that looks like a crash or system event
+        return line.contains("FATAL EXCEPTION") ||
+                line.contains("ANR in") ||
+                line.contains("SIGABRT") ||
+                line.contains("SIGSEGV") ||
+                line.contains("signal 11") ||
+                line.contains("signal 6") ||
+                (line.contains("Abort message") && line.contains("FATAL")) ||
+                (line.contains("backtrace:") && line.contains("pid:")) ||
+                line.contains("Native crash") ||
+                (line.contains("Process:") && line.contains(" crashed")) ||
+                line.contains("system_server") ||
+                line.contains("DEBUG   :")
     }
 
     private fun extractTimestamp(line: String): String {
