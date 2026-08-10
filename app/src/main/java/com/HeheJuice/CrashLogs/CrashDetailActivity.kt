@@ -8,6 +8,7 @@ import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -59,7 +60,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Back button (same as main page: 48dp, 8dp padding)
+        // Back button (48dp, 8dp padding)
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -73,11 +74,12 @@ class CrashDetailActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 gravity = Gravity.CENTER_VERTICAL
+                marginEnd = dpToPx(8f)
             }
         }
         headerLayout.addView(backBtn)
 
-        // Title
+        // Title (centered)
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -91,7 +93,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button (same height 48dp, but larger padding 12dp to make icon smaller)
+        // Copy button (48dp, 12dp padding to make icon smaller)
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -102,7 +104,7 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f)) // bigger padding = smaller icon
+                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
@@ -127,7 +129,7 @@ class CrashDetailActivity : Activity() {
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
                 setOnTouchListener(pressScaleTouchListener)
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(48f)).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                     gravity = Gravity.CENTER_VERTICAL
                 }
             }
@@ -165,13 +167,14 @@ class CrashDetailActivity : Activity() {
         infoLayout.addView(timeTv)
         rootLayout.addView(infoLayout)
 
-        // Scrollable details
+        // Scrollable details – full content, no truncation
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
+            setFillViewport(true)
         }
         val detailsTv = TextView(this).apply {
             text = details
@@ -184,6 +187,9 @@ class CrashDetailActivity : Activity() {
                 cornerRadius = dpToPx(8f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
+            // Make it scrollable
+            movementMethod = ScrollingMovementMethod.getInstance()
+            maxLines = Int.MAX_VALUE
         }
         scrollDetails.addView(detailsTv)
         rootLayout.addView(scrollDetails)
