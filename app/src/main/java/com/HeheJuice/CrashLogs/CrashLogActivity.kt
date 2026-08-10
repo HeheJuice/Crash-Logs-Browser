@@ -143,8 +143,8 @@ class CrashLogActivity : Activity() {
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -695,7 +695,6 @@ class CrashLogActivity : Activity() {
     // ========== FILTER PILL FUNCTIONS (3-Tab Piecewise) ==========
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
-        val buttons = listOf(filterAllBtn, filterCrashBtn, filterAnrBtn)
         val x0 = filterButtonsLayout.left + filterAllBtn.left.toFloat()
         val x1 = filterButtonsLayout.left + filterCrashBtn.left.toFloat()
         val x2 = filterButtonsLayout.left + filterAnrBtn.left.toFloat()
@@ -837,7 +836,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== LOG PARSING (unchanged) ==========
+    // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
         loadingText.visibility = View.VISIBLE
         recyclerView.visibility = View.GONE
@@ -868,12 +867,467 @@ class CrashLogActivity : Activity() {
 
     private fun loadLogs() {
         allLogs.clear()
-        // ... (keep your existing log parsing code – unchanged for brevity)
-        // Same as before.
+
+        if (checkReadLogsPermission()) {
+            try {
+                val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 5000")
+                val reader = BufferedReader(InputStreamReader(process.inputStream))
+                val lines = reader.readLines()
+                process.waitFor()
+
+                var i = 0
+                while (i < lines.size) {
+                    val line = lines[i]
+                    if (isRealCrashLine(line)) {
+                        val block = mutableListOf<String>()
+                        block.add(line)
+                        val timestamp = extractTimestamp(line)
+                        val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
+                        i++
+                        while (i < lines.size) {
+                            val nextLine = lines[i]
+                            if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*")) && isRealCrashLine(nextLine)) {
+                                break
+                            }
+                            block.add(nextLine)
+                            i++
+                        }
+                        var appName = extractPackageName(block)
+                        if (appName != "System Process" && appName != "com.android.system") {
+                            allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                        }
+                    } else {
+                        i++
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read logcat", e)
+            }
+        }
+
+        if (checkDropBoxPermission()) {
+            loadDropBoxLogs()
+        }
     }
 
-    // ========== PERMISSION CHECKS, DRAWABLES, UI HELPERS ==========
-    // (Keep your existing implementations – unchanged)
+    private fun isRealCrashLine(line: String): Boolean {
+        return line.contains("FATAL EXCEPTION") ||
+                line.contains("ANR in") ||
+                line.contains("SIGABRT") ||
+                line.contains("SIGSEGV") ||
+                line.contains("signal 11") ||
+                line.contains("signal 6") ||
+                (line.contains("Abort message") && line.contains("FATAL")) ||
+                (line.contains("backtrace:") && line.contains("pid:")) ||
+                line.contains("Native crash") ||
+                (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal")))
+    }
+
+    private fun extractTimestamp(line: String): String {
+        val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
+        val match = pattern.find(line)
+        return match?.value?.replace("-", "/") ?: "Unknown"
+    }
+
+    private fun extractPackageName(block: List<String>): String {
+        for (line in block) {
+            val processMatch = Regex("(?:Process|Package|Process name):\\s*([\\w.:]+)").find(line)
+            if (processMatch != null) {
+                val pkg = processMatch.groupValues[1].substringBefore(":")
+                if (pkg.isNotBlank() && pkg != "System") return pkg
+            }
+            val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
+            if (bracketMatch != null) {
+                val pkg = bracketMatch.groupValues[1].substringBefore(":")
+                if (pkg.isNotBlank()) return pkg
+            }
+            val cmdlineMatch = Regex("Cmdline:\\s*([^\\s]+)").find(line)
+            if (cmdlineMatch != null) {
+                val pkg = cmdlineMatch.groupValues[1].substringAfterLast("/").substringBefore(":")
+                if (pkg.isNotBlank()) return pkg
+            }
+        }
+        return "Unknown Process"
+    }
+
+    private fun loadDropBoxLogs() {
+        try {
+            val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
+            val tags = setOf(
+                "system_app_native_crash",
+                "system_app_crash",
+                "data_app_crash",
+                "system_app_anr",
+                "data_app_anr",
+                "SYSTEM_TOMBSTONE"
+            )
+            var entry = dropBox.getNextEntry(null, 0)
+            while (entry != null) {
+                val tag = entry.tag
+                if (tags.contains(tag)) {
+                    val text = entry.getText(65536) ?: ""
+                    val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
+                    var pkg = extractPackageName(text.lines())
+                    if (pkg == "Unknown Process") {
+                        pkg = tag
+                    }
+                    if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
+                        val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
+                            .format(Date(entry.timeMillis))
+                        allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
+                    }
+                }
+                val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
+                entry.close()
+                entry = nextEntry
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read DropBoxManager", e)
+        }
+    }
+
+    // ========== PERMISSION CHECKS ==========
+    private fun checkAllPermissions(): Boolean {
+        return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
+    }
+
+    private fun checkReadLogsPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            checkCallingOrSelfPermission("android.permission.READ_LOGS") == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun checkDropBoxPermission(): Boolean {
+        return checkCallingOrSelfPermission("android.permission.READ_DROPBOX_DATA") == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun checkUsageStatsPermission(): Boolean {
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    packageName
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    packageName
+                )
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isPermissionGranted(permName: String): Boolean {
+        return when (permName) {
+            "READ_LOGS" -> checkReadLogsPermission()
+            "READ_DROPBOX_DATA" -> checkDropBoxPermission()
+            "PACKAGE_USAGE_STATS" -> checkUsageStatsPermission()
+            else -> false
+        }
+    }
+
+    // ========== ROOT PERMISSION GRANT ==========
+    private fun grantPermissionsWithRoot() {
+        Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val commands = listOf(
+                "pm grant ${packageName} android.permission.READ_LOGS",
+                "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
+                "appops set ${packageName} GET_USAGE_STATS allow"
+            )
+
+            val success = runRootCommands(commands)
+
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this, "Permissions granted via root!", Toast.LENGTH_LONG).show()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (checkAllPermissions()) {
+                            setupUI()
+                            loadLogsAsync {}
+                        } else {
+                            Toast.makeText(this, "Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
+                            showPermissionDialog()
+                        }
+                    }, 500)
+                } else {
+                    Toast.makeText(this, "Root permission required or failed. Please grant manually in Magisk/KSU.", Toast.LENGTH_LONG).show()
+                    showPermissionDialog()
+                }
+            }
+        }.start()
+    }
+
+    private fun runRootCommands(commands: List<String>): Boolean {
+        return try {
+            val script = commands.joinToString(" ; ")
+            val process = ProcessBuilder("su", "-c", script)
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().readText()
+            Log.d(TAG, "Root output: $output")
+            val exitCode = process.waitFor()
+            Log.d(TAG, "Root exit code: $exitCode")
+            exitCode == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Root command failed", e)
+            false
+        }
+    }
+
+    // ========== CUSTOM PERMISSION DIALOG ==========
+    private fun showPermissionDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val cardLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(cardBgColor)
+                cornerRadius = dpToPx(28f).toFloat()
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+        }
+
+        val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
+            setTint(primaryTextColor)
+        }
+        val iconIv = ImageView(this).apply {
+            setImageDrawable(lockDrawable)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
+                gravity = Gravity.CENTER
+                bottomMargin = dpToPx(8f)
+            }
+        }
+        cardLayout.addView(iconIv)
+
+        val titleTv = TextView(this).apply {
+            text = "Permissions Required"
+            textSize = 22f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(4f))
+        }
+        cardLayout.addView(titleTv)
+
+        val subTv = TextView(this).apply {
+            text = "This app needs the following permissions to read crash logs"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(16f))
+        }
+        cardLayout.addView(subTv)
+
+        val permissions = listOf(
+            "READ_LOGS" to "Read system logs",
+            "READ_DROPBOX_DATA" to "Access crash data",
+            "PACKAGE_USAGE_STATS" to "App usage statistics"
+        )
+
+        for ((perm, desc) in permissions) {
+            val permLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(inputBgColor)
+                    cornerRadius = dpToPx(12f).toFloat()
+                    setStroke(dpToPx(1f), cardBorderColor)
+                }
+                setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(8f)
+                }
+            }
+
+            val granted = isPermissionGranted(perm)
+            val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
+            val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
+                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+            }
+            val statusIv = ImageView(this).apply {
+                setImageDrawable(statusDrawable)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
+                    marginEnd = dpToPx(12f)
+                }
+            }
+            permLayout.addView(statusIv)
+
+            val textLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            val permName = TextView(this).apply {
+                text = perm
+                textSize = 14f
+                setTextColor(primaryTextColor)
+                setTypeface(null, Typeface.BOLD)
+            }
+            textLayout.addView(permName)
+
+            val permDesc = TextView(this).apply {
+                text = desc
+                textSize = 12f
+                setTextColor(secondaryTextColor)
+            }
+            textLayout.addView(permDesc)
+
+            permLayout.addView(textLayout)
+            cardLayout.addView(permLayout)
+        }
+
+        val adbLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(redBtnColor)
+                setAlpha(30)
+                cornerRadius = dpToPx(12f).toFloat()
+                setStroke(dpToPx(1f), redBtnColor)
+            }
+            setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12f)
+                bottomMargin = dpToPx(12f)
+            }
+        }
+
+        val adbTitle = TextView(this).apply {
+            text = "Grant via ADB (one by one)"
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+        }
+        adbLayout.addView(adbTitle)
+
+        val adbCommand1 = TextView(this).apply {
+            text = "adb shell pm grant ${packageName} android.permission.READ_LOGS"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+            setPadding(0, dpToPx(4f), 0, 0)
+        }
+        adbLayout.addView(adbCommand1)
+
+        val adbCommand2 = TextView(this).apply {
+            text = "adb shell pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+        }
+        adbLayout.addView(adbCommand2)
+
+        val adbCommand3 = TextView(this).apply {
+            text = "adb shell appops set ${packageName} GET_USAGE_STATS allow"
+            textSize = 11f
+            setTextColor(accentColor)
+            setTypeface(Typeface.MONOSPACE)
+        }
+        adbLayout.addView(adbCommand3)
+
+        val adbNote = TextView(this).apply {
+            text = "Some permissions may require a reboot to take effect"
+            textSize = 11f
+            setTextColor(secondaryTextColor)
+            setPadding(0, dpToPx(8f), 0, 0)
+        }
+        adbLayout.addView(adbNote)
+
+        cardLayout.addView(adbLayout)
+
+        val rootGrantBtn = createAnimatedButton(
+            "Grant with Root (Auto)",
+            Color.WHITE,
+            Color.parseColor("#FF6B00"),
+            buttonHeightPx
+        ) {
+            dialog.dismiss()
+            grantPermissionsWithRoot()
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
+        }
+        cardLayout.addView(rootGrantBtn)
+
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                buttonHeightPx
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
+        }
+
+        val exitBtn = createAnimatedButton(
+            "Exit App",
+            primaryTextColor,
+            secondaryBtnColor,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ) {
+            dialog.dismiss()
+            finish()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginEnd = dpToPx(6f)
+            }
+        }
+
+        val checkBtn = createAnimatedButton(
+            "Check Again",
+            Color.WHITE,
+            accentColor,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ) {
+            if (checkAllPermissions()) {
+                dialog.dismiss()
+                setupUI()
+                loadLogsAsync {}
+            } else {
+                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+                showPermissionDialog()
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginStart = dpToPx(6f)
+            }
+        }
+
+        btnRow.addView(exitBtn)
+        btnRow.addView(checkBtn)
+        cardLayout.addView(btnRow)
+
+        dialog.setContentView(cardLayout)
+
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        dialog.setCancelable(false)
+        dialog.show()
+    }
 
     // ========== DRAWABLES ==========
     private fun createArrowBackDrawable(): Drawable {
