@@ -156,7 +156,7 @@ class DetailsActivity : Activity() {
 
         scrollContent.addView(updateCard)
 
-        // ----- CREDITS CARD (only HeheJuice) -----
+        // ----- CREDITS CARD -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -182,11 +182,11 @@ class DetailsActivity : Activity() {
         }
         creditsCard.addView(creditsTitle)
 
-        // Only HeheJuice
+        // ----- CREDIT 1: HeheJuice -----
         val hehejuiceName = "HeheJuice"
         val hehejuiceDesc = getString(R.string.credit_hehejuice_desc)
 
-        val row = LinearLayout(this).apply {
+        val row1 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -199,7 +199,7 @@ class DetailsActivity : Activity() {
 
         // Avatar
         val avatarResId = resources.getIdentifier(hehejuiceName.lowercase(), "drawable", packageName)
-        val avatar = ImageView(this).apply {
+        val avatar1 = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
@@ -212,7 +212,6 @@ class DetailsActivity : Activity() {
                 }
                 clipToOutline = true
             } else {
-                // Fallback: first letter in a circle
                 val drawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(accentColor)
@@ -221,7 +220,7 @@ class DetailsActivity : Activity() {
                 setImageDrawable(null)
             }
         }
-        row.addView(avatar)
+        row1.addView(avatar1)
 
         // If no avatar image, show a text with initial
         if (avatarResId == 0) {
@@ -235,19 +234,18 @@ class DetailsActivity : Activity() {
                     dpToPx(48f)
                 )
             }
-            // Replace avatar with container
             val avatarContainer = FrameLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                     marginEnd = dpToPx(16f)
                 }
-                addView(avatar) // background
+                addView(avatar1)
                 addView(initialTv)
             }
-            row.removeView(avatar)
-            row.addView(avatarContainer, 0)
+            row1.removeView(avatar1)
+            row1.addView(avatarContainer, 0)
         }
 
-        val textContainer = LinearLayout(this).apply {
+        val textContainer1 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 0,
@@ -256,7 +254,7 @@ class DetailsActivity : Activity() {
             )
         }
 
-        val nameView = TextView(this).apply {
+        val nameView1 = TextView(this).apply {
             text = hehejuiceName
             textSize = 17f
             setTextColor(primaryTextColor)
@@ -266,17 +264,114 @@ class DetailsActivity : Activity() {
             setOnClickListener { openTelegram("HeheJuice") }
             setOnTouchListener(pressScaleTouchListener)
         }
-        textContainer.addView(nameView)
+        textContainer1.addView(nameView1)
 
-        val descView = TextView(this).apply {
+        val descView1 = TextView(this).apply {
             text = hehejuiceDesc
             textSize = 14f
             setTextColor(secondaryTextColor)
         }
-        textContainer.addView(descView)
+        textContainer1.addView(descView1)
 
-        row.addView(textContainer)
-        creditsCard.addView(row)
+        row1.addView(textContainer1)
+        creditsCard.addView(row1)
+
+        // ----- CREDIT 2: Material Design (NEW) -----
+        val materialName = "Material Design"
+        val materialDesc = "XML Vector Android Icon"
+
+        val row2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        // Material Design avatar using androidcredit.webp
+        val materialAvatarResId = resources.getIdentifier("androidcredit", "drawable", packageName)
+        val avatar2 = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                marginEnd = dpToPx(16f)
+            }
+            if (materialAvatarResId != 0) {
+                setImageResource(materialAvatarResId)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.TRANSPARENT)
+                }
+                clipToOutline = true
+            } else {
+                // Fallback: "M" in a circle
+                val drawable = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(accentColor)
+                }
+                background = drawable
+                setImageDrawable(null)
+            }
+        }
+        row2.addView(avatar2)
+
+        // If no avatar image, show a text with initial "M"
+        if (materialAvatarResId == 0) {
+            val initialTv = TextView(this).apply {
+                text = "M"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    dpToPx(48f),
+                    dpToPx(48f)
+                )
+            }
+            val avatarContainer = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    marginEnd = dpToPx(16f)
+                }
+                addView(avatar2)
+                addView(initialTv)
+            }
+            row2.removeView(avatar2)
+            row2.addView(avatarContainer, 0)
+        }
+
+        val textContainer2 = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val nameView2 = TextView(this).apply {
+            text = materialName
+            textSize = 17f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m3.material.io/get-started")))
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        textContainer2.addView(nameView2)
+
+        val descView2 = TextView(this).apply {
+            text = materialDesc
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+        }
+        textContainer2.addView(descView2)
+
+        row2.addView(textContainer2)
+        creditsCard.addView(row2)
 
         scrollContent.addView(creditsCard)
 

@@ -4,4 +4,6 @@
         android:drawable="@drawable/hehejuiceback"/>
     <foreground
         android:drawable="@drawable/hehejuicefront"/>
+    <monochrome
+        android:drawable="@drawable/hehejuicemono"/>
 </adaptive-icon>
