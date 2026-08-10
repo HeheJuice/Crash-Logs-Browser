@@ -112,12 +112,14 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
+        // ----- ScrollView with reduced bottom padding -----
         scrollView = ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
             clipToPadding = false
             setFillViewport(true)
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
+            // Reduced bottom padding to avoid cutting off last item
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(70f))
         }
 
         val scrollContent = LinearLayout(this).apply {
@@ -132,8 +134,8 @@ class CrashLogActivity : Activity() {
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
 
@@ -331,40 +333,103 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        val infoCardLayout = LinearLayout(this).apply {
+        // ---- Card 1: App Info ----
+        val appInfoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = createCardBackground()
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(16f)
+            }
         }
 
-        val infoTitle = TextView(this).apply {
+        val appNameTitle = TextView(this).apply {
             text = "Crash Logs Browser"
-            textSize = 24f
+            textSize = 22f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
         }
-        infoCardLayout.addView(infoTitle)
-
-        val infoSub = TextView(this).apply {
-            text = "View and monitor app crashes and ANRs"
-            textSize = 15f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(4f), 0, dpToPx(16f))
-        }
-        infoCardLayout.addView(infoSub)
+        appInfoCard.addView(appNameTitle)
 
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
         } catch (e: Exception) {
             "Unknown"
         }
-        val versionInfo = TextView(this).apply {
+        val versionText = TextView(this).apply {
             text = "Version $versionName"
-            textSize = 13f
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            setPadding(0, dpToPx(4f), 0, dpToPx(8f))
+        }
+        appInfoCard.addView(versionText)
+
+        val descriptionText = TextView(this).apply {
+            text = "View and monitor app crashes and ANRs"
+            textSize = 14f
             setTextColor(secondaryTextColor)
             setPadding(0, 0, 0, dpToPx(16f))
         }
-        infoCardLayout.addView(versionInfo)
+        appInfoCard.addView(descriptionText)
+
+        val updatePill = TextView(this).apply {
+            text = "Check for Updates"
+setOnClickListener {
+        startActivity(Intent(this@CrashLogActivity, DetailsActivity::class.java))
+    }
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
+            background = GradientDrawable().apply {
+                cornerRadius = dpToPx(100f).toFloat()
+                setColor(accentColor)
+            }
+
+
+
+
+
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                Toast.makeText(this@CrashLogActivity, "Checking for updates...", Toast.LENGTH_SHORT).show()
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        appInfoCard.addView(updatePill)
+
+        infoLayout.addView(appInfoCard)
+
+        // ---- Card 2: Statistics ----
+        val statsCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createCardBackground()
+            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(16f)
+            }
+        }
+
+        val statsTitle = TextView(this).apply {
+            text = "Statistics"
+            textSize = 20f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, dpToPx(16f))
+        }
+        statsCard.addView(statsTitle)
 
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -374,27 +439,25 @@ class CrashLogActivity : Activity() {
             )
             tag = "statsRow"
         }
-
         statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
         statsRow.addView(createStatCard("ANR", "0", accentColor, false))
+        statsCard.addView(statsRow)
 
-        infoCardLayout.addView(statsRow)
-
-        // ---- Refresh Button ----
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogsAsync {
                 animateFilterPillTo(0f) {
                     switchFilterTab(FILTER_ALL)
-                    Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@CrashLogActivity, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
                 }
             }
         }.apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
         }
-        infoCardLayout.addView(refreshBtn)
+        statsCard.addView(refreshBtn)
 
-        infoLayout.addView(infoCardLayout)
+        infoLayout.addView(statsCard)
 
+        // ----- Add both layouts to scroll content -----
         scrollContent.addView(logsLayout)
         scrollContent.addView(infoLayout)
         scrollView.addView(scrollContent)
@@ -618,7 +681,7 @@ class CrashLogActivity : Activity() {
             val effectiveTop = if (topInset > 0) topInset else statusBarHeight
 
             topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
+            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(70f))
             (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
             insets
         }
@@ -764,8 +827,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateStats() {
-        val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
-        val statsRow = infoCard.findViewWithTag<LinearLayout>("statsRow") ?: return
+        val statsRow = infoLayout.findViewWithTag<LinearLayout>("statsRow") ?: return
         for (i in 0 until statsRow.childCount) {
             val card = statsRow.getChildAt(i) as? LinearLayout ?: continue
             val valueTv = card.getChildAt(1) as? TextView ?: continue
@@ -780,7 +842,6 @@ class CrashLogActivity : Activity() {
     private fun loadLogs() {
         allLogs.clear()
 
-        // 1. Read from logcat
         if (checkReadLogsPermission()) {
             try {
                 val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 5000")
@@ -806,7 +867,6 @@ class CrashLogActivity : Activity() {
                             i++
                         }
                         var appName = extractPackageName(block)
-                        // Skip system noise
                         if (appName != "System Process" && appName != "com.android.system") {
                             allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
                         }
@@ -819,7 +879,6 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // 2. Read from DropBox (updated)
         if (checkDropBoxPermission()) {
             loadDropBoxLogs()
         }
@@ -828,7 +887,6 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
-    // Strict crash detection – no system_server or DEBUG noise
     private fun isRealCrashLine(line: String): Boolean {
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
@@ -848,22 +906,18 @@ class CrashLogActivity : Activity() {
         return match?.value?.replace("-", "/") ?: "Unknown"
     }
 
-    // ===== UPDATED: Robust package extraction for both logcat and DropBox =====
     private fun extractPackageName(block: List<String>): String {
         for (line in block) {
-            // Standard Process / Package / Process name line
             val processMatch = Regex("(?:Process|Package|Process name):\\s*([\\w.:]+)").find(line)
             if (processMatch != null) {
                 val pkg = processMatch.groupValues[1].substringBefore(":")
                 if (pkg.isNotBlank() && pkg != "System") return pkg
             }
-            // Native Tombstone process line (>>> com.example.app <<<)
             val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
             if (bracketMatch != null) {
                 val pkg = bracketMatch.groupValues[1].substringBefore(":")
                 if (pkg.isNotBlank()) return pkg
             }
-            // Cmdline match
             val cmdlineMatch = Regex("Cmdline:\\s*([^\\s]+)").find(line)
             if (cmdlineMatch != null) {
                 val pkg = cmdlineMatch.groupValues[1].substringAfterLast("/").substringBefore(":")
@@ -873,7 +927,6 @@ class CrashLogActivity : Activity() {
         return "Unknown Process"
     }
 
-    // ===== UPDATED: DropBox loading with 64KB buffer and fallback =====
     private fun loadDropBoxLogs() {
         try {
             val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
@@ -889,11 +942,9 @@ class CrashLogActivity : Activity() {
             while (entry != null) {
                 val tag = entry.tag
                 if (tags.contains(tag)) {
-                    // Fetch up to 64KB of log content per entry
                     val text = entry.getText(65536) ?: ""
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
                     var pkg = extractPackageName(text.lines())
-                    // Fallback to tag name if package detection fails
                     if (pkg == "Unknown Process") {
                         pkg = tag
                     }
