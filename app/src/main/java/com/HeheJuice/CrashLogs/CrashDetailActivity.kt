@@ -59,7 +59,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Back button (48dp, 8dp padding)
+        // Back button (same as main page: 48dp, 8dp padding)
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -91,7 +91,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button (48dp, 12dp padding to make icon smaller)
+        // Copy button (same height 48dp, but larger padding 12dp to make icon smaller)
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -102,7 +102,7 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
+                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f)) // bigger padding = smaller icon
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }

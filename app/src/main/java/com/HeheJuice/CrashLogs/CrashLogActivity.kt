@@ -69,9 +69,15 @@ class CrashLogActivity : Activity() {
     private lateinit var logsPillBtn: TextView
     private lateinit var infoPillBtn: TextView
     private var currentTab = TAB_LOGS
-    private lateinit var logCountHeader: TextView
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
+
+    // Filter pill views
+    private lateinit var filterPillContainer: FrameLayout
+    private lateinit var filterSlidingView: View
+    private lateinit var filterAllBtn: TextView
+    private lateinit var filterCrashBtn: TextView
+    private lateinit var filterAnrBtn: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -101,6 +107,7 @@ class CrashLogActivity : Activity() {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
             clipToPadding = false
+            fillViewport = true
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
         }
 
@@ -108,7 +115,7 @@ class CrashLogActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
 
@@ -117,42 +124,109 @@ class CrashLogActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
 
-        val filterChipLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // ---- FILTER PILL ----
+        filterPillContainer = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(100f).toFloat()
+                setColor(cardBgColor)
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                dpToPx(44f)
             ).apply {
                 bottomMargin = dpToPx(16f)
             }
         }
 
-        val filterAll = createFilterChip("ALL", true)
-        val filterCrash = createFilterChip("CRASH", false)
-        val filterAnr = createFilterChip("ANR", false)
+        val filterActiveBg = GradientDrawable().apply {
+            setColor(secondaryBtnColor)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        filterSlidingView = View(this).apply {
+            background = filterActiveBg
+            layoutParams = FrameLayout.LayoutParams(0, dpToPx(36f))
+        }
 
-        filterChipLayout.addView(filterAll)
-        filterChipLayout.addView(filterCrash)
-        filterChipLayout.addView(filterAnr)
+        val filterButtonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
 
-        logsLayout.addView(filterChipLayout)
-
-        logCountHeader = TextView(this).apply {
-            text = "Loading logs..."
+        filterAllBtn = TextView(this).apply {
+            text = "ALL"
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { updateFilter("ALL") }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        filterCrashBtn = TextView(this).apply {
+            text = "CRASH"
             textSize = 14f
             setTextColor(secondaryTextColor)
-            setPadding(0, 0, 0, dpToPx(12f))
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { updateFilter("CRASH") }
+            setOnTouchListener(pressScaleTouchListener)
         }
-        logsLayout.addView(logCountHeader)
+        filterAnrBtn = TextView(this).apply {
+            text = "ANR"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { updateFilter("ANR") }
+            setOnTouchListener(pressScaleTouchListener)
+        }
 
+        filterButtonsLayout.addView(filterAllBtn)
+        filterButtonsLayout.addView(filterCrashBtn)
+        filterButtonsLayout.addView(filterAnrBtn)
+
+        filterPillContainer.addView(filterSlidingView)
+        filterPillContainer.addView(filterButtonsLayout)
+
+        // Initialize filter pill position
+        filterPillContainer.post {
+            filterSlidingView.layoutParams = filterSlidingView.layoutParams.apply {
+                width = filterAllBtn.width
+            }
+            filterSlidingView.translationX = filterAllBtn.left.toFloat()
+            filterSlidingView.requestLayout()
+        }
+
+        logsLayout.addView(filterPillContainer)
+
+        // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(500f)
+                0,
+                1f
             )
             layoutManager = LinearLayoutManager(this@CrashLogActivity)
             overScrollMode = View.OVER_SCROLL_ALWAYS
@@ -176,7 +250,7 @@ class CrashLogActivity : Activity() {
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
 
@@ -377,11 +451,9 @@ class CrashLogActivity : Activity() {
                 if (tab == TAB_LOGS) {
                     logsLayout.visibility = View.VISIBLE
                     infoLayout.visibility = View.GONE
-                    applyEntranceAnimations(listOf(logsLayout))
                 } else {
                     logsLayout.visibility = View.GONE
                     infoLayout.visibility = View.VISIBLE
-                    applyEntranceAnimations(listOf(infoLayout))
                 }
                 scrollView.scrollTo(0, 0)
             }
@@ -468,19 +540,13 @@ class CrashLogActivity : Activity() {
         }
 
         setContentView(rootFrameLayout)
-        applyEntranceAnimations(listOf(logsLayout))
     }
 
     // ========== LOG PARSING ==========
     private fun loadLogsAsync() {
-        logCountHeader.text = "Loading logs..."
         Thread {
-            val start = System.currentTimeMillis()
             loadLogs()
-            val elapsed = System.currentTimeMillis() - start
-            Log.d(TAG, "Logs loaded in ${elapsed}ms")
             runOnUiThread {
-                updateLogCount()
                 logAdapter.updateLogs(filteredLogs)
                 updateStats()
             }
@@ -630,6 +696,107 @@ class CrashLogActivity : Activity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read DropBoxManager", e)
+        }
+    }
+
+    // ========== FILTER UPDATE ==========
+    private fun updateFilter(filter: String) {
+        currentFilter = filter
+        val targetBtn = when (filter) {
+            "ALL" -> filterAllBtn
+            "CRASH" -> filterCrashBtn
+            "ANR" -> filterAnrBtn
+            else -> filterAllBtn
+        }
+        animateFilterPillTo(targetBtn)
+
+        filterAllBtn.setTextColor(if (filter == "ALL") primaryTextColor else secondaryTextColor)
+        filterCrashBtn.setTextColor(if (filter == "CRASH") primaryTextColor else secondaryTextColor)
+        filterAnrBtn.setTextColor(if (filter == "ANR") primaryTextColor else secondaryTextColor)
+
+        filteredLogs.clear()
+        filteredLogs.addAll(
+            when (filter) {
+                "CRASH" -> allLogs.filter { it.type == "Crash" }
+                "ANR" -> allLogs.filter { it.type == "ANR" }
+                else -> allLogs
+            }
+        )
+        logAdapter.updateLogs(filteredLogs)
+    }
+
+    private fun animateFilterPillTo(targetBtn: TextView) {
+        val x0 = filterSlidingView.translationX
+        val targetX = targetBtn.left.toFloat()
+        val targetW = targetBtn.width
+
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 220L
+            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+            addUpdateListener { anim ->
+                val progress = anim.animatedValue as Float
+                filterSlidingView.translationX = x0 + (targetX - x0) * progress
+                val currentW = (targetW * progress).toInt()
+                if (filterSlidingView.layoutParams.width != currentW && currentW > 0) {
+                    filterSlidingView.layoutParams = filterSlidingView.layoutParams.apply { width = currentW }
+                    filterSlidingView.requestLayout()
+                }
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    filterSlidingView.layoutParams = filterSlidingView.layoutParams.apply { width = targetW }
+                    filterSlidingView.translationX = targetX
+                    filterSlidingView.requestLayout()
+                }
+            })
+            start()
+        }
+    }
+
+    // ========== BOTTOM PILL ANIMATION ==========
+    private fun updatePillPosition(progress: Float) {
+        val p = progress.coerceIn(0f, 1f)
+        val x0 = logsPillBtn.left.toFloat()
+        val x1 = infoPillBtn.left.toFloat()
+        val w0 = logsPillBtn.width.toFloat()
+        val w1 = infoPillBtn.width.toFloat()
+
+        val currentX = x0 + (x1 - x0) * p
+        val currentW = (w0 + (w1 - w0) * p).toInt()
+
+        slidingPillView.translationX = currentX
+        if (slidingPillView.layoutParams.width != currentW && currentW > 0) {
+            slidingPillView.layoutParams = slidingPillView.layoutParams.apply { width = currentW }
+            slidingPillView.requestLayout()
+        }
+
+        if (p < 0.5f) {
+            logsPillBtn.setTextColor(primaryTextColor)
+            infoPillBtn.setTextColor(secondaryTextColor)
+        } else {
+            logsPillBtn.setTextColor(secondaryTextColor)
+            infoPillBtn.setTextColor(primaryTextColor)
+        }
+    }
+
+    private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
+        val x0 = logsPillBtn.left.toFloat()
+        val x1 = infoPillBtn.left.toFloat()
+        val currentX = slidingPillView.translationX
+        val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+
+        ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
+            duration = 220L
+            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+            addUpdateListener { anim ->
+                updatePillPosition(anim.animatedValue as Float)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    onEnd()
+                }
+            })
+            start()
         }
     }
 
@@ -1026,69 +1193,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    private fun createFilterChip(text: String, isSelected: Boolean): TextView {
-        return TextView(this).apply {
-            this.text = text
-            textSize = 13f
-            setTextColor(if (isSelected) Color.WHITE else primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
-            
-            val bg = GradientDrawable().apply {
-                cornerRadius = dpToPx(100f).toFloat()
-                setColor(if (isSelected) accentColor else inputBgColor)
-                setStroke(dpToPx(1f), if (isSelected) accentColor else cardBorderColor)
-            }
-            background = bg
-            
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                marginEnd = dpToPx(8f)
-            }
-            
-            isClickable = true
-            isFocusable = true
-            
-            setOnClickListener {
-                updateFilter(text)
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-    }
-
-    private fun updateFilter(filter: String) {
-        currentFilter = filter
-        filteredLogs.clear()
-        filteredLogs.addAll(
-            when (filter) {
-                "CRASH" -> allLogs.filter { it.type == "Crash" }
-                "ANR" -> allLogs.filter { it.type == "ANR" }
-                else -> allLogs
-            }
-        )
-        logAdapter.updateLogs(filteredLogs)
-        updateLogCount()
-        
-        val parent = (recyclerView.parent as? LinearLayout) ?: return
-        val chipLayout = parent.getChildAt(0) as? LinearLayout ?: return
-        for (i in 0 until chipLayout.childCount) {
-            val chip = chipLayout.getChildAt(i) as TextView
-            val chipText = chip.text.toString()
-            val isSelected = chipText == filter
-            chip.setTextColor(if (isSelected) Color.WHITE else primaryTextColor)
-            val bg = chip.background as GradientDrawable
-            bg.setColor(if (isSelected) accentColor else inputBgColor)
-            bg.setStroke(dpToPx(1f), if (isSelected) accentColor else cardBorderColor)
-        }
-    }
-
-    private fun updateLogCount() {
-        logCountHeader.text = if (filteredLogs.isEmpty()) "No logs found." else "${filteredLogs.size} Log Entries"
-    }
-
     private fun createStatCard(label: String, value: String, color: Int, isError: Boolean): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1138,63 +1242,24 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    private fun updatePillPosition(progress: Float) {
-        val p = progress.coerceIn(0f, 1f)
-        val x0 = logsPillBtn.left.toFloat()
-        val x1 = infoPillBtn.left.toFloat()
-        val w0 = logsPillBtn.width.toFloat()
-        val w1 = infoPillBtn.width.toFloat()
-
-        val currentX = x0 + (x1 - x0) * p
-        val currentW = (w0 + (w1 - w0) * p).toInt()
-
-        slidingPillView.translationX = currentX
-        if (slidingPillView.layoutParams.width != currentW && currentW > 0) {
-            slidingPillView.layoutParams = slidingPillView.layoutParams.apply { width = currentW }
-            slidingPillView.requestLayout()
-        }
-
-        if (p < 0.5f) {
-            logsPillBtn.setTextColor(primaryTextColor)
-            infoPillBtn.setTextColor(secondaryTextColor)
-        } else {
-            logsPillBtn.setTextColor(secondaryTextColor)
-            infoPillBtn.setTextColor(primaryTextColor)
-        }
-    }
-
-    private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
-        val x0 = logsPillBtn.left.toFloat()
-        val x1 = infoPillBtn.left.toFloat()
-        val currentX = slidingPillView.translationX
-        val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-
-        ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
-            duration = 220L
-            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
-            addUpdateListener { anim ->
-                updatePillPosition(anim.animatedValue as Float)
+    private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = textStr
+            textSize = 15f
+            setTextColor(textColor)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(bgColor)
+                cornerRadius = dpToPx(100f).toFloat()
             }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    onEnd()
-                }
-            })
-            start()
-        }
-    }
-
-    private fun applyEntranceAnimations(views: List<View>) {
-        views.forEachIndexed { index, view ->
-            view.translationY = dpToPx(40f).toFloat()
-            view.alpha = 0f
-            view.animate()
-                .translationY(0f)
-                .alpha(1f)
-                .setDuration(400)
-                .setStartDelay((index * 60).toLong())
-                .setInterpolator(DecelerateInterpolator(1.5f))
-                .start()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                height
+            )
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+            setOnTouchListener(pressScaleTouchListener)
         }
     }
 
@@ -1224,27 +1289,6 @@ class CrashLogActivity : Activity() {
             }
         }
         false
-    }
-
-    private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
-        return TextView(this).apply {
-            text = textStr
-            textSize = 15f
-            setTextColor(textColor)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(bgColor)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                height
-            )
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { onClick() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
     }
 
     private fun getStatusBarHeight(): Int {
