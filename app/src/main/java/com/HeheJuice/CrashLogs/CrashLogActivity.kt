@@ -2,8 +2,6 @@ package com.HeheJuice.CrashLogs
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
@@ -97,10 +95,6 @@ class CrashLogActivity : Activity() {
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
-
-    // Tab switch animation
-    private var tabSwitchAnimator: Animator? = null
-    private val screenWidth: Float get() = resources.displayMetrics.widthPixels.toFloat()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -472,7 +466,7 @@ class CrashLogActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
-            setBackgroundColor(rootBgColor)
+            setBackgroundColor(rootBgColor) // Matches root background to hide scrolling elements underneath
             elevation = dpToPx(4f).toFloat()
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
         }
@@ -513,6 +507,8 @@ class CrashLogActivity : Activity() {
 
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
+
+        // Add top bar AFTER scrollView so it renders on top
         rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR (pill only) ==========
@@ -604,80 +600,26 @@ class CrashLogActivity : Activity() {
         bottomBarLayout.addView(tabPillContainer)
         rootFrameLayout.addView(bottomBarLayout)
 
-        // ====== BOTTOM PILL TOUCH HANDLING & TAB SWITCH WITH SLIDE ANIMATION ======
-        // Function to animate tab switch with horizontal slide
+        // ====== BOTTOM PILL TOUCH HANDLING ======
         val switchTab: (Int) -> Unit = { tab ->
             if (currentTab != tab) {
-                // Cancel any ongoing animation
-                tabSwitchAnimator?.cancel()
-                tabSwitchAnimator = null
-
-                val incoming: LinearLayout
-                val outgoing: LinearLayout
-                val incomingDirection: Float
-
+                currentTab = tab
                 if (tab == TAB_LOGS) {
-                    incoming = logsLayout
-                    outgoing = infoLayout
-                    incomingDirection = -1f
+                    logsLayout.visibility = View.VISIBLE
+                    infoLayout.visibility = View.GONE
+                    // No animation – set to fully visible
+                    logsLayout.alpha = 1f
+                    logsLayout.translationY = 0f
                 } else {
-                    incoming = infoLayout
-                    outgoing = logsLayout
-                    incomingDirection = 1f
+                    logsLayout.visibility = View.GONE
+                    infoLayout.visibility = View.VISIBLE
+                    infoLayout.alpha = 1f
+                    infoLayout.translationY = 0f
                 }
-
-                // Ensure both are visible and have proper alpha/translation
-                incoming.visibility = View.VISIBLE
-                outgoing.visibility = View.VISIBLE
-                incoming.alpha = 1f
-                outgoing.alpha = 1f
-                incoming.translationY = 0f
-                outgoing.translationY = 0f
-
-                // Set start positions: incoming off-screen, outgoing at current (0)
-                val screenW = screenWidth
-                incoming.translationX = incomingDirection * screenW
-                outgoing.translationX = 0f
-
-                // Create ObjectAnimators for translationX
-                val incomingAnim = ObjectAnimator.ofFloat(incoming, View.TRANSLATION_X, incoming.translationX, 0f).apply {
-                    duration = 300
-                    interpolator = DecelerateInterpolator(1.2f)
-                }
-
-                val outgoingTargetX = -incomingDirection * screenW
-                val outgoingAnim = ObjectAnimator.ofFloat(outgoing, View.TRANSLATION_X, outgoing.translationX, outgoingTargetX).apply {
-                    duration = 300
-                    interpolator = DecelerateInterpolator(1.2f)
-                }
-
-                // Combine both animations in a set
-                val animatorSet = AnimatorSet()
-                animatorSet.playTogether(incomingAnim, outgoingAnim)
-                animatorSet.addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        outgoing.visibility = View.GONE
-                        incoming.translationX = 0f
-                        outgoing.translationX = 0f
-                        tabSwitchAnimator = null
-                        // Update currentTab after animation
-                        currentTab = tab
-                        // Scroll to top
-                        scrollView.scrollTo(0, 0)
-                    }
-                })
-
-                // Store reference to cancel later
-                tabSwitchAnimator = animatorSet
-                animatorSet.start()
+                scrollView.scrollTo(0, 0)
             }
         }
 
-        // Set click listeners for pill buttons to trigger switch
-        logsPillBtn.setOnClickListener { switchTab(TAB_LOGS) }
-        infoPillBtn.setOnClickListener { switchTab(TAB_INFO) }
-
-        // Touch drag handling for pill
         tabPillContainer.setOnTouchListener { view, event ->
             val x0 = logsPillBtn.left.toFloat() + (logsPillBtn.width / 2f)
             val x1 = infoPillBtn.left.toFloat() + (infoPillBtn.width / 2f)
