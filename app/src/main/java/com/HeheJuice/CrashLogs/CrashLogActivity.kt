@@ -471,7 +471,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG PARSING (FIXED) ==========
+    // ========== LOG PARSING ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -547,19 +547,23 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
+    // STRICTER CRASH DETECTION – only real crash signatures
     private fun isRealCrashLine(line: String): Boolean {
-        return line.contains("FATAL EXCEPTION") ||
-                line.contains("ANR in") ||
-                line.contains("SIGABRT") ||
-                line.contains("SIGSEGV") ||
-                line.contains("signal 11") ||
-                line.contains("signal 6") ||
-                (line.contains("Abort message") && line.contains("FATAL")) ||
-                (line.contains("backtrace:") && line.contains("pid:")) ||
-                line.contains("Native crash") ||
-                (line.contains("Process:") && line.contains(" crashed")) ||
-                line.contains("system_server") ||
-                line.contains("DEBUG   :")
+        // Java/Kotlin crashes
+        if (line.contains("FATAL EXCEPTION")) return true
+        // ANR
+        if (line.contains("ANR in")) return true
+        // Native crashes: SIGABRT, SIGSEGV, signal 11/6, Abort message
+        if (line.contains("SIGABRT") || line.contains("SIGSEGV")) return true
+        if (line.contains("signal 11") || line.contains("signal 6")) return true
+        if (line.contains("Abort message") && line.contains("FATAL")) return true
+        if (line.contains("backtrace:") && line.contains("pid:")) return true
+        if (line.contains("Native crash")) return true
+        // Only match "Process: ... crashed" if it's part of a crash dump (contains pid or signal)
+        if (line.contains("Process:") && line.contains(" crashed")) {
+            if (line.contains("pid:") || line.contains("signal")) return true
+        }
+        return false
     }
 
     private fun extractTimestamp(line: String): String {
@@ -570,7 +574,6 @@ class CrashLogActivity : Activity() {
 
     private fun extractPackageName(block: List<String>): String {
         for (line in block) {
-            // Try to extract from "Process: com.example" or "Package: com.example"
             val processMatch = Regex("(?:Process|Package):\\s*([\\w.:]+)").find(line)
             if (processMatch != null) {
                 val pkg = processMatch.groupValues[1].substringBefore(":")
@@ -578,7 +581,6 @@ class CrashLogActivity : Activity() {
                     return pkg
                 }
             }
-            // Try to extract from parentheses: (com.example)
             val parenMatch = Regex("\\(([\\w.]+)\\)").find(line)
             if (parenMatch != null) {
                 val pkg = parenMatch.groupValues[1]
@@ -586,12 +588,10 @@ class CrashLogActivity : Activity() {
                     return pkg
                 }
             }
-            // Try to extract from native crash bracket: >>> com.example <<<
             val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
             if (bracketMatch != null) {
                 return bracketMatch.groupValues[1].substringBefore(":")
             }
-            // Try to extract from Cmdline: com.example
             val cmdlineMatch = Regex("Cmdline:\\s*([\\w.:]+)").find(line)
             if (cmdlineMatch != null) {
                 return cmdlineMatch.groupValues[1].substringBefore(":")
