@@ -65,28 +65,56 @@ class DetailsActivity : Activity() {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        // ----- Banner Card (with accent background and app name) -----
+        // ----- Banner Card (with optional image) -----
         val bannerCard = FrameLayout(this).apply {
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(Color.TRANSPARENT)
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(0, Color.TRANSPARENT)
             }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(160f)
+                dpToPx(200f)
             ).apply {
                 bottomMargin = dpToPx(16f)
             }
         }
 
+        // Background image (if exists) or solid color
+        val backgroundImage = ImageView(this).apply {
+            val imageResId = resources.getIdentifier("hehejuicebanner", "drawable", packageName)
+            if (imageResId != 0) {
+                setImageResource(imageResId)
+            } else {
+                setBackgroundColor(accentColor)
+            }
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        bannerCard.addView(backgroundImage)
+
+        // Dim overlay
+        val dimOverlay = View(this).apply {
+            setBackgroundColor(Color.parseColor("#66000000"))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        bannerCard.addView(dimOverlay)
+
+        // Title text
         val titleText = TextView(this).apply {
             text = "Crash Logs Browser"
             textSize = 28f
             setTextColor(Color.WHITE)
             setTypeface(Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER
+            translationY = -dpToPx(3f).toFloat()
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -114,7 +142,7 @@ class DetailsActivity : Activity() {
         }
 
         updateStatusView = TextView(this).apply {
-            text = getString(R.string.update_checking)
+            text = "Checking for updates..."
             textSize = 15f
             setTextColor(secondaryTextColor)
             gravity = Gravity.CENTER
@@ -149,7 +177,7 @@ class DetailsActivity : Activity() {
 
         scrollContent.addView(updateCard)
 
-        // ----- CREDITS CARD -----
+        // ----- CREDITS CARD (only HeheJuice) -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -173,7 +201,6 @@ class DetailsActivity : Activity() {
         }
         creditsCard.addView(creditsTitle)
 
-        // Only HeheJuice credit
         val nameText = "HeheJuice"
         val descText = "Developer"
 
@@ -187,26 +214,25 @@ class DetailsActivity : Activity() {
         }
 
         val avatarResId = resources.getIdentifier(nameText.lowercase(), "drawable", packageName)
-        val avatar = ImageView(this).apply {
+        val avatarContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(accentColor)
+            }
+            clipToOutline = true
+        }
+
+        val avatar = ImageView(this).apply {
             if (avatarResId != 0) {
                 setImageResource(avatarResId)
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(Color.TRANSPARENT)
-                }
-                clipToOutline = true
             } else {
-                // Fallback: use first letter as avatar
+                // Fallback: show first letter
                 setImageDrawable(null)
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(accentColor)
-                }
-                val textView = TextView(this@DetailsActivity).apply {
+                val letter = TextView(this@DetailsActivity).apply {
                     text = nameText.first().toString()
                     textSize = 20f
                     setTextColor(Color.WHITE)
@@ -216,10 +242,15 @@ class DetailsActivity : Activity() {
                         FrameLayout.LayoutParams.MATCH_PARENT
                     )
                 }
-                addView(textView)
+                addView(letter)
             }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         }
-        row.addView(avatar)
+        avatarContainer.addView(avatar)
+        row.addView(avatarContainer)
 
         val textContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
