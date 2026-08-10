@@ -264,10 +264,10 @@ class CrashLogActivity : Activity() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val touchX = event.x - filterPillContainer.paddingLeft
                     val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-                    // Snap to nearest tab based on progress
+                    // Snap to nearest tab using simple thresholds
                     val targetProgress = when {
-                        progress < 0.25f -> 0f
-                        progress < 0.75f -> 0.5f
+                        progress < 0.33f -> 0f
+                        progress < 0.66f -> 0.5f
                         else -> 1f
                     }
                     val targetFilter = when (targetProgress) {
@@ -716,7 +716,7 @@ class CrashLogActivity : Activity() {
             refreshTimer = object : CountDownTimer(5000, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
                     val seconds = (millisUntilFinished / 1000).toInt()
-                    refreshButton.text = "Wait $seconds"
+                    refreshButton.text = "Cooldown $seconds"
                 }
                 override fun onFinish() {
                     refreshButton.text = "Refresh Logs"
