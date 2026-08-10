@@ -738,7 +738,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // UPDATED: better block collection to capture full crash details
     private fun loadLogs() {
         allLogs.clear()
 
@@ -1430,6 +1429,7 @@ class LogAdapter(
             appNameText.text = cleanPackage
             typeBadge.text = log.type
 
+            // Load icon
             var iconLoaded = false
             if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 try {
@@ -1453,9 +1453,14 @@ class LogAdapter(
                 appIcon.setImageDrawable(defaultIcon)
             }
 
-            // Rounded badge
+            // Rounded badge – compute corner radius in pixels using TypedValue
+            val radiusPx = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                100f,
+                itemView.context.resources.displayMetrics
+            )
             val badgeDrawable = GradientDrawable().apply {
-                cornerRadius = dpToPx(100f).toFloat()
+                cornerRadius = radiusPx
                 setColor(when (log.type) {
                     "Crash" -> ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
                     "ANR" -> ContextCompat.getColor(itemView.context, android.R.color.holo_orange_dark)
