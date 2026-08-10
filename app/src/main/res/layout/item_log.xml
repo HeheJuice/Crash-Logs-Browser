@@ -7,6 +7,15 @@
     android:background="?android:attr/selectableItemBackground"
     android:minHeight="56dp">
 
+    <!-- App Icon -->
+    <ImageView
+        android:id="@+id/appIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="12dp"
+        android:scaleType="centerInside" />
+
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
