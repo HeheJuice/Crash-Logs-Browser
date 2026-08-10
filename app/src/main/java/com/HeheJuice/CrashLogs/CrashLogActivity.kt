@@ -146,7 +146,7 @@ class CrashLogActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -1631,7 +1631,16 @@ class LogAdapter(
         init {
             itemView.isClickable = true
             itemView.isFocusable = true
-            itemView.foreground = context.getDrawable(android.R.attr.selectableItemBackground)
+            // Ripple feedback via foreground – using itemView context
+            val outValue = android.util.TypedValue()
+            itemView.context.theme.resolveAttribute(
+                android.R.attr.selectableItemBackground,
+                outValue,
+                true
+            )
+            if (outValue.resourceId != 0) {
+                itemView.foreground = ContextCompat.getDrawable(itemView.context, outValue.resourceId)
+            }
         }
 
         fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?, cardBg: Int, cardBorder: Int) {
