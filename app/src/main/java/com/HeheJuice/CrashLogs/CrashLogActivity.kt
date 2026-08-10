@@ -466,7 +466,6 @@ class CrashLogActivity : Activity() {
 
     // ========== FULL-SCREEN CRASH DETAILS DIALOG ==========
     private fun showCrashDetailsDialog(entry: LogEntry) {
-        // Use standard theme and set fullscreen via window flags
         val dialog = Dialog(this, android.R.style.Theme_DeviceDefault)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         dialog.window?.apply {
@@ -481,7 +480,6 @@ class CrashLogActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
-                // full screen no corner
             }
             setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
@@ -532,9 +530,9 @@ class CrashLogActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Right: Copy
+        // Right: Copy (use View as common type)
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
-        val copyBtn: ImageView
+        val copyBtn: View
         if (copyDrawable != null) {
             copyBtn = ImageView(this).apply {
                 setImageDrawable(copyDrawable)
@@ -553,7 +551,6 @@ class CrashLogActivity : Activity() {
                 }
             }
         } else {
-            // Fallback: use a TextView with "Copy"
             copyBtn = TextView(this).apply {
                 text = "Copy"
                 textSize = 14f
