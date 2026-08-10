@@ -99,7 +99,7 @@ class CrashLogActivity : Activity() {
         }
 
         setupUI()
-        loadLogsAsync()
+        loadLogsAsync {}
     }
 
     private fun setupUI() {
@@ -289,7 +289,6 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        // Pass card colors to adapter for proper styling
         logAdapter = LogAdapter(
             filteredLogs,
             this,
@@ -360,12 +359,15 @@ class CrashLogActivity : Activity() {
 
         infoCardLayout.addView(statsRow)
 
-        // ---- Refresh Button (with reset filter logic) ----
+        // ---- Refresh Button ----
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
-            loadLogsAsync()
-            // Reset filter to ALL after refresh
-            switchFilterTab(FILTER_ALL)
-            Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
+            loadLogsAsync {
+                // After logs loaded, animate pill to ALL and switch filter
+                animateFilterPillTo(0f) {
+                    switchFilterTab(FILTER_ALL)
+                    Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
+                }
+            }
         }.apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
         }
@@ -511,12 +513,10 @@ class CrashLogActivity : Activity() {
                 if (tab == TAB_LOGS) {
                     logsLayout.visibility = View.VISIBLE
                     infoLayout.visibility = View.GONE
-                    // Animate logs layout when switching to Logs
                     applyEntranceAnimations(listOf(logsLayout))
                 } else {
                     logsLayout.visibility = View.GONE
                     infoLayout.visibility = View.VISIBLE
-                    // Animate info layout when switching to Info
                     applyEntranceAnimations(listOf(infoLayout))
                 }
                 scrollView.scrollTo(0, 0)
@@ -642,6 +642,7 @@ class CrashLogActivity : Activity() {
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
+                    updateFilterPillPosition(targetProgress)
                     onEnd()
                 }
             })
@@ -662,13 +663,11 @@ class CrashLogActivity : Activity() {
                 }
             )
             logAdapter.updateLogs(filteredLogs)
-            // Animate RecyclerView when filter changes
             animateRecyclerView()
         }
     }
 
     private fun animateRecyclerView() {
-        // Fade in with a slight slide-up
         recyclerView.apply {
             translationY = dpToPx(20f).toFloat()
             alpha = 0f
@@ -729,12 +728,13 @@ class CrashLogActivity : Activity() {
     }
 
     // ========== LOG PARSING ==========
-    private fun loadLogsAsync() {
+    private fun loadLogsAsync(onComplete: () -> Unit) {
         Thread {
             loadLogs()
             runOnUiThread {
                 logAdapter.updateLogs(filteredLogs)
                 updateStats()
+                onComplete()
             }
         }.start()
     }
@@ -952,7 +952,7 @@ class CrashLogActivity : Activity() {
                     Handler(Looper.getMainLooper()).postDelayed({
                         if (checkAllPermissions()) {
                             setupUI()
-                            loadLogsAsync()
+                            loadLogsAsync {}
                         } else {
                             Toast.makeText(this, "Some permissions still not granted. Try rebooting.", Toast.LENGTH_LONG).show()
                             showPermissionDialog()
@@ -1201,7 +1201,7 @@ class CrashLogActivity : Activity() {
             if (checkAllPermissions()) {
                 dialog.dismiss()
                 setupUI()
-                loadLogsAsync()
+                loadLogsAsync {}
             } else {
                 Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()

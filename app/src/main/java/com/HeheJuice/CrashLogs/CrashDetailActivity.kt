@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
@@ -14,6 +15,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.ContextCompat
 
@@ -33,6 +35,9 @@ class CrashDetailActivity : Activity() {
 
         initColors()
 
+        // Get status bar height
+        val statusBarHeight = getStatusBarHeight()
+
         val type = intent.getStringExtra("type") ?: "Crash"
         val appName = intent.getStringExtra("appName") ?: "Unknown"
         val timestamp = intent.getStringExtra("timestamp") ?: "Unknown"
@@ -43,7 +48,8 @@ class CrashDetailActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
             }
-            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
+            // Add top padding to avoid touching status bar
+            setPadding(dpToPx(20f), statusBarHeight + dpToPx(12f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
@@ -167,7 +173,7 @@ class CrashDetailActivity : Activity() {
         infoLayout.addView(timeTv)
         rootLayout.addView(infoLayout)
 
-        // Scrollable details
+        // Scrollable details – full content, no truncation
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -267,6 +273,11 @@ class CrashDetailActivity : Activity() {
         accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
         backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
         inputBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+    }
+
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
     }
 
     private fun dpToPx(dp: Float): Int {
