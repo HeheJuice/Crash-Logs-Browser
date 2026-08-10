@@ -466,8 +466,16 @@ class CrashLogActivity : Activity() {
 
     // ========== FULL-SCREEN CRASH DETAILS DIALOG ==========
     private fun showCrashDetailsDialog(entry: LogEntry) {
-        val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_DayNight_NoActionBar_Fullscreen)
+        // Use standard theme and set fullscreen via window flags
+        val dialog = Dialog(this, android.R.style.Theme_DeviceDefault)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.window?.apply {
+            setFlags(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
 
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -525,29 +533,45 @@ class CrashLogActivity : Activity() {
         headerLayout.addView(titleTv)
 
         // Right: Copy
-        val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)?.apply {
-            setTint(primaryTextColor)
-        }
-        val copyBtn = ImageView(this).apply {
-            if (copyDrawable != null) {
+        val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
+        val copyBtn: ImageView
+        if (copyDrawable != null) {
+            copyBtn = ImageView(this).apply {
                 setImageDrawable(copyDrawable)
-            } else {
-                // fallback text
-                setText("Copy")
-                setTextColor(primaryTextColor)
+                setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { copyToClipboard(entry.details) }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+            }
+        } else {
+            // Fallback: use a TextView with "Copy"
+            copyBtn = TextView(this).apply {
+                text = "Copy"
                 textSize = 14f
-            }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
-            }
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { copyToClipboard(entry.details) }
-            setOnTouchListener(pressScaleTouchListener)
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                gravity = Gravity.CENTER_VERTICAL
+                setTextColor(primaryTextColor)
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { copyToClipboard(entry.details) }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
             }
         }
         headerLayout.addView(copyBtn)
@@ -608,7 +632,6 @@ class CrashLogActivity : Activity() {
 
         dialog.setContentView(rootLayout)
         dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
