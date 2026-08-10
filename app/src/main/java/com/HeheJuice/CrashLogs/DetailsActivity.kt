@@ -1,349 +1,190 @@
 package com.HeheJuice.CrashLogs
 
 import android.app.Activity
-import android.os.Bundle
-import android.view.Gravity
-import android.view.View
-import android.view.Window
-import android.view.WindowInsets
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.graphics.Color
-import android.graphics.Typeface
+import android.graphics.*
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
 import android.util.TypedValue
-import android.os.Build
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import org.json.JSONObject
-import java.net.URL
-import javax.net.ssl.HttpsURLConnection
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.widget.*
+import androidx.core.content.ContextCompat
 
 class DetailsActivity : Activity() {
 
-    private lateinit var updateStatusView: TextView
-    private lateinit var updateActionView: TextView
-
-    companion object {
-        private const val TAG = "CrashLogs"
-    }
+    private var primaryTextColor: Int = 0
+    private var secondaryTextColor: Int = 0
+    private var accentColor: Int = 0
+    private var cardBgColor: Int = 0
+    private var cardBorderColor: Int = 0
+    private var backBtnBgColor: Int = 0
+    private var isDark: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
-        actionBar?.hide()
+        requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
-
-        val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-        val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
-        val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
-
+        initColors()
         val statusBarHeight = getStatusBarHeight()
-        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
 
-        val rootFrameLayout = FrameLayout(this).apply { setBackgroundColor(bgColor) }
-
-        val scrollView = ScrollView(this).apply {
-            isVerticalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_ALWAYS
-            clipToPadding = false
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
-        }
-
-        val scrollContent = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        // ----- Banner Card (with optional image) -----
-        val bannerCard = FrameLayout(this).apply {
-            background = GradientDrawable().apply {
-                setColor(Color.TRANSPARENT)
-                cornerRadius = dpToPx(28f).toFloat()
-                setStroke(0, Color.TRANSPARENT)
-            }
-            clipToOutline = true
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(200f)
-            ).apply {
-                bottomMargin = dpToPx(16f)
-            }
-        }
-
-        // Background image (if exists) or solid color
-        val backgroundImage = ImageView(this).apply {
-            val imageResId = resources.getIdentifier("hehejuicebanner", "drawable", packageName)
-            if (imageResId != 0) {
-                setImageResource(imageResId)
-            } else {
-                setBackgroundColor(accentColor)
-            }
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        bannerCard.addView(backgroundImage)
-
-        // Dim overlay
-        val dimOverlay = View(this).apply {
-            setBackgroundColor(Color.parseColor("#66000000"))
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        bannerCard.addView(dimOverlay)
-
-        // Title text
-        val titleText = TextView(this).apply {
-            text = "Crash Logs Browser"
-            textSize = 28f
-            setTextColor(Color.WHITE)
-            setTypeface(Typeface.DEFAULT_BOLD)
-            gravity = Gravity.CENTER
-            translationY = -dpToPx(3f).toFloat()
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        bannerCard.addView(titleText)
-
-        scrollContent.addView(bannerCard)
-
-        // ----- UPDATE CHECKER CARD -----
-        val updateCard = LinearLayout(this).apply {
+        val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
-                cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+            setPadding(dpToPx(20f), statusBarHeight + dpToPx(12f), dpToPx(20f), dpToPx(20f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        // ---- Header ----
+        val headerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dpToPx(16f)
+            )
+        }
+
+        // Back button
+        val backBtn = ImageView(this).apply {
+            setImageDrawable(createArrowBackDrawable())
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
             }
-        }
-
-        updateStatusView = TextView(this).apply {
-            text = "Checking for updates..."
-            textSize = 15f
-            setTextColor(secondaryTextColor)
-            gravity = Gravity.CENTER
-        }
-        updateCard.addView(updateStatusView)
-
-        updateActionView = TextView(this).apply {
-            text = ""
-            textSize = 15f
-            setTextColor(accentColor)
-            gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
             isClickable = true
             isFocusable = true
-            visibility = View.GONE
-            setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser/releases")))
-            }
-            setOnTouchListener { v, event ->
-                when (event.action) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        v.animate().scaleX(0.96f).scaleY(0.96f).alpha(0.8f).setDuration(80).start()
-                    }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start()
-                    }
-                }
-                false
+            setOnClickListener { finish() }
+            setOnTouchListener(pressScaleTouchListener)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                marginEnd = dpToPx(8f)
             }
         }
-        updateCard.addView(updateActionView)
+        headerLayout.addView(backBtn)
 
-        scrollContent.addView(updateCard)
+        // Title
+        val titleTv = TextView(this).apply {
+            text = "Check for Updates"
+            textSize = 22f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        headerLayout.addView(titleTv)
 
-        // ----- CREDITS CARD (only HeheJuice) -----
-        val creditsCard = LinearLayout(this).apply {
+        rootLayout.addView(headerLayout)
+
+        // ---- Separator ----
+        val sep = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(1f)
+            )
+            setBackgroundColor(cardBorderColor)
+        }
+        rootLayout.addView(sep)
+
+        // ---- Content ----
+        val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(cardBgColor)
-                cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
-            }
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dpToPx(30f), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        val creditsTitle = TextView(this).apply {
-            text = "Credits"
+        // App icon
+        val iconDrawable = ContextCompat.getDrawable(this, R.drawable.ic_hehe)
+        val appIcon = ImageView(this).apply {
+            setImageDrawable(iconDrawable)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(80f), dpToPx(80f))
+        }
+        contentLayout.addView(appIcon)
+
+        // App name
+        val appName = TextView(this).apply {
+            text = "Crash Logs Browser"
             textSize = 20f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, 0, dpToPx(16f))
+            setPadding(0, dpToPx(16f), 0, dpToPx(4f))
         }
-        creditsCard.addView(creditsTitle)
+        contentLayout.addView(appName)
 
-        val nameText = "HeheJuice"
-        val descText = "Developer"
-
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            gravity = Gravity.CENTER_VERTICAL
+        // Version
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
+        } catch (e: Exception) {
+            "Unknown"
         }
-
-        val avatarResId = resources.getIdentifier(nameText.lowercase(), "drawable", packageName)
-        val avatarContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                marginEnd = dpToPx(16f)
-            }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(accentColor)
-            }
-            clipToOutline = true
-        }
-
-        val avatar = ImageView(this).apply {
-            if (avatarResId != 0) {
-                setImageResource(avatarResId)
-                scaleType = ImageView.ScaleType.CENTER_CROP
-            } else {
-                // Fallback: show first letter
-                setImageDrawable(null)
-                val letter = TextView(this@DetailsActivity).apply {
-                    text = nameText.first().toString()
-                    textSize = 20f
-                    setTextColor(Color.WHITE)
-                    gravity = Gravity.CENTER
-                    layoutParams = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                    )
-                }
-                addView(letter)
-            }
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        avatarContainer.addView(avatar)
-        row.addView(avatarContainer)
-
-        val textContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-        }
-
-        val nameView = TextView(this).apply {
-            text = nameText
-            textSize = 17f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=HeheJuice"))
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/HeheJuice"))
-                        startActivity(intent)
-                    } catch (e2: Exception) {
-                        // ignore
-                    }
-                }
-            }
-            setOnTouchListener { v, event ->
-                when (event.action) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        v.animate().scaleX(0.98f).scaleY(0.98f).alpha(0.8f).setDuration(80).start()
-                    }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(150).start()
-                    }
-                }
-                false
-            }
-        }
-        textContainer.addView(nameView)
-
-        val descView = TextView(this).apply {
-            text = descText
-            textSize = 14f
+        val versionTv = TextView(this).apply {
+            text = "Version $versionName"
+            textSize = 16f
             setTextColor(secondaryTextColor)
         }
-        textContainer.addView(descView)
+        contentLayout.addView(versionTv)
 
-        row.addView(textContainer)
-        creditsCard.addView(row)
-
-        scrollContent.addView(creditsCard)
-
-        scrollView.addView(scrollContent)
-        rootFrameLayout.addView(scrollView)
-
-        // ---------- TOP BAR ----------
-        val topBarLayout = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        // Spacer
+        val spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(30f)
+            )
         }
+        contentLayout.addView(spacer)
 
-        val topBarTitle = TextView(this).apply {
-            text = "About"
+        // Update button
+        val updateBtn = TextView(this).apply {
+            text = "Check for Updates"
             textSize = 16f
-            setTextColor(primaryTextColor)
+            setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(backBtnBgColor)
                 cornerRadius = dpToPx(100f).toFloat()
+                setColor(accentColor)
             }
-            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
-            alpha = 0f
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, dpToPx(48f), Gravity.CENTER)
+            setPadding(dpToPx(32f), dpToPx(14f), dpToPx(32f), dpToPx(14f))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                Toast.makeText(this@DetailsActivity, "Checking for updates...", Toast.LENGTH_SHORT).show()
+                // TODO: Add actual update check logic
+            }
+            setOnTouchListener(pressScaleTouchListener)
         }
+        contentLayout.addView(updateBtn)
 
-        val backArrowDrawable = object : android.graphics.drawable.Drawable() {
-            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        rootLayout.addView(contentLayout)
+
+        setContentView(rootLayout)
+    }
+
+    private fun createArrowBackDrawable(): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = primaryTextColor
-                style = android.graphics.Paint.Style.STROKE
+                style = Paint.Style.STROKE
                 strokeWidth = dpToPx(2.5f).toFloat()
-                strokeCap = android.graphics.Paint.Cap.ROUND
-                strokeJoin = android.graphics.Paint.Join.ROUND
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
             }
-            override fun draw(canvas: android.graphics.Canvas) {
+            override fun draw(canvas: Canvas) {
                 val cx = bounds.exactCenterX()
                 val cy = bounds.exactCenterY()
                 val size = dpToPx(6.5f)
-                val path = android.graphics.Path().apply {
+                val path = Path().apply {
                     moveTo(cx + size * 0.4f, cy - size)
                     lineTo(cx - size * 0.5f, cy)
                     lineTo(cx + size * 0.4f, cy + size)
@@ -351,70 +192,48 @@ class DetailsActivity : Activity() {
                 canvas.drawPath(path, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
+    }
 
-        val backBtn = android.widget.ImageView(this).apply {
-            setImageDrawable(backArrowDrawable)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
+    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
+        val springBackInterpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(0.94f)
+                    .scaleY(0.94f)
+                    .alpha(0.85f)
+                    .setDuration(120)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                    .start()
             }
-            contentDescription = "Back"
-            isClickable = true
-            isFocusable = true
-            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
-            setOnClickListener { finish() }
-            setOnTouchListener { v, event ->
-                when (event.action) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        v.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
-                    }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(350).start()
-                    }
-                }
-                false
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .alpha(1.0f)
+                    .setDuration(350)
+                    .setInterpolator(springBackInterpolator)
+                    .start()
             }
         }
+        false
+    }
 
-        topBarLayout.addView(topBarTitle)
-        topBarLayout.addView(backBtn)
-        rootFrameLayout.addView(topBarLayout)
-
-        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            val alpha = (scrollY / dpToPx(40f).toFloat()).coerceIn(0f, 1f)
-            topBarTitle.alpha = alpha
-        }
-
-        rootFrameLayout.setOnApplyWindowInsetsListener { _, insets ->
-            val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                insets.getInsets(WindowInsets.Type.statusBars()).top
-            } else {
-                @Suppress("DEPRECATION") insets.systemWindowInsetTop
-            }
-            val bottomInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                insets.getInsets(WindowInsets.Type.navigationBars() or WindowInsets.Type.ime()).bottom
-            } else {
-                @Suppress("DEPRECATION") insets.systemWindowInsetBottom
-            }
-            val effectiveTop = if (topInset > 0) topInset else statusBarHeight
-
-            topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
-            insets
-        }
-
-        setContentView(rootFrameLayout)
-
-        val versionName = getVersionName()
-        if (versionName.contains("Debug", ignoreCase = true)) {
-            updateStatusView.text = "Update check disabled for debug builds"
-            updateActionView.visibility = View.GONE
-        } else {
-            checkForUpdates()
-        }
+    private fun initColors() {
+        isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+        cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+        primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+        secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+        backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
     }
 
     private fun getStatusBarHeight(): Int {
@@ -422,78 +241,7 @@ class DetailsActivity : Activity() {
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
     }
 
-    private fun dpToPx(dp: Float): Int =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
-
-    private fun getVersionName(): String {
-        return try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
-        } catch (e: Exception) {
-            "1.0.0"
-        }
-    }
-
-    private fun compareVersions(v1: String, v2: String): Int {
-        val clean1 = v1.replace(Regex("[^0-9.]"), "")
-        val clean2 = v2.replace(Regex("[^0-9.]"), "")
-        val parts1 = clean1.split(".").map { it.toIntOrNull() ?: 0 }
-        val parts2 = clean2.split(".").map { it.toIntOrNull() ?: 0 }
-        val maxLen = maxOf(parts1.size, parts2.size)
-        for (i in 0 until maxLen) {
-            val p1 = if (i < parts1.size) parts1[i] else 0
-            val p2 = if (i < parts2.size) parts2[i] else 0
-            if (p1 != p2) return p1 - p2
-        }
-        return 0
-    }
-
-    private fun checkForUpdates() {
-        updateStatusView.text = "Checking for updates..."
-        updateActionView.visibility = View.GONE
-
-        Thread {
-            try {
-                val url = URL("https://api.github.com/repos/HeheJuice/Crash-Logs-Browser/releases/latest")
-                val connection = url.openConnection() as HttpsURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-
-                val responseCode = connection.responseCode
-                if (responseCode == HttpsURLConnection.HTTP_OK) {
-                    val inputStream = connection.inputStream
-                    val response = inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
-                    val latestTag = json.getString("tag_name")
-                    val currentVersion = getVersionName()
-
-                    val latestVersion = latestTag.replace(Regex("^[^0-9]*"), "")
-                    val currentVer = currentVersion.replace(Regex("^[^0-9]*"), "")
-
-                    Log.d(TAG, "Latest version: $latestVersion, Current: $currentVer")
-
-                    val comparison = compareVersions(latestVersion, currentVer)
-                    runOnUiThread {
-                        if (comparison > 0) {
-                            updateStatusView.text = "New version available: $latestVersion"
-                            updateActionView.text = "Download"
-                            updateActionView.visibility = View.VISIBLE
-                        } else {
-                            updateStatusView.text = "You are on the latest version ($currentVer)"
-                        }
-                    }
-                } else {
-                    runOnUiThread {
-                        updateStatusView.text = "Failed to check updates (server error)"
-                    }
-                }
-                connection.disconnect()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                runOnUiThread {
-                    updateStatusView.text = "Could not connect to update server"
-                }
-            }
-        }.start()
+    private fun dpToPx(dp: Float): Int {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
     }
 }
