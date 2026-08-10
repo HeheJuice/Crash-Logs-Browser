@@ -232,7 +232,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // Touch handling for filter pill
+        // ---- FIXED TOUCH HANDLING FOR FILTER PILL ----
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat() + (filterAllBtn.width / 2f)
             val x1 = filterAnrBtn.left.toFloat() + (filterAnrBtn.width / 2f)
@@ -263,16 +263,17 @@ class CrashLogActivity : Activity() {
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val touchX = event.x - filterPillContainer.paddingLeft
-                    val midPoint = (x0 + x1) / 2f
-                    val targetFilter = when {
-                        touchX < (x0 + filterAllBtn.width / 2f) -> FILTER_ALL
-                        touchX < (x1 - filterAnrBtn.width / 2f) -> FILTER_CRASH
-                        else -> FILTER_ANR
-                    }
-                    val targetProgress = when (targetFilter) {
-                        FILTER_ALL -> 0f
-                        FILTER_CRASH -> 0.5f
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    // Snap to nearest tab based on progress
+                    val targetProgress = when {
+                        progress < 0.25f -> 0f
+                        progress < 0.75f -> 0.5f
                         else -> 1f
+                    }
+                    val targetFilter = when (targetProgress) {
+                        0f -> FILTER_ALL
+                        0.5f -> FILTER_CRASH
+                        else -> FILTER_ANR
                     }
                     animateFilterPillTo(targetProgress) {
                         switchFilterTab(targetFilter)
