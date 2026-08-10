@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
@@ -19,7 +20,6 @@ import androidx.core.content.ContextCompat
 
 class CrashDetailActivity : AppCompatActivity() {
 
-    // Use var with default values instead of lateinit for primitive types
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
