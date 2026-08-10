@@ -6,6 +6,8 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -1000,25 +1002,29 @@ class CrashLogActivity : Activity() {
         return checkCallingOrSelfPermission("android.permission.READ_DROPBOX_DATA") == PackageManager.PERMISSION_GRANTED
     }
 
+    // ===== FIXED: checkUsageStatsPermission – API level‑aware =====
     private fun checkUsageStatsPermission(): Boolean {
         return try {
             val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                appOps.checkOpNoThrow(
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // API 29+ – use the String constant
+                appOps.unsafeCheckOpNoThrow(
                     AppOpsManager.OPSTR_GET_USAGE_STATS,
                     Process.myUid(),
                     packageName
                 )
             } else {
+                // API 21–28 – use the integer op code (43 = GET_USAGE_STATS)
                 @Suppress("DEPRECATION")
                 appOps.checkOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    43,
                     Process.myUid(),
                     packageName
                 )
             }
             mode == AppOpsManager.MODE_ALLOWED
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to check usage stats permission", e)
             false
         }
     }
@@ -1081,7 +1087,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG (with ADB, status, and Check Again) ==========
+    // ========== CUSTOM PERMISSION DIALOG (with copy button) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1193,7 +1199,7 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ---- ADB commands block ----
+        // ---- ADB commands block with copy icon ----
         val adbLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1212,14 +1218,59 @@ class CrashLogActivity : Activity() {
             }
         }
 
+        // Header: title + copy icon
+        val adbHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
         val adbTitle = TextView(this).apply {
             text = "Grant via ADB (one by one)"
             textSize = 14f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
         }
-        adbLayout.addView(adbTitle)
+        adbHeader.addView(adbTitle)
 
+        // Copy icon using your drawable
+        val copyIcon = ImageView(this).apply {
+            setImageResource(R.drawable.content_copy_24px)
+            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+            isClickable = true
+            isFocusable = true
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            layoutParams = LinearLayout.LayoutParams(
+                dpToPx(32f),
+                dpToPx(32f)
+            )
+            setOnClickListener {
+                val commands = listOf(
+                    "adb shell pm grant ${packageName} android.permission.READ_LOGS",
+                    "adb shell pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
+                    "adb shell appops set ${packageName} GET_USAGE_STATS allow"
+                )
+                val textToCopy = commands.joinToString("\n")
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("ADB Commands", textToCopy)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this@CrashLogActivity, "ADB commands copied", Toast.LENGTH_SHORT).show()
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        adbHeader.addView(copyIcon)
+
+        adbLayout.addView(adbHeader)
+
+        // ADB commands
         val adbCommand1 = TextView(this).apply {
             text = "adb shell pm grant ${packageName} android.permission.READ_LOGS"
             textSize = 11f
