@@ -34,6 +34,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.*
 
 class CrashLogActivity : Activity() {
 
@@ -157,7 +159,6 @@ class CrashLogActivity : Activity() {
         }
 
         logAdapter = LogAdapter(filteredLogs, this, packageManager) { entry ->
-            // Launch CrashDetailActivity
             val intent = Intent(this@CrashLogActivity, CrashDetailActivity::class.java).apply {
                 putExtra("type", entry.type)
                 putExtra("appName", entry.appName)
@@ -470,7 +471,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG PARSING ==========
+    // ========== LOG PARSING (UPDATED) ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -500,57 +501,59 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // UPDATED: Removed mock data, conditional reads, no fallback to mock
     private fun loadLogs() {
         allLogs.clear()
-        try {
-            val process = Runtime.getRuntime().exec("logcat -d -v time -t 500")
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val lines = reader.readLines()
-            process.waitFor()
 
-            var i = 0
-            while (i < lines.size) {
-                val line = lines[i]
-                if (isRealCrashLine(line)) {
-                    val block = mutableListOf<String>()
-                    block.add(line)
-                    val timestamp = extractTimestamp(line)
-                    var type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
-                    i++
-                    while (i < lines.size) {
-                        val nextLine = lines[i]
-                        if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*"))) {
-                            if (isRealCrashLine(nextLine)) {
+        // 1. Fetch from logcat if READ_LOGS is granted
+        if (checkReadLogsPermission()) {
+            try {
+                val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 2000")
+                val reader = BufferedReader(InputStreamReader(process.inputStream))
+                val lines = reader.readLines()
+                process.waitFor()
+
+                var i = 0
+                while (i < lines.size) {
+                    val line = lines[i]
+                    if (isRealCrashLine(line)) {
+                        val block = mutableListOf<String>()
+                        block.add(line)
+                        val timestamp = extractTimestamp(line)
+                        val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
+                        i++
+                        while (i < lines.size) {
+                            val nextLine = lines[i]
+                            if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*")) && isRealCrashLine(nextLine)) {
                                 break
                             }
                             block.add(nextLine)
                             i++
-                        } else {
-                            block.add(nextLine)
-                            i++
                         }
-                    }
-                    val appName = extractPackageName(block)
-                    if (appName.isNotBlank()) {
+                        var appName = extractPackageName(block)
+                        if (appName.isBlank()) {
+                            appName = "System Process / Unknown"
+                        }
                         allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                    } else {
+                        i++
                     }
-                } else {
-                    i++
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read logcat", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read logcat", e)
         }
 
-        if (allLogs.isEmpty()) {
-            loadMockData()
+        // 2. Fetch from DropBoxManager if READ_DROPBOX_DATA is granted
+        if (checkDropBoxPermission()) {
+            loadDropBoxLogs()
         }
 
+        // 3. No mock data – if no logs, list stays empty
         filteredLogs.clear()
         filteredLogs.addAll(allLogs)
     }
 
-    // ENHANCED CRASH DETECTION – covers Java, ANR, native (SIGABRT, SIGSEGV, signals), system services
     private fun isRealCrashLine(line: String): Boolean {
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
@@ -574,36 +577,57 @@ class CrashLogActivity : Activity() {
 
     private fun extractPackageName(block: List<String>): String {
         for (line in block) {
-            val processPattern = Regex("(?:Process|Package):\\s*([\\w.]+)")
-            val match = processPattern.find(line)
-            if (match != null) {
-                val pkg = match.groupValues[1]
-                if (pkg.isNotBlank() && pkg.contains(".")) {
-                    return pkg
-                }
+            val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
+            if (bracketMatch != null) {
+                return bracketMatch.groupValues[1].substringBefore(":")
             }
-            val pidPattern = Regex("pid:\\s*\\d+.*?([\\w.]+)")
-            val pidMatch = pidPattern.find(line)
-            if (pidMatch != null) {
-                val pkg = pidMatch.groupValues[1]
-                if (pkg.isNotBlank() && pkg.contains(".")) {
-                    return pkg
+            val cmdlineMatch = Regex("Cmdline:\\s*([\\w.:]+)").find(line)
+            if (cmdlineMatch != null) {
+                return cmdlineMatch.groupValues[1].substringBefore(":")
+            }
+            val processMatch = Regex("(?:Process|Package):\\s*([\\w.:]+)").find(line)
+            if (processMatch != null) {
+                return processMatch.groupValues[1].substringBefore(":")
+            }
+            val anyPkg = Regex("[\\w.]+\\.[\\w.]+").find(line)
+            if (anyPkg != null) {
+                val pkg = anyPkg.value
+                if (pkg.contains(".") && pkg.length > 5) {
+                    return pkg.substringBefore(":")
                 }
             }
         }
         return ""
     }
 
-    private fun loadMockData() {
-        allLogs.addAll(listOf(
-            LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR", "Mock ANR details\nStack trace..."),
-            LogEntry("08/08, 9:33:32 am", "com.android.settings", "Crash", "Mock crash details\nSignal..."),
-            LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR", "Mock ANR..."),
-            LogEntry("07/08, 10:20:12 pm", "com.android.systemui", "Crash", "Mock crash..."),
-            LogEntry("07/08, 10:20:05 pm", "com.android.settings", "Crash", "Mock crash..."),
-            LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR", "Mock ANR..."),
-            LogEntry("07/08, 5:41:57 pm", "com.android.settings", "ANR", "Mock ANR..."),
-        ))
+    private fun loadDropBoxLogs() {
+        try {
+            val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
+            val tags = arrayOf(
+                "system_app_native_crash",
+                "system_app_crash",
+                "data_app_crash",
+                "system_app_anr",
+                "data_app_anr",
+                "SYSTEM_TOMBSTONE"
+            )
+            var entry = dropBox.getNextEntry(null, 0)
+            while (entry != null) {
+                val tag = entry.tag
+                if (tags.contains(tag)) {
+                    val text = entry.getText(2048) ?: ""
+                    val type = if (tag.contains("anr")) "ANR" else "Crash"
+                    val pkgMatch = Regex("(?:Process|Package|Cmdline):\\s*([\\w.:]+)").find(text)
+                    val pkg = pkgMatch?.groupValues?.get(1)?.substringBefore(":") ?: "com.android.system"
+                    val timeStr = SimpleDateFormat("MM/dd, hh:mm:ss a", Locale.getDefault())
+                        .format(Date(entry.timeMillis))
+                    allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
+                }
+                entry = dropBox.getNextEntry(entry.tag, entry.timeMillis)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read DropBoxManager", e)
+        }
     }
 
     // ========== PERMISSION CHECKS ==========
@@ -704,7 +728,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG ==========
+    // ========== CUSTOM PERMISSION DIALOG (unchanged) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -950,7 +974,6 @@ class CrashLogActivity : Activity() {
     }
 
     // ========== DRAWABLES ==========
-
     private fun createArrowBackDrawable(): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1059,8 +1082,9 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // UPDATED: shows "No logs found." when filteredLogs is empty
     private fun updateLogCount() {
-        logCountHeader.text = "${filteredLogs.size} Log Entries"
+        logCountHeader.text = if (filteredLogs.isEmpty()) "No logs found." else "${filteredLogs.size} Log Entries"
     }
 
     private fun createStatCard(label: String, value: String, color: Int, isError: Boolean): LinearLayout {
@@ -1282,26 +1306,31 @@ class LogAdapter(
 
         fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?) {
             timestampText.text = log.timestamp
-            appNameText.text = log.appName
+            // Clean package name (strip process suffixes like :remote, :adapter)
+            val cleanPackage = log.appName.substringBefore(":")
+            appNameText.text = cleanPackage
             typeBadge.text = log.type
 
-            // Load app icon – with case-insensitive fallback
+            // Load app icon
             var iconLoaded = false
-            try {
-                val appInfo = pm.getApplicationInfo(log.appName, 0)
-                appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
-                iconLoaded = true
-            } catch (e: PackageManager.NameNotFoundException) {
+            if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 try {
-                    val packages = pm.getInstalledApplications(0)
-                    for (pkg in packages) {
-                        if (pkg.packageName.equals(log.appName, ignoreCase = true)) {
-                            appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
-                            iconLoaded = true
-                            break
+                    val appInfo = pm.getApplicationInfo(cleanPackage, 0)
+                    appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
+                    iconLoaded = true
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Try case-insensitive fallback
+                    try {
+                        val packages = pm.getInstalledApplications(0)
+                        for (pkg in packages) {
+                            if (pkg.packageName.equals(cleanPackage, ignoreCase = true)) {
+                                appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
+                                iconLoaded = true
+                                break
+                            }
                         }
-                    }
-                } catch (e2: Exception) { /* ignore */ }
+                    } catch (e2: Exception) { /* ignore */ }
+                }
             }
             if (!iconLoaded) {
                 appIcon.setImageDrawable(defaultIcon)

@@ -3,15 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.HeheJuice.CrashLogs">
 
-    <!-- Permission to read system logs -->
+    <!-- Existing permissions -->
     <uses-permission android:name="android.permission.READ_LOGS" />
-    
-    <!-- Permission to read DropBox crash data -->
     <uses-permission android:name="android.permission.READ_DROPBOX_DATA" />
-    
-    <!-- Permission to get app usage statistics -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
         tools:ignore="ProtectedPermissions" />
+    <!-- NEW: Required for app icon lookup on Android 11+ -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" 
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:allowBackup="true"
@@ -30,11 +29,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
-    android:name=".CrashDetailActivity"
-    android:exported="false"
-    android:theme="@android:style/Theme.DeviceDefault.DayNight"
-    android:screenOrientation="portrait" />
+            android:name=".CrashDetailActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.DayNight"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>
