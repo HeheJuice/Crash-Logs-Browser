@@ -31,6 +31,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
+import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -611,7 +612,7 @@ class CrashLogActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
-                0,  // width will be animated
+                0,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             background = GradientDrawable().apply {
@@ -629,9 +630,10 @@ class CrashLogActivity : Activity() {
             setHintTextColor(secondaryTextColor)
             setTextColor(primaryTextColor)
             background = null
-            gravity = Gravity.CENTER  // center the text horizontally
+            gravity = Gravity.CENTER
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
             layoutParams = LinearLayout.LayoutParams(
-                dpToPx(200f),  // will expand via animation
+                dpToPx(200f),
                 dpToPx(44f),
                 1f
             )
@@ -782,11 +784,10 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== SEARCH TOGGLE (with expand animation + auto-switch) ==========
+    // ========== SEARCH TOGGLE (improved with animation & focus) ==========
     private fun toggleSearch() {
         // If on Info tab, switch to Logs first
         if (currentTab == TAB_INFO) {
-            // Programmatically switch to Logs
             currentTab = TAB_LOGS
             logsLayout.visibility = View.VISIBLE
             infoLayout.visibility = View.GONE
@@ -796,21 +797,10 @@ class CrashLogActivity : Activity() {
 
         val pill = bottomBarContainer.getChildAt(0)
         val search = bottomBarContainer.getChildAt(1)
-        val targetWidth = if (isSearchActive) 0 else {
-            // Calculate available width: total container width - pill width - searchButton width - margins
-            // We'll use a fixed width = match_parent - searchButton width - margins
-            // We can compute: bottomBarContainer.width - searchButton.width - margins
-            // But bottomBarContainer may not have been laid out yet; we can use a fixed value like 250dp
-            // For better dynamic, we'll use a percentage of screen width minus button size.
-            val screenWidth = resources.displayMetrics.widthPixels
-            val margins = dpToPx(8f) * 2 // left/right of container? Actually we can just use a reasonable size.
-            // Let's use (screenWidth - dpToPx(48f) - dpToPx(16f) - dpToPx(16f)) but keep it safe.
-            // We'll set a max width of 300dp.
-            Math.min(dpToPx(300f), screenWidth - dpToPx(48f) - dpToPx(32f))
-        }
 
         if (isSearchActive) {
-            // Collapse: animate width to 0, then hide
+            // --- CLOSE SEARCH ---
+            // Animate width to 0
             val anim = ValueAnimator.ofInt(search.layoutParams.width, 0)
             anim.duration = 250
             anim.interpolator = DecelerateInterpolator(1.2f)
@@ -827,21 +817,31 @@ class CrashLogActivity : Activity() {
                     searchEditText.text.clear()
                     searchQuery = ""
                     applyFilters()
+                    // Hide keyboard and clear focus
                     val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                     imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                    searchEditText.clearFocus()
                 }
             })
             anim.start()
+            isSearchActive = false
         } else {
-            // Expand: make visible with width 0, then animate to targetWidth
+            // --- OPEN SEARCH ---
+            // Show container with width 0, then animate to target width
             search.visibility = View.VISIBLE
             pill.visibility = View.GONE
             search.layoutParams.width = 0
             search.requestLayout()
-            // After layout, animate to targetWidth
+
+            // Calculate target width (minimum 200dp, up to 300dp or screen width minus button/pill)
+            val screenWidth = resources.displayMetrics.widthPixels
+            val buttonWidth = dpToPx(48f)
+            val margins = dpToPx(32f) // padding left/right of container + margins
+            val target = (screenWidth - buttonWidth - margins).coerceAtLeast(dpToPx(200f))
+            val targetWidth = target.coerceAtMost(dpToPx(350f))
+
             search.post {
-                val target = if (targetWidth > 0) targetWidth else dpToPx(200f)
-                val anim = ValueAnimator.ofInt(0, target)
+                val anim = ValueAnimator.ofInt(0, targetWidth)
                 anim.duration = 300
                 anim.interpolator = DecelerateInterpolator(1.2f)
                 anim.addUpdateListener {
@@ -851,11 +851,23 @@ class CrashLogActivity : Activity() {
                 }
                 anim.start()
             }
+
+            // Request focus and show keyboard
             searchEditText.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             imm.showSoftInput(searchEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+
+            isSearchActive = true
         }
-        isSearchActive = !isSearchActive
+    }
+
+    // ========== BACK PRESS: close search if active ==========
+    override fun onBackPressed() {
+        if (isSearchActive) {
+            toggleSearch() // close search
+        } else {
+            super.onBackPressed()
+        }
     }
 
     // ========== REFRESH (NEW LOGIC) ==========
