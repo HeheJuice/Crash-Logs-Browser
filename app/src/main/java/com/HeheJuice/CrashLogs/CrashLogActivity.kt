@@ -6,6 +6,8 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -33,8 +35,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.text.SimpleDateFormat
-import java.util.*
 
 class CrashLogActivity : Activity() {
 
@@ -265,7 +265,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Back arrow – programmatic
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -465,18 +464,25 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== CRASH DETAILS DIALOG ==========
+    // ========== FULL-SCREEN CRASH DETAILS DIALOG ==========
     private fun showCrashDetailsDialog(entry: LogEntry) {
-        val dialog = Dialog(this)
+        val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_DayNight_NoActionBar_Fullscreen)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = createCardBackground()
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+            background = GradientDrawable().apply {
+                setColor(cardBgColor)
+                // full screen no corner
+            }
+            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
         }
 
-        // Header
+        // Header: Close (left), Title (center), Copy (right)
         val headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -486,25 +492,66 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // Left: Close (back arrow)
+        val closeBtn = ImageView(this).apply {
+            setImageDrawable(createArrowBackDrawable())
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { dialog.dismiss() }
+            setOnTouchListener(pressScaleTouchListener)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        headerLayout.addView(closeBtn)
+
+        // Center: Title
         val titleTv = TextView(this).apply {
             text = "${entry.type} Details"
-            textSize = 20f
+            textSize = 22f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dpToPx(8f)
+                marginEnd = dpToPx(8f)
+            }
         }
         headerLayout.addView(titleTv)
 
-        val closeBtn = TextView(this).apply {
-            text = "✕"
-            textSize = 24f
-            setTextColor(secondaryTextColor)
-            setPadding(dpToPx(16f), 0, 0, 0)
-            isClickable = true
-            setOnClickListener { dialog.dismiss() }
-            setOnTouchListener(pressScaleTouchListener)
+        // Right: Copy
+        val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)?.apply {
+            setTint(primaryTextColor)
         }
-        headerLayout.addView(closeBtn)
+        val copyBtn = ImageView(this).apply {
+            if (copyDrawable != null) {
+                setImageDrawable(copyDrawable)
+            } else {
+                // fallback text
+                setText("Copy")
+                setTextColor(primaryTextColor)
+                textSize = 14f
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { copyToClipboard(entry.details) }
+            setOnTouchListener(pressScaleTouchListener)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        headerLayout.addView(copyBtn)
+
         rootLayout.addView(headerLayout)
 
         // Separator
@@ -517,7 +564,7 @@ class CrashLogActivity : Activity() {
         }
         rootLayout.addView(sep)
 
-        // Package and timestamp
+        // Info row (package and time)
         val infoLayout2 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dpToPx(12f), 0, dpToPx(12f))
@@ -528,7 +575,6 @@ class CrashLogActivity : Activity() {
             setTextColor(secondaryTextColor)
         }
         infoLayout2.addView(pkgTv)
-
         val timeTv = TextView(this).apply {
             text = "Time: ${entry.timestamp}"
             textSize = 14f
@@ -537,11 +583,12 @@ class CrashLogActivity : Activity() {
         infoLayout2.addView(timeTv)
         rootLayout.addView(infoLayout2)
 
-        // Scrollable details
+        // Scrollable details (fill remaining space)
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(400f)
+                0,
+                1f
             )
         }
         val detailsTv = TextView(this).apply {
@@ -559,23 +606,26 @@ class CrashLogActivity : Activity() {
         scrollDetails.addView(detailsTv)
         rootLayout.addView(scrollDetails)
 
-        // Close button
-        val closeButton = createAnimatedButton("Close", Color.WHITE, accentColor, buttonHeightPx) {
-            dialog.dismiss()
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
-        }
-        rootLayout.addView(closeButton)
-
         dialog.setContentView(rootLayout)
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setLayout((resources.displayMetrics.widthPixels * 0.92).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+            setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
         dialog.show()
     }
 
-    // ========== LOG LOADING (enhanced) ==========
+    // ========== COPY TO CLIPBOARD ==========
+    private fun copyToClipboard(text: String) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Crash Log", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+
+    // ========== ENHANCED LOG PARSING ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -608,45 +658,35 @@ class CrashLogActivity : Activity() {
     private fun loadLogs() {
         allLogs.clear()
         try {
-            // Get more lines (last 500) to capture native crashes that may appear later
             val process = Runtime.getRuntime().exec("logcat -d -v time -t 500")
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             val lines = reader.readLines()
             process.waitFor()
 
-            // Parse blocks
             var i = 0
             while (i < lines.size) {
                 val line = lines[i]
-                // Detect crash patterns
-                if (isCrashLine(line)) {
-                    // Collect block
+                if (isRealCrashLine(line)) {
                     val block = mutableListOf<String>()
-                    val timestamp = extractTimestamp(line)
-                    val appName = extractAppName(line)
-                    val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
-                    // Add the line itself
                     block.add(line)
-                    // Continue collecting lines until we hit a new timestamp or end
+                    val timestamp = extractTimestamp(line)
+                    var type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
                     i++
                     while (i < lines.size) {
                         val nextLine = lines[i]
-                        // Check if next line is a new log entry (starts with timestamp)
                         if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*"))) {
-                            // If it's another crash, we stop (will be handled in next iteration)
-                            if (isCrashLine(nextLine)) {
+                            if (isRealCrashLine(nextLine)) {
                                 break
                             }
-                            // If it's a normal log line, we include it (could be part of the crash)
                             block.add(nextLine)
                             i++
                         } else {
-                            // Not a timestamp line (e.g., continuation of stack trace) -> include it
                             block.add(nextLine)
                             i++
                         }
                     }
-                    if (appName.isNotEmpty()) {
+                    val appName = extractPackageName(block)
+                    if (appName.isNotBlank()) {
                         allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
                     }
                 } else {
@@ -665,15 +705,12 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
-    private fun isCrashLine(line: String): Boolean {
+    private fun isRealCrashLine(line: String): Boolean {
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
                 line.contains("SIGABRT") ||
-                line.contains("signal") ||
-                line.contains("Native crash") ||
-                line.contains("Abort message") ||
-                line.contains("backtrace:") ||
-                (line.contains("FATAL") && line.contains("pid"))
+                (line.contains("Abort message") && line.contains("FATAL")) ||
+                (line.contains("backtrace:") && line.contains("pid:"))
     }
 
     private fun extractTimestamp(line: String): String {
@@ -682,18 +719,26 @@ class CrashLogActivity : Activity() {
         return match?.value?.replace("-", "/")?.substring(0, 15) ?: "Unknown"
     }
 
-    private fun extractAppName(line: String): String {
-        // Try to extract package name
-        val pattern = Regex("\\(([^)]+)\\)")
-        val match = pattern.find(line)
-        val candidate = match?.groupValues?.get(1)?.split(":")?.firstOrNull()
-        if (!candidate.isNullOrBlank() && candidate.contains(".")) {
-            return candidate
+    private fun extractPackageName(block: List<String>): String {
+        for (line in block) {
+            val processPattern = Regex("(?:Process|Package):\\s*([\\w.]+)")
+            val match = processPattern.find(line)
+            if (match != null) {
+                val pkg = match.groupValues[1]
+                if (pkg.isNotBlank() && pkg.contains(".")) {
+                    return pkg
+                }
+            }
+            val pidPattern = Regex("pid:\\s*\\d+.*?([\\w.]+)")
+            val pidMatch = pidPattern.find(line)
+            if (pidMatch != null) {
+                val pkg = pidMatch.groupValues[1]
+                if (pkg.isNotBlank() && pkg.contains(".")) {
+                    return pkg
+                }
+            }
         }
-        // If not found, look for "Process: com.example"
-        val processPattern = Regex("Process:\\s*([\\w.]+)")
-        val processMatch = processPattern.find(line)
-        return processMatch?.groupValues?.get(1) ?: "Unknown"
+        return ""
     }
 
     private fun loadMockData() {
@@ -821,7 +866,6 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon – using your downloaded `lock_24px`
         val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
             setTint(primaryTextColor)
         }
@@ -918,7 +962,6 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ADB instructions
         val adbLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1386,10 +1429,9 @@ class LogAdapter(
 
         fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?) {
             timestampText.text = log.timestamp
-            appNameText.text = log.appName  // show package name
+            appNameText.text = log.appName
             typeBadge.text = log.type
 
-            // Load app icon
             try {
                 val appInfo = pm.getApplicationInfo(log.appName, 0)
                 val icon = pm.getApplicationIcon(appInfo)
