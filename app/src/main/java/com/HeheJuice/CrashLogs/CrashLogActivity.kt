@@ -528,11 +528,12 @@ class CrashLogActivity : Activity() {
                             block.add(nextLine)
                             i++
                         }
-                        val appName = extractPackageName(block)
-                        // 🔥 IMPORTANT: Skip if package name is "System Process / Unknown"
-                        if (appName != "System Process / Unknown") {
-                            allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                        var appName = extractPackageName(block)
+                        // Keep system entries; if unknown, label as "System Process"
+                        if (appName == "System Process / Unknown") {
+                            appName = "System Process"
                         }
+                        allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
                     } else {
                         i++
                     }
@@ -551,7 +552,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun isRealCrashLine(line: String): Boolean {
-        // Broad detection – captures almost everything that looks like a crash or system event
+        // Broad detection to capture all possible crash-related lines
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
                 line.contains("SIGABRT") ||
@@ -603,7 +604,7 @@ class CrashLogActivity : Activity() {
     private fun loadDropBoxLogs() {
         try {
             val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
-            val tags = arrayOf(
+            val tags = setOf(
                 "system_app_native_crash",
                 "system_app_crash",
                 "data_app_crash",
@@ -616,14 +617,18 @@ class CrashLogActivity : Activity() {
                 val tag = entry.tag
                 if (tags.contains(tag)) {
                     val text = entry.getText(2048) ?: ""
-                    val type = if (tag.contains("anr")) "ANR" else "Crash"
+                    val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
                     val pkgMatch = Regex("(?:Process|Package|Cmdline):\\s*([\\w.:]+)").find(text)
-                    val pkg = pkgMatch?.groupValues?.get(1)?.substringBefore(":") ?: "com.android.system"
-                    val timeStr = SimpleDateFormat("MM/dd, hh:mm:ss a", Locale.getDefault())
+                    val pkg = pkgMatch?.groupValues?.get(1)?.substringBefore(":")
+                        ?: if (tag == "SYSTEM_TOMBSTONE") "System Tombstone" else "com.android.system"
+
+                    val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
                         .format(Date(entry.timeMillis))
                     allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
                 }
-                entry = dropBox.getNextEntry(entry.tag, entry.timeMillis)
+                val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
+                entry.close()
+                entry = nextEntry
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read DropBoxManager", e)
