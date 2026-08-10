@@ -82,6 +82,9 @@ class CrashLogActivity : Activity() {
     private lateinit var filterAnrBtn: TextView
     private var currentFilterTab = FILTER_ALL
 
+    // Loading indicator
+    private lateinit var progressBar: ProgressBar
+
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
 
@@ -278,6 +281,22 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
+        // ---- Loading ProgressBar ----
+        progressBar = ProgressBar(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+                bottomMargin = dpToPx(16f)
+            }
+            visibility = View.GONE
+            indeterminateDrawable = ContextCompat.getDrawable(this@CrashLogActivity, android.R.drawable.progress_indeterminate_horizontal)?.apply {
+                setTint(accentColor)
+            }
+        }
+        logsLayout.addView(progressBar)
+
         // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -362,7 +381,6 @@ class CrashLogActivity : Activity() {
         // ---- Refresh Button ----
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogsAsync {
-                // After logs loaded, animate pill to ALL and switch filter
                 animateFilterPillTo(0f) {
                     switchFilterTab(FILTER_ALL)
                     Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
@@ -727,11 +745,15 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== LOG PARSING ==========
+    // ========== LOG PARSING WITH LOADING STATE ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
+        progressBar.visibility = View.VISIBLE
+        recyclerView.visibility = View.GONE
         Thread {
             loadLogs()
             runOnUiThread {
+                progressBar.visibility = View.GONE
+                recyclerView.visibility = View.VISIBLE
                 logAdapter.updateLogs(filteredLogs)
                 updateStats()
                 onComplete()

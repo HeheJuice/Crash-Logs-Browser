@@ -7,7 +7,6 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
@@ -99,7 +98,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button – fixed 48dp
+        // Copy button – smaller icon (36dp), with 12dp padding to keep touch area large
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -110,11 +109,14 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f)) // same as back
+                // Larger padding to make icon smaller inside the 48dp circle
+                setPadding(dpToPx(14f), dpToPx(14f), dpToPx(14f), dpToPx(14f))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
                 setOnTouchListener(pressScaleTouchListener)
+                // Touch area remains 48dp
                 layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                     gravity = Gravity.CENTER_VERTICAL
                 }
@@ -144,15 +146,8 @@ class CrashDetailActivity : Activity() {
 
         rootLayout.addView(headerLayout)
 
-        // Separator
-        val sep = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(1f)
-            )
-            setBackgroundColor(cardBorderColor)
-        }
-        rootLayout.addView(sep)
+        // ---- Removed the thin separator line ----
+        // (No separator added)
 
         // Info row (package and time)
         val infoLayout = LinearLayout(this).apply {
