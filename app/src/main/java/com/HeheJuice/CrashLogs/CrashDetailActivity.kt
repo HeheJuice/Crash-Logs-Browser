@@ -1,11 +1,10 @@
 package com.HeheJuice.CrashLogs
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.graphics.*
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -15,10 +14,9 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
-class CrashDetailActivity : AppCompatActivity() {
+class CrashDetailActivity : Activity() {
 
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
@@ -31,7 +29,6 @@ class CrashDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
-        supportActionBar?.hide()
 
         initColors()
 

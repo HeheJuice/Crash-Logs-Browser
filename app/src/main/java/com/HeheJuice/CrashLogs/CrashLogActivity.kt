@@ -169,7 +169,7 @@ class CrashLogActivity : Activity() {
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
-        // ========== INFO TAB (unchanged) ==========
+        // ========== INFO TAB ==========
         infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
@@ -243,7 +243,7 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== TOP BAR (unchanged) ==========
+        // ========== TOP BAR ==========
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -289,7 +289,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR (unchanged) ==========
+        // ========== BOTTOM BAR ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -470,7 +470,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG PARSING (enhanced) ==========
+    // ========== LOG PARSING ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -550,8 +550,8 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
+    // ENHANCED CRASH DETECTION – covers Java, ANR, native (SIGABRT, SIGSEGV, signals), system services
     private fun isRealCrashLine(line: String): Boolean {
-        // Covers: Java/Kotlin exceptions, ANR, native crashes, signals, abort
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
                 line.contains("SIGABRT") ||
@@ -561,7 +561,9 @@ class CrashLogActivity : Activity() {
                 (line.contains("Abort message") && line.contains("FATAL")) ||
                 (line.contains("backtrace:") && line.contains("pid:")) ||
                 line.contains("Native crash") ||
-                (line.contains("Process:") && line.contains(" crashed"))
+                (line.contains("Process:") && line.contains(" crashed")) ||
+                line.contains("system_server") ||
+                line.contains("DEBUG   :")
     }
 
     private fun extractTimestamp(line: String): String {
@@ -604,7 +606,7 @@ class CrashLogActivity : Activity() {
         ))
     }
 
-    // ========== PERMISSION CHECKS (unchanged) ==========
+    // ========== PERMISSION CHECKS ==========
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
@@ -653,7 +655,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== ROOT PERMISSION GRANT (unchanged) ==========
+    // ========== ROOT PERMISSION GRANT ==========
     private fun grantPermissionsWithRoot() {
         Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
         Thread {
@@ -702,7 +704,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG (unchanged) ==========
+    // ========== CUSTOM PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -975,7 +977,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== UI HELPERS (unchanged) ==========
+    // ========== UI HELPERS ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
@@ -1286,12 +1288,10 @@ class LogAdapter(
             // Load app icon – with case-insensitive fallback
             var iconLoaded = false
             try {
-                // Try exact match
                 val appInfo = pm.getApplicationInfo(log.appName, 0)
                 appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
                 iconLoaded = true
             } catch (e: PackageManager.NameNotFoundException) {
-                // Try to find by package name (ignore case)
                 try {
                     val packages = pm.getInstalledApplications(0)
                     for (pkg in packages) {
@@ -1301,9 +1301,7 @@ class LogAdapter(
                             break
                         }
                     }
-                } catch (e2: Exception) {
-                    // Fall through
-                }
+                } catch (e2: Exception) { /* ignore */ }
             }
             if (!iconLoaded) {
                 appIcon.setImageDrawable(defaultIcon)
