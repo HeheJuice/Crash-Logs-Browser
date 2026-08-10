@@ -1678,13 +1678,6 @@ class CrashLogActivity : Activity() {
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
     }
 
-    // 仅保留这一个 dpToPx 函数，删除了重载
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
-    }
-
-    // 已删除：private fun dpToPx(dp: Int): Int = dpToPx(dp.toFloat())
-
     private fun onItemClick(entry: LogEntry) {
         val intent = Intent(this, CrashDetailActivity::class.java).apply {
             putExtra("type", entry.type)
