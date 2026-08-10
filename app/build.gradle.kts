@@ -52,8 +52,6 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.recyclerview:recyclerview:1.3.0")
-
-    // Shizuku – official Maven Central artifacts (moe.shizuku.privileged)
-    implementation("moe.shizuku.privileged:api:13.1.5")
-    implementation("moe.shizuku.privileged:provider:13.1.5")
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }
