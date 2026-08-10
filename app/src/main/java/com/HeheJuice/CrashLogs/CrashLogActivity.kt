@@ -28,6 +28,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.*
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.BufferedReader
@@ -154,7 +155,7 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        logAdapter = LogAdapter(filteredLogs)
+        logAdapter = LogAdapter(filteredLogs, packageManager)
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
@@ -260,7 +261,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Material-style back arrow (programmatic)
+        // Back arrow – still programmatic (you can replace with arrow_back_24px if downloaded)
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -536,12 +537,12 @@ class CrashLogActivity : Activity() {
     private fun loadMockData() {
         allLogs.addAll(listOf(
             LogEntry("08/08, 5:35:57 pm", "com.instagram.android", "ANR"),
-            LogEntry("08/08, 9:33:32 am", "Settings", "Crash"),
+            LogEntry("08/08, 9:33:32 am", "com.android.settings", "Crash"),
             LogEntry("07/08, 10:21:47 pm", "com.android.settings", "ANR"),
-            LogEntry("07/08, 10:20:12 pm", "System App", "Crash"),
-            LogEntry("07/08, 10:20:05 pm", "Settings", "Crash"),
+            LogEntry("07/08, 10:20:12 pm", "com.android.systemui", "Crash"),
+            LogEntry("07/08, 10:20:05 pm", "com.android.settings", "Crash"),
             LogEntry("07/08, 8:25:38 pm", "com.instagram.android", "ANR"),
-            LogEntry("07/08, 5:41:57 pm", "Settings", "ANR"),
+            LogEntry("07/08, 5:41:57 pm", "com.android.settings", "ANR"),
         ))
     }
 
@@ -596,6 +597,7 @@ class CrashLogActivity : Activity() {
 
     // ========== ROOT PERMISSION GRANT ==========
     private fun grantPermissionsWithRoot() {
+        Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
         Thread {
             val commands = listOf(
                 "pm grant ${packageName} android.permission.READ_LOGS",
@@ -618,7 +620,7 @@ class CrashLogActivity : Activity() {
                         }
                     }, 500)
                 } else {
-                    Toast.makeText(this, "Root permission required or failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Root permission required or failed. Please grant manually in Magisk/KSU.", Toast.LENGTH_LONG).show()
                     showPermissionDialog()
                 }
             }
@@ -628,17 +630,14 @@ class CrashLogActivity : Activity() {
     private fun runRootCommands(commands: List<String>): Boolean {
         return try {
             val script = commands.joinToString(" ; ")
-            val process = ProcessBuilder("su", "-c", script).start()
-            
+            val process = ProcessBuilder("su", "-c", script)
+                .redirectErrorStream(true)
+                .start()
             val output = process.inputStream.bufferedReader().readText()
-            val error = process.errorStream.bufferedReader().readText()
-            
             Log.d(TAG, "Root output: $output")
-            if (error.isNotEmpty()) {
-                Log.e(TAG, "Root error: $error")
-            }
-            
-            process.waitFor() == 0
+            val exitCode = process.waitFor()
+            Log.d(TAG, "Root exit code: $exitCode")
+            exitCode == 0
         } catch (e: Exception) {
             Log.e(TAG, "Root command failed", e)
             false
@@ -660,8 +659,10 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Lock icon (programmatic Material-style)
-        val lockDrawable = createLockDrawable()
+        // Lock icon – using your downloaded `lock_24px`
+        val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
+            setTint(primaryTextColor)
+        }
         val iconIv = ImageView(this).apply {
             setImageDrawable(lockDrawable)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
@@ -691,7 +692,7 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission list with status (check/close drawables)
+        // Permission list with status (using check_circle / cancel)
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -717,7 +718,10 @@ class CrashLogActivity : Activity() {
             }
 
             val granted = isPermissionGranted(perm)
-            val statusDrawable = createStatusDrawable(granted)
+            val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
+            val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
+                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+            }
             val statusIv = ImageView(this).apply {
                 setImageDrawable(statusDrawable)
                 layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
@@ -891,9 +895,9 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== CUSTOM DRAWABLES (Material Style) ==========
+    // ========== DRAWABLES ==========
 
-    // Arrow back (Material-style)
+    // Back arrow – keep programmatic (or replace with arrow_back_24px if downloaded)
     private fun createArrowBackDrawable(): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -913,115 +917,6 @@ class CrashLogActivity : Activity() {
                     lineTo(cx + size * 0.4f, cy + size)
                 }
                 canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    // Lock icon
-    private fun createLockDrawable(): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val w = bounds.width() * 0.3f
-                val h = bounds.height() * 0.5f
-                // Body
-                canvas.drawRoundRect(cx - w, cy - h*0.2f, cx + w, cy + h*0.8f, dpToPx(4f).toFloat(), dpToPx(4f).toFloat(), paint)
-                // Shackle
-                canvas.drawArc(cx - w*0.6f, cy - h*0.8f, cx + w*0.6f, cy - h*0.2f, -180f, 180f, false, paint)
-                // Keyhole
-                canvas.drawCircle(cx, cy + h*0.2f, dpToPx(3f).toFloat(), paint)
-                canvas.drawLine(cx, cy + h*0.2f, cx, cy + h*0.5f, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    // Status: check or cross
-    private fun createStatusDrawable(granted: Boolean): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
-                style = Paint.Style.FILL_AND_STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val radius = bounds.width() * 0.4f
-                // Circle background
-                canvas.drawCircle(cx, cy, radius, paint)
-                paint.color = Color.WHITE
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = dpToPx(2.5f).toFloat()
-                if (granted) {
-                    // Check mark
-                    val path = Path().apply {
-                        moveTo(cx - radius * 0.4f, cy)
-                        lineTo(cx - radius * 0.1f, cy + radius * 0.5f)
-                        lineTo(cx + radius * 0.6f, cy - radius * 0.5f)
-                    }
-                    canvas.drawPath(path, paint)
-                } else {
-                    // Cross
-                    val offset = radius * 0.5f
-                    canvas.drawLine(cx - offset, cy - offset, cx + offset, cy + offset, paint)
-                    canvas.drawLine(cx + offset, cy - offset, cx - offset, cy + offset, paint)
-                }
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    // Stat icons: error and warning
-    private fun createStatIconDrawable(isError: Boolean, color: Int): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = color
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val r = bounds.width() * 0.4f
-                if (isError) {
-                    // Error: circle with exclamation
-                    canvas.drawCircle(cx, cy, r, paint)
-                    paint.style = Paint.Style.FILL_AND_STROKE
-                    paint.strokeWidth = dpToPx(2.5f).toFloat()
-                    canvas.drawLine(cx, cy - r * 0.4f, cx, cy + r * 0.1f, paint)
-                    canvas.drawCircle(cx, cy + r * 0.4f, dpToPx(2f).toFloat(), paint)
-                } else {
-                    // Warning: triangle
-                    val path = Path().apply {
-                        moveTo(cx, cy - r)
-                        lineTo(cx - r * 0.9f, cy + r * 0.6f)
-                        lineTo(cx + r * 0.9f, cy + r * 0.6f)
-                        close()
-                    }
-                    canvas.drawPath(path, paint)
-                    paint.style = Paint.Style.FILL_AND_STROKE
-                    paint.strokeWidth = dpToPx(2.5f).toFloat()
-                    canvas.drawLine(cx, cy - r * 0.2f, cx, cy + r * 0.3f, paint)
-                    canvas.drawCircle(cx, cy + r * 0.6f, dpToPx(2f).toFloat(), paint)
-                }
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
             override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
@@ -1134,7 +1029,9 @@ class CrashLogActivity : Activity() {
                 marginEnd = dpToPx(6f)
             }
 
-            val iconDrawable = createStatIconDrawable(isError, color)
+            // Use error_24px for crashes, warning_24px for ANR
+            val iconRes = if (isError) R.drawable.error_24px else R.drawable.warning_24px
+            val iconDrawable = ContextCompat.getDrawable(context, iconRes)?.apply { setTint(color) }
             val iconView = ImageView(context).apply {
                 setImageDrawable(iconDrawable)
                 layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f)).apply {
@@ -1292,7 +1189,15 @@ data class LogEntry(
 )
 
 // ========== LOG ADAPTER ==========
-class LogAdapter(private var logs: List<LogEntry>) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
+class LogAdapter(
+    private var logs: List<LogEntry>,
+    private val packageManager: PackageManager
+) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
+
+    private val defaultIcon = ContextCompat.getDrawable(
+        packageManager.getApplicationContext(),
+        android.R.drawable.sym_def_app_icon
+    )
 
     fun updateLogs(newLogs: List<LogEntry>) {
         logs = newLogs
@@ -1306,21 +1211,30 @@ class LogAdapter(private var logs: List<LogEntry>) : RecyclerView.Adapter<LogAda
     }
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(logs[position])
+        holder.bind(logs[position], packageManager, defaultIcon)
     }
 
     override fun getItemCount(): Int = logs.size
 
     class LogViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
         private val timestampText: TextView = itemView.findViewById(R.id.timestampText)
         private val appNameText: TextView = itemView.findViewById(R.id.appNameText)
         private val typeBadge: TextView = itemView.findViewById(R.id.typeBadge)
 
-        fun bind(log: LogEntry) {
+        fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?) {
             timestampText.text = log.timestamp
-            appNameText.text = log.appName
+            appNameText.text = log.appName  // show package name
             typeBadge.text = log.type
-            
+
+            try {
+                val appInfo = pm.getApplicationInfo(log.appName, 0)
+                val icon = pm.getApplicationIcon(appInfo)
+                appIcon.setImageDrawable(icon)
+            } catch (e: PackageManager.NameNotFoundException) {
+                appIcon.setImageDrawable(defaultIcon)
+            }
+
             when (log.type) {
                 "Crash" -> {
                     typeBadge.setBackgroundColor(
