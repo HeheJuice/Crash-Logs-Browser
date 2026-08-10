@@ -471,7 +471,7 @@ class CrashLogActivity : Activity() {
         applyEntranceAnimations(listOf(logsLayout))
     }
 
-    // ========== LOG PARSING (UPDATED) ==========
+    // ========== LOG PARSING (FIXED) ==========
     private fun loadLogsAsync() {
         logCountHeader.text = "Loading logs..."
         Thread {
@@ -501,11 +501,9 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // UPDATED: Removed mock data, conditional reads, no fallback to mock
     private fun loadLogs() {
         allLogs.clear()
 
-        // 1. Fetch from logcat if READ_LOGS is granted
         if (checkReadLogsPermission()) {
             try {
                 val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 2000")
@@ -530,10 +528,7 @@ class CrashLogActivity : Activity() {
                             block.add(nextLine)
                             i++
                         }
-                        var appName = extractPackageName(block)
-                        if (appName.isBlank()) {
-                            appName = "System Process / Unknown"
-                        }
+                        val appName = extractPackageName(block)
                         allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
                     } else {
                         i++
@@ -544,12 +539,10 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // 2. Fetch from DropBoxManager if READ_DROPBOX_DATA is granted
         if (checkDropBoxPermission()) {
             loadDropBoxLogs()
         }
 
-        // 3. No mock data – if no logs, list stays empty
         filteredLogs.clear()
         filteredLogs.addAll(allLogs)
     }
@@ -572,32 +565,39 @@ class CrashLogActivity : Activity() {
     private fun extractTimestamp(line: String): String {
         val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
         val match = pattern.find(line)
-        return match?.value?.replace("-", "/")?.substring(0, 15) ?: "Unknown"
+        return match?.value?.replace("-", "/") ?: "Unknown"
     }
 
     private fun extractPackageName(block: List<String>): String {
         for (line in block) {
+            // Try to extract from "Process: com.example" or "Package: com.example"
+            val processMatch = Regex("(?:Process|Package):\\s*([\\w.:]+)").find(line)
+            if (processMatch != null) {
+                val pkg = processMatch.groupValues[1].substringBefore(":")
+                if (pkg.isNotBlank() && pkg.contains(".")) {
+                    return pkg
+                }
+            }
+            // Try to extract from parentheses: (com.example)
+            val parenMatch = Regex("\\(([\\w.]+)\\)").find(line)
+            if (parenMatch != null) {
+                val pkg = parenMatch.groupValues[1]
+                if (pkg.isNotBlank() && pkg.contains(".")) {
+                    return pkg
+                }
+            }
+            // Try to extract from native crash bracket: >>> com.example <<<
             val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
             if (bracketMatch != null) {
                 return bracketMatch.groupValues[1].substringBefore(":")
             }
+            // Try to extract from Cmdline: com.example
             val cmdlineMatch = Regex("Cmdline:\\s*([\\w.:]+)").find(line)
             if (cmdlineMatch != null) {
                 return cmdlineMatch.groupValues[1].substringBefore(":")
             }
-            val processMatch = Regex("(?:Process|Package):\\s*([\\w.:]+)").find(line)
-            if (processMatch != null) {
-                return processMatch.groupValues[1].substringBefore(":")
-            }
-            val anyPkg = Regex("[\\w.]+\\.[\\w.]+").find(line)
-            if (anyPkg != null) {
-                val pkg = anyPkg.value
-                if (pkg.contains(".") && pkg.length > 5) {
-                    return pkg.substringBefore(":")
-                }
-            }
         }
-        return ""
+        return "System Process / Unknown"
     }
 
     private fun loadDropBoxLogs() {
@@ -728,7 +728,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG (unchanged) ==========
+    // ========== CUSTOM PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1082,7 +1082,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // UPDATED: shows "No logs found." when filteredLogs is empty
     private fun updateLogCount() {
         logCountHeader.text = if (filteredLogs.isEmpty()) "No logs found." else "${filteredLogs.size} Log Entries"
     }
@@ -1306,12 +1305,10 @@ class LogAdapter(
 
         fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?) {
             timestampText.text = log.timestamp
-            // Clean package name (strip process suffixes like :remote, :adapter)
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
             typeBadge.text = log.type
 
-            // Load app icon
             var iconLoaded = false
             if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 try {
@@ -1319,7 +1316,6 @@ class LogAdapter(
                     appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
                     iconLoaded = true
                 } catch (e: PackageManager.NameNotFoundException) {
-                    // Try case-insensitive fallback
                     try {
                         val packages = pm.getInstalledApplications(0)
                         for (pkg in packages) {
