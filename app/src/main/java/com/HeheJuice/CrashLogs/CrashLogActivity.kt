@@ -105,14 +105,650 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== UI SETUP (unchanged) ==========
+    // ========== UI SETUP (full) ==========
     private fun setupUI() {
-        // ... (identical to previous version, no changes needed) ...
-        // I'll include the full code in the final answer, but for brevity I'll skip repeating it here.
-        // The only changes are in the log parsing methods.
+        rootFrameLayout = FrameLayout(this).apply {
+            setBackgroundColor(if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7"))
+        }
+
+        val statusBarHeight = getStatusBarHeight()
+
+        scrollView = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_ALWAYS
+            clipToPadding = false
+            setFillViewport(true)
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
+        }
+
+        val scrollContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        // ========== LOGS TAB ==========
+        logsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        // ---- FILTER PILL ----
+        filterPillContainer = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(100f).toFloat()
+                setColor(cardBgColor)
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(44f)
+            ).apply {
+                bottomMargin = dpToPx(16f)
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
+        val filterActiveBg = GradientDrawable().apply {
+            setColor(secondaryBtnColor)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        filterSlidingView = View(this).apply {
+            background = filterActiveBg
+            layoutParams = FrameLayout.LayoutParams(0, dpToPx(36f))
+        }
+
+        val filterButtonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        filterAllBtn = TextView(this).apply {
+            text = "ALL"
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = false
+        }
+        filterCrashBtn = TextView(this).apply {
+            text = "CRASH"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = false
+        }
+        filterAnrBtn = TextView(this).apply {
+            text = "ANR"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(36f), 1f)
+            isClickable = false
+        }
+
+        filterButtonsLayout.addView(filterAllBtn)
+        filterButtonsLayout.addView(filterCrashBtn)
+        filterButtonsLayout.addView(filterAnrBtn)
+
+        filterPillContainer.addView(filterSlidingView)
+        filterPillContainer.addView(filterButtonsLayout)
+
+        // Initialize filter pill position
+        filterPillContainer.post {
+            filterSlidingView.layoutParams = filterSlidingView.layoutParams.apply {
+                width = filterAllBtn.width
+            }
+            filterSlidingView.translationX = filterAllBtn.left.toFloat()
+            filterSlidingView.requestLayout()
+        }
+
+        // Touch handling for filter pill
+        filterPillContainer.setOnTouchListener { view, event ->
+            val x0 = filterAllBtn.left.toFloat() + (filterAllBtn.width / 2f)
+            val x1 = filterAnrBtn.left.toFloat() + (filterAnrBtn.width / 2f)
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.animate().cancel()
+                    view.animate()
+                        .scaleX(0.95f)
+                        .scaleY(0.95f)
+                        .alpha(0.9f)
+                        .setDuration(120)
+                        .setInterpolator(DecelerateInterpolator(1.5f))
+                        .start()
+
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    updateFilterPillPosition(progress)
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    updateFilterPillPosition(progress)
+                    true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val midPoint = (x0 + x1) / 2f
+                    val targetFilter = when {
+                        touchX < (x0 + filterAllBtn.width / 2f) -> FILTER_ALL
+                        touchX < (x1 - filterAnrBtn.width / 2f) -> FILTER_CRASH
+                        else -> FILTER_ANR
+                    }
+                    val targetProgress = when (targetFilter) {
+                        FILTER_ALL -> 0f
+                        FILTER_CRASH -> 0.5f
+                        else -> 1f
+                    }
+                    animateFilterPillTo(targetProgress) {
+                        switchFilterTab(targetFilter)
+                    }
+                    view.animate().cancel()
+                    view.animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .alpha(1.0f)
+                        .setDuration(350)
+                        .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f))
+                        .start()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        logsLayout.addView(filterPillContainer)
+
+        // ---- Loading Text ----
+        loadingText = TextView(this).apply {
+            text = "Loading..."
+            textSize = 18f
+            setTextColor(secondaryTextColor)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+                topMargin = dpToPx(40f)
+                bottomMargin = dpToPx(40f)
+            }
+            visibility = View.GONE
+        }
+        logsLayout.addView(loadingText)
+
+        // ---- RECYCLER VIEW ----
+        recyclerView = RecyclerView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+            layoutManager = LinearLayoutManager(this@CrashLogActivity)
+            overScrollMode = View.OVER_SCROLL_ALWAYS
+        }
+
+        logAdapter = LogAdapter(
+            filteredLogs,
+            this,
+            packageManager,
+            cardBgColor,
+            cardBorderColor,
+            ::onItemClick
+        )
+        recyclerView.adapter = logAdapter
+        logsLayout.addView(recyclerView)
+
+        // ========== INFO TAB ==========
+        infoLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val infoCardLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createCardBackground()
+            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
+        }
+
+        val infoTitle = TextView(this).apply {
+            text = "Crash Logs Browser"
+            textSize = 24f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+        }
+        infoCardLayout.addView(infoTitle)
+
+        val infoSub = TextView(this).apply {
+            text = "View and monitor app crashes and ANRs"
+            textSize = 15f
+            setTextColor(secondaryTextColor)
+            setPadding(0, dpToPx(4f), 0, dpToPx(16f))
+        }
+        infoCardLayout.addView(infoSub)
+
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "Unknown"
+        } catch (e: Exception) {
+            "Unknown"
+        }
+        val versionInfo = TextView(this).apply {
+            text = "Version $versionName"
+            textSize = 13f
+            setTextColor(secondaryTextColor)
+            setPadding(0, 0, 0, dpToPx(16f))
+        }
+        infoCardLayout.addView(versionInfo)
+
+        val statsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            tag = "statsRow"
+        }
+
+        statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
+        statsRow.addView(createStatCard("ANR", "0", accentColor, false))
+
+        infoCardLayout.addView(statsRow)
+
+        // ---- Refresh Button ----
+        val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
+            loadLogsAsync {
+                animateFilterPillTo(0f) {
+                    switchFilterTab(FILTER_ALL)
+                    Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
+        }
+        infoCardLayout.addView(refreshBtn)
+
+        infoLayout.addView(infoCardLayout)
+
+        scrollContent.addView(logsLayout)
+        scrollContent.addView(infoLayout)
+        scrollView.addView(scrollContent)
+        rootFrameLayout.addView(scrollView)
+
+        // ========== TOP BAR ==========
+        val topBarLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        }
+
+        val topBarTitle = TextView(this).apply {
+            text = "Crash Logs Browser"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(backBtnBgColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
+            alpha = 0f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(48f),
+                Gravity.CENTER
+            )
+        }
+
+        val backDrawable = createArrowBackDrawable()
+        val backBtn = ImageView(this).apply {
+            setImageDrawable(backDrawable)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            contentDescription = "Back"
+            isClickable = true
+            isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
+            setOnClickListener { finish() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        topBarLayout.addView(topBarTitle)
+        topBarLayout.addView(backBtn)
+        rootFrameLayout.addView(topBarLayout)
+
+        // ========== BOTTOM BAR ==========
+        val bottomBarLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            ).apply {
+                bottomMargin = dpToPx(16f)
+            }
+        }
+
+        val tabPillContainer = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(100f).toFloat()
+                setColor(cardBgColor)
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+        }
+
+        val activeTabBg = GradientDrawable().apply {
+            setColor(secondaryBtnColor)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        slidingPillView = View(this).apply {
+            background = activeTabBg
+            layoutParams = FrameLayout.LayoutParams(0, dpToPx(44f))
+        }
+
+        val tabButtonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        logsPillBtn = TextView(this).apply {
+            text = "Logs"
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(44f)
+            )
+        }
+
+        infoPillBtn = TextView(this).apply {
+            text = "Info"
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(44f)
+            )
+        }
+
+        tabButtonsLayout.addView(logsPillBtn)
+        tabButtonsLayout.addView(infoPillBtn)
+
+        tabPillContainer.addView(slidingPillView)
+        tabPillContainer.addView(tabButtonsLayout)
+
+        tabPillContainer.post {
+            slidingPillView.layoutParams = slidingPillView.layoutParams.apply {
+                width = logsPillBtn.width
+            }
+            slidingPillView.translationX = logsPillBtn.left.toFloat()
+            slidingPillView.requestLayout()
+        }
+
+        val switchTab: (Int) -> Unit = { tab ->
+            if (currentTab != tab) {
+                currentTab = tab
+                if (tab == TAB_LOGS) {
+                    logsLayout.visibility = View.VISIBLE
+                    infoLayout.visibility = View.GONE
+                    applyEntranceAnimations(listOf(logsLayout))
+                } else {
+                    logsLayout.visibility = View.GONE
+                    infoLayout.visibility = View.VISIBLE
+                    applyEntranceAnimations(listOf(infoLayout))
+                }
+                scrollView.scrollTo(0, 0)
+            }
+        }
+
+        tabPillContainer.setOnTouchListener { view, event ->
+            val x0 = logsPillBtn.left.toFloat() + (logsPillBtn.width / 2f)
+            val x1 = infoPillBtn.left.toFloat() + (infoPillBtn.width / 2f)
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.animate().cancel()
+                    view.animate()
+                        .scaleX(0.95f)
+                        .scaleY(0.95f)
+                        .alpha(0.9f)
+                        .setDuration(120)
+                        .setInterpolator(DecelerateInterpolator(1.5f))
+                        .start()
+
+                    val touchX = event.x - tabPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    updatePillPosition(progress)
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val touchX = event.x - tabPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    updatePillPosition(progress)
+                    true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val touchX = event.x - tabPillContainer.paddingLeft
+                    val midPoint = (x0 + x1) / 2f
+                    val targetIsLogs = touchX < midPoint
+                    val targetTab = if (targetIsLogs) TAB_LOGS else TAB_INFO
+                    val targetProgress = if (targetIsLogs) 0f else 1f
+
+                    animatePillTo(targetProgress) {
+                        switchTab(targetTab)
+                    }
+
+                    view.animate().cancel()
+                    view.animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .alpha(1.0f)
+                        .setDuration(350)
+                        .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f))
+                        .start()
+                    true
+                }
+                else -> false
+            }
+        }
+
+        bottomBarLayout.addView(tabPillContainer)
+        rootFrameLayout.addView(bottomBarLayout)
+
+        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val alpha = (scrollY / dpToPx(40f).toFloat()).coerceIn(0f, 1f)
+            topBarTitle.alpha = alpha
+        }
+
+        rootFrameLayout.setOnApplyWindowInsetsListener { _, insets ->
+            val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                @Suppress("DEPRECATION") insets.systemWindowInsetTop
+            }
+            val bottomInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.navigationBars() or WindowInsets.Type.ime()).bottom
+            } else {
+                @Suppress("DEPRECATION") insets.systemWindowInsetBottom
+            }
+            val effectiveTop = if (topInset > 0) topInset else statusBarHeight
+
+            topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
+            (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
+            insets
+        }
+
+        setContentView(rootFrameLayout)
     }
 
-    // ========== LOG PARSING (UPDATED) ==========
+    // ========== FILTER PILL FUNCTIONS ==========
+    private fun updateFilterPillPosition(progress: Float) {
+        val p = progress.coerceIn(0f, 1f)
+        val x0 = filterAllBtn.left.toFloat()
+        val x1 = filterAnrBtn.left.toFloat()
+        val w0 = filterAllBtn.width.toFloat()
+        val w1 = filterAnrBtn.width.toFloat()
+
+        val currentX = x0 + (x1 - x0) * p
+        val currentW = (w0 + (w1 - w0) * p).toInt()
+
+        filterSlidingView.translationX = currentX
+        if (filterSlidingView.layoutParams.width != currentW && currentW > 0) {
+            filterSlidingView.layoutParams = filterSlidingView.layoutParams.apply { width = currentW }
+            filterSlidingView.requestLayout()
+        }
+
+        filterAllBtn.setTextColor(if (p < 0.25f) primaryTextColor else secondaryTextColor)
+        filterCrashBtn.setTextColor(if (p in 0.25f..0.75f) primaryTextColor else secondaryTextColor)
+        filterAnrBtn.setTextColor(if (p > 0.75f) primaryTextColor else secondaryTextColor)
+    }
+
+    private fun animateFilterPillTo(targetProgress: Float, onEnd: () -> Unit) {
+        val currentX = filterSlidingView.translationX
+        val x0 = filterAllBtn.left.toFloat()
+        val x1 = filterAnrBtn.left.toFloat()
+        val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+
+        ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
+            duration = 220L
+            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+            addUpdateListener { anim ->
+                updateFilterPillPosition(anim.animatedValue as Float)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    updateFilterPillPosition(targetProgress)
+                    onEnd()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun switchFilterTab(filter: Int) {
+        if (currentFilterTab != filter) {
+            currentFilterTab = filter
+
+            filteredLogs.clear()
+            filteredLogs.addAll(
+                when (filter) {
+                    FILTER_CRASH -> allLogs.filter { it.type == "Crash" }
+                    FILTER_ANR -> allLogs.filter { it.type == "ANR" }
+                    else -> allLogs
+                }
+            )
+            logAdapter.updateLogs(filteredLogs)
+            animateRecyclerView()
+        }
+    }
+
+    private fun animateRecyclerView() {
+        recyclerView.apply {
+            translationY = dpToPx(20f).toFloat()
+            alpha = 0f
+            animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(400)
+                .setInterpolator(DecelerateInterpolator(1.5f))
+                .start()
+        }
+    }
+
+    // ========== BOTTOM PILL FUNCTIONS ==========
+    private fun updatePillPosition(progress: Float) {
+        val p = progress.coerceIn(0f, 1f)
+        val x0 = logsPillBtn.left.toFloat()
+        val x1 = infoPillBtn.left.toFloat()
+        val w0 = logsPillBtn.width.toFloat()
+        val w1 = infoPillBtn.width.toFloat()
+
+        val currentX = x0 + (x1 - x0) * p
+        val currentW = (w0 + (w1 - w0) * p).toInt()
+
+        slidingPillView.translationX = currentX
+        if (slidingPillView.layoutParams.width != currentW && currentW > 0) {
+            slidingPillView.layoutParams = slidingPillView.layoutParams.apply { width = currentW }
+            slidingPillView.requestLayout()
+        }
+
+        if (p < 0.5f) {
+            logsPillBtn.setTextColor(primaryTextColor)
+            infoPillBtn.setTextColor(secondaryTextColor)
+        } else {
+            logsPillBtn.setTextColor(secondaryTextColor)
+            infoPillBtn.setTextColor(primaryTextColor)
+        }
+    }
+
+    private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
+        val currentX = slidingPillView.translationX
+        val x0 = logsPillBtn.left.toFloat()
+        val x1 = infoPillBtn.left.toFloat()
+        val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+
+        ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
+            duration = 220L
+            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+            addUpdateListener { anim ->
+                updatePillPosition(anim.animatedValue as Float)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    onEnd()
+                }
+            })
+            start()
+        }
+    }
+
+    // ========== LOG PARSING WITH LOADING STATE ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
         loadingText.visibility = View.VISIBLE
         recyclerView.visibility = View.GONE
@@ -129,7 +765,17 @@ class CrashLogActivity : Activity() {
     }
 
     private fun updateStats() {
-        // ... (unchanged) ...
+        val infoCard = infoLayout.getChildAt(0) as? LinearLayout ?: return
+        val statsRow = infoCard.findViewWithTag<LinearLayout>("statsRow") ?: return
+        for (i in 0 until statsRow.childCount) {
+            val card = statsRow.getChildAt(i) as? LinearLayout ?: continue
+            val valueTv = card.getChildAt(1) as? TextView ?: continue
+            val label = (card.getChildAt(2) as? TextView)?.text.toString()
+            when (label) {
+                "Crashes" -> valueTv.text = allLogs.count { it.type == "Crash" }.toString()
+                "ANR" -> valueTv.text = allLogs.count { it.type == "ANR" }.toString()
+            }
+        }
     }
 
     private fun loadLogs() {
@@ -160,10 +806,8 @@ class CrashLogActivity : Activity() {
                             i++
                         }
                         var appName = extractPackageName(block)
-                        // Skip if appName is "System Process" (unknown) – these are noise
-                        if (appName == "System Process / Unknown" || appName == "System Process") {
-                            // Don't add to allLogs
-                        } else {
+                        // Skip system process noise
+                        if (appName != "System Process / Unknown" && appName != "System Process") {
                             allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
                         }
                     } else {
@@ -183,7 +827,7 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(allLogs)
     }
 
-    // STRICTER: only real crash signatures, no system_server or DEBUG noise
+    // STRICTER CRASH DETECTION – no system_server or DEBUG noise
     private fun isRealCrashLine(line: String): Boolean {
         return line.contains("FATAL EXCEPTION") ||
                 line.contains("ANR in") ||
@@ -246,7 +890,7 @@ class CrashLogActivity : Activity() {
             while (entry != null) {
                 val tag = entry.tag
                 if (tags.contains(tag)) {
-                    // Read full content
+                    // Read full content: pass 0 to get entire file
                     val text = entry.getText(0) ?: ""
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
                     val pkgMatch = Regex("(?:Process|Package|Cmdline):\\s*([\\w.:]+)").find(text)
