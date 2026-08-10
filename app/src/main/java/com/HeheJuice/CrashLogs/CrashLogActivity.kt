@@ -623,7 +623,6 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
         }
 
-        // Search icon inside the container (optional – we'll use the EditText's hint)
         searchEditText = EditText(this).apply {
             hint = "Search app or package..."
             setHintTextColor(secondaryTextColor)
@@ -781,11 +780,12 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== SEARCH TOGGLE ==========
+    // ========== SEARCH TOGGLE (FIXED – no cast) ==========
     private fun toggleSearch() {
         isSearchActive = !isSearchActive
-        val pill = bottomBarContainer.getChildAt(0) as LinearLayout // tabPillContainer
-        val search = bottomBarContainer.getChildAt(1) as LinearLayout // searchContainer
+        // Children: 0 = tabPillContainer (FrameLayout), 1 = searchContainer (LinearLayout), 2 = searchButton (ImageView)
+        val pill = bottomBarContainer.getChildAt(0)
+        val search = bottomBarContainer.getChildAt(1)
         if (isSearchActive) {
             pill.visibility = View.GONE
             search.visibility = View.VISIBLE
