@@ -31,9 +31,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
-import android.view.inputmethod.EditorInfo
 import android.widget.*
 import androidx.core.content.ContextCompat
+import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.io.BufferedReader
@@ -68,7 +68,6 @@ class CrashLogActivity : Activity() {
     private lateinit var logAdapter: LogAdapter
     private val allLogs = mutableListOf<LogEntry>()
     private var filteredLogs = mutableListOf<LogEntry>()
-    private var searchQuery: String = ""
 
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
@@ -94,15 +93,8 @@ class CrashLogActivity : Activity() {
     private var refreshTimer: CountDownTimer? = null
     private lateinit var refreshButton: TextView
 
-    // Search toggle
-    private lateinit var searchButton: ImageView
-    private lateinit var searchEditText: EditText
-    private lateinit var searchContainer: LinearLayout
-    private lateinit var bottomBarContainer: LinearLayout
-    private var isSearchActive = false
-
     private lateinit var rootFrameLayout: FrameLayout
-    private lateinit var scrollView: ScrollView
+    private lateinit var scrollView: NestedScrollView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -122,65 +114,22 @@ class CrashLogActivity : Activity() {
     }
 
     private fun setupUI() {
+        val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+
         rootFrameLayout = FrameLayout(this).apply {
-            setBackgroundColor(if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7"))
+            setBackgroundColor(rootBgColor)
         }
 
         val statusBarHeight = getStatusBarHeight()
 
-        // ========== TOP BAR ==========
-        val topBarLayout = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-        }
-
-        val topBarTitle = TextView(this).apply {
-            text = "Crash Logs Browser"
-            textSize = 16f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(backBtnBgColor)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
-            alpha = 0f
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                dpToPx(48f),
-                Gravity.CENTER
-            )
-        }
-
-        val backDrawable = createArrowBackDrawable()
-        val backBtn = ImageView(this).apply {
-            setImageDrawable(backDrawable)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
-            }
-            contentDescription = "Back"
-            isClickable = true
-            isFocusable = true
-            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
-            setOnClickListener { finish() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        topBarLayout.addView(topBarTitle)
-        topBarLayout.addView(backBtn)
-        rootFrameLayout.addView(topBarLayout)
-
-        // ========== SCROLL VIEW ==========
-        scrollView = ScrollView(this).apply {
+        // ========== SCROLL VIEW (NestedScrollView) ==========
+        scrollView = NestedScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
             clipToPadding = false
-            setFillViewport(true)
-            setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
+            isFillViewport = true
+            // Top padding accounts for top bar height (statusBar + 60dp)
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(60f), dpToPx(16f), dpToPx(140f))
         }
 
         val scrollContent = LinearLayout(this).apply {
@@ -195,8 +144,8 @@ class CrashLogActivity : Activity() {
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -362,15 +311,15 @@ class CrashLogActivity : Activity() {
         }
         logsLayout.addView(loadingText)
 
-        // ---- RECYCLER VIEW ----
+        // ---- RECYCLER VIEW (WRAP_CONTENT + nested scrolling disabled) ----
         recyclerView = RecyclerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
             layoutManager = LinearLayoutManager(this@CrashLogActivity)
-            overScrollMode = View.OVER_SCROLL_ALWAYS
+            isNestedScrollingEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
 
         logAdapter = LogAdapter(
@@ -511,7 +460,58 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== BOTTOM BAR (with search toggle) ==========
+        // ========== TOP BAR (solid background + elevation) ==========
+        val topBarLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            setBackgroundColor(rootBgColor) // Matches root background to hide scrolling elements underneath
+            elevation = dpToPx(4f).toFloat()
+            setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
+        }
+
+        val topBarTitle = TextView(this).apply {
+            text = "Crash Logs Browser"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(backBtnBgColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
+            alpha = 0f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(44f),
+                Gravity.CENTER
+            )
+        }
+
+        val backDrawable = createArrowBackDrawable()
+        val backBtn = ImageView(this).apply {
+            setImageDrawable(backDrawable)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            contentDescription = "Back"
+            isClickable = true
+            isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.START or Gravity.CENTER_VERTICAL)
+            setOnClickListener { finish() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
+        topBarLayout.addView(topBarTitle)
+        topBarLayout.addView(backBtn)
+
+        // Add top bar AFTER scrollView so it renders on top
+        rootFrameLayout.addView(topBarLayout)
+
+        // ========== BOTTOM BAR (pill only) ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -524,16 +524,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        bottomBarContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        // Pill container (visible by default)
+        // Pill container
         val tabPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -606,83 +597,7 @@ class CrashLogActivity : Activity() {
             slidingPillView.requestLayout()
         }
 
-        // ---- Search Container (initially hidden, width=0) ----
-        searchContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(100f).toFloat()
-                setColor(cardBgColor)
-                setStroke(dpToPx(1f), cardBorderColor)
-            }
-            setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
-        }
-
-        // EditText with centered text
-        searchEditText = EditText(this).apply {
-            hint = "Search app or package..."
-            setHintTextColor(secondaryTextColor)
-            setTextColor(primaryTextColor)
-            background = null
-            gravity = Gravity.CENTER
-            imeOptions = EditorInfo.IME_ACTION_SEARCH
-            layoutParams = LinearLayout.LayoutParams(
-                dpToPx(200f),
-                dpToPx(44f),
-                1f
-            )
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    searchQuery = s.toString()
-                    applyFilters()
-                }
-            })
-        }
-        searchContainer.addView(searchEditText)
-
-        val closeSearch = TextView(this).apply {
-            text = "✕"
-            textSize = 20f
-            setTextColor(secondaryTextColor)
-            setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
-            isClickable = true
-            setOnClickListener { toggleSearch() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        searchContainer.addView(closeSearch)
-
-        // ---- Add pill and search container to bottom bar container ----
-        bottomBarContainer.addView(tabPillContainer)
-        bottomBarContainer.addView(searchContainer)
-
-        // ---- Search Toggle Button (magnifying glass) ----
-        val searchBtnDrawable = createSearchDrawable()
-        searchButton = ImageView(this).apply {
-            setImageDrawable(searchBtnDrawable)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(backBtnBgColor)
-            }
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            isClickable = true
-            isFocusable = true
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                marginStart = dpToPx(8f)
-            }
-            setOnClickListener { toggleSearch() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        bottomBarContainer.addView(searchButton)
-
-        bottomBarLayout.addView(bottomBarContainer)
+        bottomBarLayout.addView(tabPillContainer)
         rootFrameLayout.addView(bottomBarLayout)
 
         // ====== BOTTOM PILL TOUCH HANDLING ======
@@ -756,10 +671,10 @@ class CrashLogActivity : Activity() {
         }
 
         // ========== SCROLL LISTENER FOR TOP BAR TITLE ==========
-        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+        scrollView.setOnScrollChangeListener(NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
             val alpha = (scrollY / dpToPx(40f).toFloat()).coerceIn(0f, 1f)
             topBarTitle.alpha = alpha
-        }
+        })
 
         // ========== WINDOW INSETS ==========
         rootFrameLayout.setOnApplyWindowInsetsListener { _, insets ->
@@ -775,8 +690,11 @@ class CrashLogActivity : Activity() {
             }
             val effectiveTop = if (topInset > 0) topInset else statusBarHeight
 
-            topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
+            // Update top bar padding
+            topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(8f), dpToPx(16f), dpToPx(8f))
+            // Update scroll view padding (only top changes, bottom can stay)
+            scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(60f), dpToPx(16f), dpToPx(140f))
+            // Update bottom bar margin
             (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
             insets
         }
@@ -784,100 +702,13 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== SEARCH TOGGLE (improved with animation & focus) ==========
-    private fun toggleSearch() {
-        // If on Info tab, switch to Logs first
-        if (currentTab == TAB_INFO) {
-            currentTab = TAB_LOGS
-            logsLayout.visibility = View.VISIBLE
-            infoLayout.visibility = View.GONE
-            scrollView.scrollTo(0, 0)
-            applyEntranceAnimations(listOf(logsLayout))
-        }
-
-        val pill = bottomBarContainer.getChildAt(0)
-        val search = bottomBarContainer.getChildAt(1)
-
-        if (isSearchActive) {
-            // --- CLOSE SEARCH ---
-            // Animate width to 0
-            val anim = ValueAnimator.ofInt(search.layoutParams.width, 0)
-            anim.duration = 250
-            anim.interpolator = DecelerateInterpolator(1.2f)
-            anim.addUpdateListener {
-                val w = it.animatedValue as Int
-                search.layoutParams.width = w
-                search.requestLayout()
-            }
-            anim.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    search.visibility = View.GONE
-                    pill.visibility = View.VISIBLE
-                    // Clear search
-                    searchEditText.text.clear()
-                    searchQuery = ""
-                    applyFilters()
-                    // Hide keyboard and clear focus
-                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
-                    searchEditText.clearFocus()
-                }
-            })
-            anim.start()
-            isSearchActive = false
-        } else {
-            // --- OPEN SEARCH ---
-            // Show container with width 0, then animate to target width
-            search.visibility = View.VISIBLE
-            pill.visibility = View.GONE
-            search.layoutParams.width = 0
-            search.requestLayout()
-
-            // Calculate target width (minimum 200dp, up to 300dp or screen width minus button/pill)
-            val screenWidth = resources.displayMetrics.widthPixels
-            val buttonWidth = dpToPx(48f)
-            val margins = dpToPx(32f) // padding left/right of container + margins
-            val target = (screenWidth - buttonWidth - margins).coerceAtLeast(dpToPx(200f))
-            val targetWidth = target.coerceAtMost(dpToPx(350f))
-
-            search.post {
-                val anim = ValueAnimator.ofInt(0, targetWidth)
-                anim.duration = 300
-                anim.interpolator = DecelerateInterpolator(1.2f)
-                anim.addUpdateListener {
-                    val w = it.animatedValue as Int
-                    search.layoutParams.width = w
-                    search.requestLayout()
-                }
-                anim.start()
-            }
-
-            // Request focus and show keyboard
-            searchEditText.requestFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-            imm.showSoftInput(searchEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-
-            isSearchActive = true
-        }
-    }
-
-    // ========== BACK PRESS: close search if active ==========
-    override fun onBackPressed() {
-        if (isSearchActive) {
-            toggleSearch() // close search
-        } else {
-            super.onBackPressed()
-        }
-    }
-
-    // ========== REFRESH (NEW LOGIC) ==========
+    // ========== REFRESH (immediate refresh + 5s cooldown) ==========
     private fun performRefresh() {
-        if (refreshTimer != null) return // already cooling down
+        if (refreshTimer != null) return
 
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
         loadLogsAsync {
-            // After refresh completes, start the 5-second cooldown timer
             refreshTimer = object : CountDownTimer(5000, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
                     val seconds = (millisUntilFinished / 1000).toInt()
@@ -943,18 +774,12 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== APPLY FILTERS ==========
+    // ========== APPLY FILTERS (tab only) ==========
     private fun applyFilters() {
-        var result = when (currentFilterTab) {
+        val result = when (currentFilterTab) {
             FILTER_CRASH -> allLogs.filter { it.type == "Crash" }
             FILTER_ANR -> allLogs.filter { it.type == "ANR" }
             else -> allLogs
-        }
-        if (searchQuery.isNotEmpty()) {
-            val query = searchQuery.trim().lowercase(Locale.getDefault())
-            result = result.filter {
-                it.appName.lowercase(Locale.getDefault()).contains(query)
-            }
         }
         filteredLogs.clear()
         filteredLogs.addAll(result)
@@ -1230,9 +1055,9 @@ class CrashLogActivity : Activity() {
                 "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
                 "appops set ${packageName} GET_USAGE_STATS allow"
             )
-            
+
             val success = runRootCommands(commands)
-            
+
             runOnUiThread {
                 if (success) {
                     Toast.makeText(this, "Permissions granted via root!", Toast.LENGTH_LONG).show()
@@ -1296,30 +1121,6 @@ class CrashLogActivity : Activity() {
                     lineTo(cx + size * 0.4f, cy + size)
                 }
                 canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    private fun createSearchDrawable(): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2.2f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val r = dpToPx(4.5f).toFloat()
-                canvas.drawCircle(cx - dpToPx(1.5f).toFloat(), cy - dpToPx(1.5f).toFloat(), r, paint)
-                val offset = dpToPx(3.2f).toFloat()
-                val end = dpToPx(7f).toFloat()
-                canvas.drawLine(cx + offset, cy + offset, cx + end, cy + end, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
             override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
