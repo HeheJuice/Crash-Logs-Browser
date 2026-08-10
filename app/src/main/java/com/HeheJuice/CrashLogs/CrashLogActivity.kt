@@ -616,16 +616,15 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // Color updates
         filterAllBtn.setTextColor(if (p < 0.25f) primaryTextColor else secondaryTextColor)
         filterCrashBtn.setTextColor(if (p in 0.25f..0.75f) primaryTextColor else secondaryTextColor)
         filterAnrBtn.setTextColor(if (p > 0.75f) primaryTextColor else secondaryTextColor)
     }
 
     private fun animateFilterPillTo(targetProgress: Float, onEnd: () -> Unit) {
+        val currentX = filterSlidingView.translationX
         val x0 = filterAllBtn.left.toFloat()
         val x1 = filterAnrBtn.left.toFloat()
-        val currentX = filterSlidingView.translationX
         val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
 
         ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
@@ -686,9 +685,9 @@ class CrashLogActivity : Activity() {
     }
 
     private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
+        val currentX = slidingPillView.translationX
         val x0 = logsPillBtn.left.toFloat()
         val x1 = infoPillBtn.left.toFloat()
-        val currentX = slidingPillView.translationX
         val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
 
         ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
@@ -750,14 +749,11 @@ class CrashLogActivity : Activity() {
                         val timestamp = extractTimestamp(line)
                         val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
                         i++
-                        // Collect all lines that belong to this crash (including continuations)
                         while (i < lines.size) {
                             val nextLine = lines[i]
-                            // Stop if we encounter a new crash (timestamp + crash signature)
                             if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*")) && isRealCrashLine(nextLine)) {
                                 break
                             }
-                            // Include all other lines – they are part of the crash dump
                             block.add(nextLine)
                             i++
                         }
@@ -1367,103 +1363,4 @@ class CrashLogActivity : Activity() {
     }
 
     private fun dpToPx(dp: Int): Int = dpToPx(dp.toFloat())
-}
-
-// ========== DATA CLASSES ==========
-data class LogEntry(
-    val timestamp: String,
-    val appName: String,
-    val type: String,
-    val details: String = ""
-)
-
-// ========== LOG ADAPTER ==========
-class LogAdapter(
-    private var logs: List<LogEntry>,
-    private val context: Context,
-    private val packageManager: PackageManager,
-    private val onItemClick: (LogEntry) -> Unit
-) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
-
-    private val defaultIcon = ContextCompat.getDrawable(
-        context,
-        android.R.drawable.sym_def_app_icon
-    )
-
-    fun updateLogs(newLogs: List<LogEntry>) {
-        logs = newLogs
-        notifyDataSetChanged()
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_log, parent, false)
-        return LogViewHolder(view, onItemClick)
-    }
-
-    override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(logs[position], packageManager, defaultIcon)
-    }
-
-    override fun getItemCount(): Int = logs.size
-
-    class LogViewHolder(
-        itemView: View,
-        private val onItemClick: (LogEntry) -> Unit
-    ) : RecyclerView.ViewHolder(itemView) {
-        private val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
-        private val timestampText: TextView = itemView.findViewById(R.id.timestampText)
-        private val appNameText: TextView = itemView.findViewById(R.id.appNameText)
-        private val typeBadge: TextView = itemView.findViewById(R.id.typeBadge)
-
-        fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?) {
-            timestampText.text = log.timestamp
-            val cleanPackage = log.appName.substringBefore(":")
-            appNameText.text = cleanPackage
-            typeBadge.text = log.type
-
-            // Load icon
-            var iconLoaded = false
-            if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
-                try {
-                    val appInfo = pm.getApplicationInfo(cleanPackage, 0)
-                    appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
-                    iconLoaded = true
-                } catch (e: PackageManager.NameNotFoundException) {
-                    try {
-                        val packages = pm.getInstalledApplications(0)
-                        for (pkg in packages) {
-                            if (pkg.packageName.equals(cleanPackage, ignoreCase = true)) {
-                                appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
-                                iconLoaded = true
-                                break
-                            }
-                        }
-                    } catch (e2: Exception) { /* ignore */ }
-                }
-            }
-            if (!iconLoaded) {
-                appIcon.setImageDrawable(defaultIcon)
-            }
-
-            // Rounded badge
-            val radiusPx = TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                100f,
-                itemView.context.resources.displayMetrics
-            )
-            val badgeDrawable = GradientDrawable().apply {
-                cornerRadius = radiusPx
-                setColor(when (log.type) {
-                    "Crash" -> ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
-                    "ANR" -> ContextCompat.getColor(itemView.context, android.R.color.holo_orange_dark)
-                    else -> ContextCompat.getColor(itemView.context, android.R.color.darker_gray)
-                })
-            }
-            typeBadge.background = badgeDrawable
-            typeBadge.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.white))
-
-            itemView.setOnClickListener { onItemClick(log) }
-        }
-    }
 }

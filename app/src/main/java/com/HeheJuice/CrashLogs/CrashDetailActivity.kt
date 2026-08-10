@@ -50,7 +50,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Header
+        // Header – back | title | copy
         val headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -60,7 +60,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Back button (48dp, 8dp padding)
+        // Back button – fixed 48dp
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -79,7 +79,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(backBtn)
 
-        // Title (centered)
+        // Title – takes remaining space
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -93,7 +93,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button (48dp, 12dp padding to make icon smaller)
+        // Copy button – fixed 48dp
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -104,7 +104,7 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                setPadding(dpToPx(12f), dpToPx(12f), dpToPx(12f), dpToPx(12f))
+                setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f)) // same as back
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
@@ -167,7 +167,7 @@ class CrashDetailActivity : Activity() {
         infoLayout.addView(timeTv)
         rootLayout.addView(infoLayout)
 
-        // Scrollable details – full content, no truncation
+        // Scrollable details
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -187,7 +187,6 @@ class CrashDetailActivity : Activity() {
                 cornerRadius = dpToPx(8f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // Make it scrollable
             movementMethod = ScrollingMovementMethod.getInstance()
             maxLines = Int.MAX_VALUE
         }
