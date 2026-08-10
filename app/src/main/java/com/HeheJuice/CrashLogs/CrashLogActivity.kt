@@ -605,13 +605,13 @@ class CrashLogActivity : Activity() {
             slidingPillView.requestLayout()
         }
 
-        // ---- Search Container (initially hidden) ----
+        // ---- Search Container (initially hidden, width=0) ----
         searchContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                0,  // width will be animated
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             background = GradientDrawable().apply {
@@ -623,13 +623,15 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
         }
 
+        // EditText with centered text
         searchEditText = EditText(this).apply {
             hint = "Search app or package..."
             setHintTextColor(secondaryTextColor)
             setTextColor(primaryTextColor)
             background = null
+            gravity = Gravity.CENTER  // center the text horizontally
             layoutParams = LinearLayout.LayoutParams(
-                dpToPx(200f),
+                dpToPx(200f),  // will expand via animation
                 dpToPx(44f),
                 1f
             )
@@ -780,27 +782,80 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== SEARCH TOGGLE (FIXED – no cast) ==========
+    // ========== SEARCH TOGGLE (with expand animation + auto-switch) ==========
     private fun toggleSearch() {
-        isSearchActive = !isSearchActive
-        // Children: 0 = tabPillContainer (FrameLayout), 1 = searchContainer (LinearLayout), 2 = searchButton (ImageView)
+        // If on Info tab, switch to Logs first
+        if (currentTab == TAB_INFO) {
+            // Programmatically switch to Logs
+            currentTab = TAB_LOGS
+            logsLayout.visibility = View.VISIBLE
+            infoLayout.visibility = View.GONE
+            scrollView.scrollTo(0, 0)
+            applyEntranceAnimations(listOf(logsLayout))
+        }
+
         val pill = bottomBarContainer.getChildAt(0)
         val search = bottomBarContainer.getChildAt(1)
+        val targetWidth = if (isSearchActive) 0 else {
+            // Calculate available width: total container width - pill width - searchButton width - margins
+            // We'll use a fixed width = match_parent - searchButton width - margins
+            // We can compute: bottomBarContainer.width - searchButton.width - margins
+            // But bottomBarContainer may not have been laid out yet; we can use a fixed value like 250dp
+            // For better dynamic, we'll use a percentage of screen width minus button size.
+            val screenWidth = resources.displayMetrics.widthPixels
+            val margins = dpToPx(8f) * 2 // left/right of container? Actually we can just use a reasonable size.
+            // Let's use (screenWidth - dpToPx(48f) - dpToPx(16f) - dpToPx(16f)) but keep it safe.
+            // We'll set a max width of 300dp.
+            Math.min(dpToPx(300f), screenWidth - dpToPx(48f) - dpToPx(32f))
+        }
+
         if (isSearchActive) {
-            pill.visibility = View.GONE
+            // Collapse: animate width to 0, then hide
+            val anim = ValueAnimator.ofInt(search.layoutParams.width, 0)
+            anim.duration = 250
+            anim.interpolator = DecelerateInterpolator(1.2f)
+            anim.addUpdateListener {
+                val w = it.animatedValue as Int
+                search.layoutParams.width = w
+                search.requestLayout()
+            }
+            anim.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    search.visibility = View.GONE
+                    pill.visibility = View.VISIBLE
+                    // Clear search
+                    searchEditText.text.clear()
+                    searchQuery = ""
+                    applyFilters()
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                }
+            })
+            anim.start()
+        } else {
+            // Expand: make visible with width 0, then animate to targetWidth
             search.visibility = View.VISIBLE
+            pill.visibility = View.GONE
+            search.layoutParams.width = 0
+            search.requestLayout()
+            // After layout, animate to targetWidth
+            search.post {
+                val target = if (targetWidth > 0) targetWidth else dpToPx(200f)
+                val anim = ValueAnimator.ofInt(0, target)
+                anim.duration = 300
+                anim.interpolator = DecelerateInterpolator(1.2f)
+                anim.addUpdateListener {
+                    val w = it.animatedValue as Int
+                    search.layoutParams.width = w
+                    search.requestLayout()
+                }
+                anim.start()
+            }
             searchEditText.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             imm.showSoftInput(searchEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-        } else {
-            pill.visibility = View.VISIBLE
-            search.visibility = View.GONE
-            searchEditText.text.clear()
-            searchQuery = ""
-            applyFilters()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-            imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
         }
+        isSearchActive = !isSearchActive
     }
 
     // ========== REFRESH (NEW LOGIC) ==========
