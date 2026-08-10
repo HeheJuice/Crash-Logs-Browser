@@ -78,7 +78,7 @@ class CrashLogActivity : Activity() {
     private lateinit var infoPillBtn: TextView
     private var currentTab = TAB_LOGS
 
-    // Filter pill (inside scroll view)
+    // Filter pill (inside scroll)
     private lateinit var filterPillContainer: FrameLayout
     private lateinit var filterSlidingView: View
     private lateinit var filterAllBtn: TextView
@@ -93,8 +93,12 @@ class CrashLogActivity : Activity() {
     private var refreshTimer: CountDownTimer? = null
     private lateinit var refreshButton: TextView
 
-    // Search EditText in top bar
+    // Search toggle
+    private lateinit var searchButton: ImageView
     private lateinit var searchEditText: EditText
+    private lateinit var searchContainer: LinearLayout
+    private lateinit var bottomBarContainer: LinearLayout
+    private var isSearchActive = false
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
@@ -123,10 +127,8 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
-        // ========== TOP BAR with Search ==========
-        val topBarLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        // ========== TOP BAR ==========
+        val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -134,7 +136,25 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(12f), dpToPx(16f), dpToPx(12f))
         }
 
-        // Back button
+        val topBarTitle = TextView(this).apply {
+            text = "Crash Logs Browser"
+            textSize = 16f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(backBtnBgColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
+            alpha = 0f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(48f),
+                Gravity.CENTER
+            )
+        }
+
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -145,41 +165,12 @@ class CrashLogActivity : Activity() {
             contentDescription = "Back"
             isClickable = true
             isFocusable = true
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
+            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f), Gravity.START or Gravity.CENTER_VERTICAL)
             setOnClickListener { finish() }
             setOnTouchListener(pressScaleTouchListener)
         }
+        topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
-
-        // Search EditText – takes remaining space
-        searchEditText = EditText(this).apply {
-            hint = "Search app or package..."
-            setHintTextColor(secondaryTextColor)
-            setTextColor(primaryTextColor)
-            background = GradientDrawable().apply {
-                setColor(cardBgColor)
-                cornerRadius = dpToPx(100f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
-            }
-            setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                dpToPx(44f),
-                1f
-            ).apply {
-                marginStart = dpToPx(8f)
-            }
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    searchQuery = s.toString()
-                    applyFilters()
-                }
-            })
-        }
-        topBarLayout.addView(searchEditText)
-
         rootFrameLayout.addView(topBarLayout)
 
         // ========== SCROLL VIEW ==========
@@ -519,7 +510,7 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== BOTTOM BAR (only pill, no search) ==========
+        // ========== BOTTOM BAR (with search toggle) ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -532,7 +523,16 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Pill container (always visible)
+        bottomBarContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // Pill container (visible by default)
         val tabPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -605,7 +605,81 @@ class CrashLogActivity : Activity() {
             slidingPillView.requestLayout()
         }
 
-        bottomBarLayout.addView(tabPillContainer)
+        // ---- Search Container (initially hidden) ----
+        searchContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(100f).toFloat()
+                setColor(cardBgColor)
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(8f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
+        }
+
+        // Search icon inside the container (optional – we'll use the EditText's hint)
+        searchEditText = EditText(this).apply {
+            hint = "Search app or package..."
+            setHintTextColor(secondaryTextColor)
+            setTextColor(primaryTextColor)
+            background = null
+            layoutParams = LinearLayout.LayoutParams(
+                dpToPx(200f),
+                dpToPx(44f),
+                1f
+            )
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    searchQuery = s.toString()
+                    applyFilters()
+                }
+            })
+        }
+        searchContainer.addView(searchEditText)
+
+        val closeSearch = TextView(this).apply {
+            text = "✕"
+            textSize = 20f
+            setTextColor(secondaryTextColor)
+            setPadding(dpToPx(8f), 0, dpToPx(8f), 0)
+            isClickable = true
+            setOnClickListener { toggleSearch() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        searchContainer.addView(closeSearch)
+
+        // ---- Add pill and search container to bottom bar container ----
+        bottomBarContainer.addView(tabPillContainer)
+        bottomBarContainer.addView(searchContainer)
+
+        // ---- Search Toggle Button (magnifying glass) ----
+        val searchBtnDrawable = createSearchDrawable()
+        searchButton = ImageView(this).apply {
+            setImageDrawable(searchBtnDrawable)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+            isClickable = true
+            isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                marginStart = dpToPx(8f)
+            }
+            setOnClickListener { toggleSearch() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        bottomBarContainer.addView(searchButton)
+
+        bottomBarLayout.addView(bottomBarContainer)
         rootFrameLayout.addView(bottomBarLayout)
 
         // ====== BOTTOM PILL TOUCH HANDLING ======
@@ -678,6 +752,12 @@ class CrashLogActivity : Activity() {
             }
         }
 
+        // ========== SCROLL LISTENER FOR TOP BAR TITLE ==========
+        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val alpha = (scrollY / dpToPx(40f).toFloat()).coerceIn(0f, 1f)
+            topBarTitle.alpha = alpha
+        }
+
         // ========== WINDOW INSETS ==========
         rootFrameLayout.setOnApplyWindowInsetsListener { _, insets ->
             val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -699,6 +779,28 @@ class CrashLogActivity : Activity() {
         }
 
         setContentView(rootFrameLayout)
+    }
+
+    // ========== SEARCH TOGGLE ==========
+    private fun toggleSearch() {
+        isSearchActive = !isSearchActive
+        val pill = bottomBarContainer.getChildAt(0) as LinearLayout // tabPillContainer
+        val search = bottomBarContainer.getChildAt(1) as LinearLayout // searchContainer
+        if (isSearchActive) {
+            pill.visibility = View.GONE
+            search.visibility = View.VISIBLE
+            searchEditText.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(searchEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        } else {
+            pill.visibility = View.VISIBLE
+            search.visibility = View.GONE
+            searchEditText.text.clear()
+            searchQuery = ""
+            applyFilters()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+        }
     }
 
     // ========== REFRESH (NEW LOGIC) ==========
@@ -1127,6 +1229,30 @@ class CrashLogActivity : Activity() {
                     lineTo(cx + size * 0.4f, cy + size)
                 }
                 canvas.drawPath(path, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private fun createSearchDrawable(): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = primaryTextColor
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2.2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val r = dpToPx(4.5f).toFloat()
+                canvas.drawCircle(cx - dpToPx(1.5f).toFloat(), cy - dpToPx(1.5f).toFloat(), r, paint)
+                val offset = dpToPx(3.2f).toFloat()
+                val end = dpToPx(7f).toFloat()
+                canvas.drawLine(cx + offset, cy + offset, cx + end, cy + end, paint)
             }
             override fun setAlpha(alpha: Int) { paint.alpha = alpha }
             override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
