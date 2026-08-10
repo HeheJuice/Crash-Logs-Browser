@@ -2,6 +2,8 @@ package com.HeheJuice.CrashLogs
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
@@ -148,8 +150,8 @@ class CrashLogActivity : Activity() {
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -607,7 +609,10 @@ class CrashLogActivity : Activity() {
         // ====== BOTTOM PILL TOUCH HANDLING & TAB SWITCH WITH SLIDE ANIMATION ======
         // Function to animate tab switch with horizontal slide
         val switchTab: (Int) -> Unit = { tab ->
-            if (currentTab == tab) return@Unit // no change
+            if (currentTab == tab) {
+                // Already on this tab, do nothing
+                return@Unit
+            }
 
             // Cancel any ongoing animation
             tabSwitchAnimator?.cancel()
@@ -615,16 +620,16 @@ class CrashLogActivity : Activity() {
 
             val incoming: LinearLayout
             val outgoing: LinearLayout
-            val incomingDirection: Float // -1 for left, +1 for right
+            val incomingDirection: Float // -1 for slide from left, +1 for slide from right
 
             if (tab == TAB_LOGS) {
                 incoming = logsLayout
                 outgoing = infoLayout
-                incomingDirection = -1f // slide in from left
+                incomingDirection = -1f
             } else {
                 incoming = infoLayout
                 outgoing = logsLayout
-                incomingDirection = 1f // slide in from right
+                incomingDirection = 1f
             }
 
             // Ensure both are visible and have proper alpha/translation
@@ -640,20 +645,20 @@ class CrashLogActivity : Activity() {
             incoming.translationX = incomingDirection * screenW
             outgoing.translationX = 0f
 
-            // Animate incoming to 0, outgoing to opposite side
-            val incomingAnim = incoming.animate()
-                .translationX(0f)
-                .setDuration(300)
-                .setInterpolator(DecelerateInterpolator(1.2f))
+            // Create ObjectAnimators for translationX
+            val incomingAnim = ObjectAnimator.ofFloat(incoming, View.TRANSLATION_X, incoming.translationX, 0f).apply {
+                duration = 300
+                interpolator = DecelerateInterpolator(1.2f)
+            }
 
             val outgoingTargetX = -incomingDirection * screenW
-            val outgoingAnim = outgoing.animate()
-                .translationX(outgoingTargetX)
-                .setDuration(300)
-                .setInterpolator(DecelerateInterpolator(1.2f))
+            val outgoingAnim = ObjectAnimator.ofFloat(outgoing, View.TRANSLATION_X, outgoing.translationX, outgoingTargetX).apply {
+                duration = 300
+                interpolator = DecelerateInterpolator(1.2f)
+            }
 
-            // Combine both animations and set end listener to hide outgoing
-            val animatorSet = android.animation.AnimatorSet()
+            // Combine both animations in a set
+            val animatorSet = AnimatorSet()
             animatorSet.playTogether(incomingAnim, outgoingAnim)
             animatorSet.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
