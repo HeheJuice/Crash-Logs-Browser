@@ -107,7 +107,7 @@ class CrashLogActivity : Activity() {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
             clipToPadding = false
-            fillViewport = true
+            setFillViewport(true)  // <-- FIXED: use setter method
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(68f), dpToPx(16f), dpToPx(180f))
         }
 

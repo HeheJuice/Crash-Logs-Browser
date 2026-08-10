@@ -3,4 +3,5 @@
     android:shape="rectangle">
     <solid android:color="?android:attr/colorBackground" />
     <corners android:radius="16dp" />
+    <!-- No stroke, as requested -->
 </shape>
