@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.HeheJuice.CrashLogs"
-        minSdk = 33
+        minSdk = 35
         targetSdk = 36
         versionCode = 10
         versionName = "V.1.0"
@@ -47,19 +47,13 @@ android {
     }
 }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") } 
-    }
-}
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.9.0")
     implementation("androidx.recyclerview:recyclerview:1.3.0")
- implementation("com.github.RikkaApps:Shizuku-API:13.1.5")
+
+    // Shizuku from JitPack (supports moe.shizuku.api / moe.shizuku.privileged)
+    implementation("com.github.RikkaApps:Shizuku-API:13.1.5")
     implementation("com.github.RikkaApps:Shizuku-Provider:13.1.5")
 }
