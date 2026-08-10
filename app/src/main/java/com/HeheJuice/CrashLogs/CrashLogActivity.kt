@@ -144,8 +144,8 @@ class CrashLogActivity : Activity() {
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -1499,5 +1499,138 @@ class CrashLogActivity : Activity() {
             putExtra("details", entry.details)
         }
         startActivity(intent)
+    }
+}
+
+// ========== DATA CLASSES ==========
+data class LogEntry(
+    val timestamp: String,
+    val appName: String,
+    val type: String,
+    val details: String = ""
+)
+
+// ========== LOG ADAPTER ==========
+class LogAdapter(
+    private var logs: List<LogEntry>,
+    private val context: Context,
+    private val packageManager: PackageManager,
+    private val cardBgColor: Int,
+    private val cardBorderColor: Int,
+    private val onItemClick: (LogEntry) -> Unit
+) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
+
+    private val defaultIcon = ContextCompat.getDrawable(
+        context,
+        android.R.drawable.sym_def_app_icon
+    )
+
+    fun updateLogs(newLogs: List<LogEntry>) {
+        logs = newLogs
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_log, parent, false)
+        return LogViewHolder(view, onItemClick)
+    }
+
+    override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
+        holder.bind(
+            logs[position],
+            packageManager,
+            defaultIcon,
+            cardBgColor,
+            cardBorderColor
+        )
+    }
+
+    override fun getItemCount(): Int = logs.size
+
+    class LogViewHolder(
+        itemView: View,
+        private val onItemClick: (LogEntry) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
+        private val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
+        private val timestampText: TextView = itemView.findViewById(R.id.timestampText)
+        private val appNameText: TextView = itemView.findViewById(R.id.appNameText)
+        private val typeBadge: TextView = itemView.findViewById(R.id.typeBadge)
+        private val cardLayout: LinearLayout = itemView.findViewById(R.id.cardLayout)
+
+        fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?, cardBg: Int, cardBorder: Int) {
+            timestampText.text = log.timestamp
+            val cleanPackage = log.appName.substringBefore(":")
+            appNameText.text = cleanPackage
+
+            // Card background
+            val cardDrawable = GradientDrawable().apply {
+                setColor(cardBg)
+                cornerRadius = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    16f,
+                    itemView.context.resources.displayMetrics
+                )
+                setStroke(
+                    TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        1f,
+                        itemView.context.resources.displayMetrics
+                    ).toInt(),
+                    cardBorder
+                )
+            }
+            cardLayout.background = cardDrawable
+
+            // Magisk special
+            val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
+            val badgeText = if (isMagisk) "Magisk" else log.type
+            typeBadge.text = badgeText
+
+            // Load icon
+            var iconLoaded = false
+            if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
+                try {
+                    val appInfo = pm.getApplicationInfo(cleanPackage, 0)
+                    appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
+                    iconLoaded = true
+                } catch (e: PackageManager.NameNotFoundException) {
+                    try {
+                        val packages = pm.getInstalledApplications(0)
+                        for (pkg in packages) {
+                            if (pkg.packageName.equals(cleanPackage, ignoreCase = true)) {
+                                appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
+                                iconLoaded = true
+                                break
+                            }
+                        }
+                    } catch (e2: Exception) { /* ignore */ }
+                }
+            }
+            if (!iconLoaded) {
+                appIcon.setImageDrawable(defaultIcon)
+            }
+
+            // Badge color
+            val radiusPx = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                100f,
+                itemView.context.resources.displayMetrics
+            )
+            val badgeColor = when {
+                isMagisk -> Color.parseColor("#00af9c")
+                log.type == "Crash" -> ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
+                log.type == "ANR" -> ContextCompat.getColor(itemView.context, android.R.color.holo_orange_dark)
+                else -> ContextCompat.getColor(itemView.context, android.R.color.darker_gray)
+            }
+            val badgeDrawable = GradientDrawable().apply {
+                cornerRadius = radiusPx
+                setColor(badgeColor)
+            }
+            typeBadge.background = badgeDrawable
+            typeBadge.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.white))
+
+            itemView.setOnClickListener { onItemClick(log) }
+        }
     }
 }
