@@ -232,10 +232,10 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ---- FIXED TOUCH HANDLING FOR FILTER PILL ----
+        // ---- TOUCH HANDLING – using full container width (FINAL FALLBACK) ----
         filterPillContainer.setOnTouchListener { view, event ->
-            val x0 = filterAllBtn.left.toFloat() + (filterAllBtn.width / 2f)
-            val x1 = filterAnrBtn.left.toFloat() + (filterAnrBtn.width / 2f)
+            val containerWidth = view.width - view.paddingLeft - view.paddingRight
+            if (containerWidth <= 0) return@setOnTouchListener true
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -248,23 +248,23 @@ class CrashLogActivity : Activity() {
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
 
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
                     updateFilterPillPosition(progress)
                     true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
+                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
                     updateFilterPillPosition(progress)
                     true
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-                    // Snap to nearest tab using simple thresholds
+                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
+                    // Equal thirds: 0-0.33 → ALL, 0.33-0.66 → CRASH, 0.66-1 → ANR
                     val targetProgress = when {
                         progress < 0.33f -> 0f
                         progress < 0.66f -> 0.5f
