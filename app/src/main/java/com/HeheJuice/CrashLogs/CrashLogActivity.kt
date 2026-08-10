@@ -155,7 +155,8 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        logAdapter = LogAdapter(filteredLogs, packageManager)
+        // Pass context and packageManager to adapter
+        logAdapter = LogAdapter(filteredLogs, this, packageManager)
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
@@ -261,7 +262,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Back arrow – still programmatic (you can replace with arrow_back_24px if downloaded)
+        // Back arrow – programmatic (can be replaced with arrow_back_24px if downloaded)
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -897,7 +898,7 @@ class CrashLogActivity : Activity() {
 
     // ========== DRAWABLES ==========
 
-    // Back arrow – keep programmatic (or replace with arrow_back_24px if downloaded)
+    // Back arrow – programmatic (can be replaced with arrow_back_24px if downloaded)
     private fun createArrowBackDrawable(): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1191,11 +1192,12 @@ data class LogEntry(
 // ========== LOG ADAPTER ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
+    private val context: Context,
     private val packageManager: PackageManager
 ) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
 
     private val defaultIcon = ContextCompat.getDrawable(
-        packageManager.getApplicationContext(),
+        context,
         android.R.drawable.sym_def_app_icon
     )
 
