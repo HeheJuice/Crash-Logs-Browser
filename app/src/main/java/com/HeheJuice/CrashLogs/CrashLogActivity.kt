@@ -165,7 +165,6 @@ class CrashLogActivity : Activity() {
             ).apply {
                 bottomMargin = dpToPx(16f)
             }
-            setOnTouchListener(pressScaleTouchListener)
         }
 
         val filterActiveBg = GradientDrawable().apply {
@@ -232,10 +231,10 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // Filter drag listener
+        // Filter drag listener - synchronized with bottom bar logic
         filterPillContainer.setOnTouchListener { view, event ->
-            val containerWidth = view.width - view.paddingLeft - view.paddingRight
-            if (containerWidth <= 0) return@setOnTouchListener true
+            val x0 = filterAllBtn.left.toFloat() + (filterAllBtn.width / 2f)
+            val x1 = filterAnrBtn.left.toFloat() + (filterAnrBtn.width / 2f)
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -248,23 +247,23 @@ class CrashLogActivity : Activity() {
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
 
-                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
                     updateFilterPillPosition(progress)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
                     updateFilterPillPosition(progress)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val touchX = (event.x - view.paddingLeft).coerceIn(0f, containerWidth.toFloat())
-                    val progress = (touchX / containerWidth).coerceIn(0f, 1f)
+                    val touchX = event.x - filterPillContainer.paddingLeft
+                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
                     val targetProgress = when {
-                        progress < 0.33f -> 0f
-                        progress < 0.66f -> 0.5f
+                        progress < 0.25f -> 0f
+                        progress < 0.75f -> 0.5f
                         else -> 1f
                     }
                     val targetFilter = when (targetProgress) {
@@ -732,10 +731,9 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // Fixed thirds distribution
-        filterAllBtn.setTextColor(if (p < 0.33f) primaryTextColor else secondaryTextColor)
-        filterCrashBtn.setTextColor(if (p in 0.33f..0.66f) primaryTextColor else secondaryTextColor)
-        filterAnrBtn.setTextColor(if (p > 0.66f) primaryTextColor else secondaryTextColor)
+        filterAllBtn.setTextColor(if (p < 0.25f) primaryTextColor else secondaryTextColor)
+        filterCrashBtn.setTextColor(if (p in 0.25f..0.75f) primaryTextColor else secondaryTextColor)
+        filterAnrBtn.setTextColor(if (p > 0.75f) primaryTextColor else secondaryTextColor)
     }
 
     private fun animateFilterPillTo(targetProgress: Float, onEnd: () -> Unit) {
@@ -1046,7 +1044,11 @@ class CrashLogActivity : Activity() {
                     packageName
                 )
             }
-            mode == AppOpsManager.MODE_ALLOWED
+            if (mode == AppOpsManager.MODE_DEFAULT) {
+                checkCallingOrSelfPermission("android.permission.PACKAGE_USAGE_STATS") == PackageManager.PERMISSION_GRANTED
+            } else {
+                mode == AppOpsManager.MODE_ALLOWED
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check usage stats permission", e)
             false
@@ -1631,7 +1633,6 @@ class LogAdapter(
         init {
             itemView.isClickable = true
             itemView.isFocusable = true
-            // Ripple feedback via foreground – using itemView context
             val outValue = android.util.TypedValue()
             itemView.context.theme.resolveAttribute(
                 android.R.attr.selectableItemBackground,
