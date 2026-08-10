@@ -82,7 +82,7 @@ class CrashLogActivity : Activity() {
     private lateinit var filterAnrBtn: TextView
     private var currentFilterTab = FILTER_ALL
 
-    // Loading text view (instead of progress bar)
+    // Loading text view
     private lateinit var loadingText: TextView
 
     private lateinit var rootFrameLayout: FrameLayout
@@ -281,7 +281,7 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading TextView ----
+        // ---- Loading Text ----
         loadingText = TextView(this).apply {
             text = "Loading..."
             textSize = 18f
@@ -782,7 +782,8 @@ class CrashLogActivity : Activity() {
 
         if (checkReadLogsPermission()) {
             try {
-                val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 2000")
+                // Increased buffer to 5000 lines
+                val process = Runtime.getRuntime().exec("logcat -b crash -b main -b system -d -v time -t 5000")
                 val reader = BufferedReader(InputStreamReader(process.inputStream))
                 val lines = reader.readLines()
                 process.waitFor()
@@ -875,6 +876,7 @@ class CrashLogActivity : Activity() {
         return "System Process / Unknown"
     }
 
+    // FIXED: Read full DropBox content (0 bytes = full)
     private fun loadDropBoxLogs() {
         try {
             val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
@@ -890,7 +892,8 @@ class CrashLogActivity : Activity() {
             while (entry != null) {
                 val tag = entry.tag
                 if (tags.contains(tag)) {
-                    val text = entry.getText(2048) ?: ""
+                    // Read full content: pass 0 to get entire file
+                    val text = entry.getText(0) ?: ""
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
                     val pkgMatch = Regex("(?:Process|Package|Cmdline):\\s*([\\w.:]+)").find(text)
                     val pkg = pkgMatch?.groupValues?.get(1)?.substringBefore(":")

@@ -186,7 +186,8 @@ class CrashDetailActivity : Activity() {
             }
             movementMethod = ScrollingMovementMethod.getInstance()
             maxLines = Int.MAX_VALUE
-            // Ensure it fills the scroll view
+            // Disable horizontal scrolling so long lines wrap
+            setHorizontallyScrolling(false)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
