@@ -10,7 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // JitPack is no longer needed – Shizuku is on Maven Central
+        // ✅ Rikka's Maven repository for Shizuku
+        maven { url = uri("https://maven.rikka.dev/repository/maven-public/") }
     }
 }
 rootProject.name = "Crash-Logs-Browser"
