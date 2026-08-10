@@ -289,15 +289,15 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_ALWAYS
         }
 
-        logAdapter = LogAdapter(filteredLogs, this, packageManager) { entry ->
-            val intent = Intent(this@CrashLogActivity, CrashDetailActivity::class.java).apply {
-                putExtra("type", entry.type)
-                putExtra("appName", entry.appName)
-                putExtra("timestamp", entry.timestamp)
-                putExtra("details", entry.details)
-            }
-            startActivity(intent)
-        }
+        // Pass card colors to adapter for proper styling
+        logAdapter = LogAdapter(
+            filteredLogs,
+            this,
+            packageManager,
+            cardBgColor,
+            cardBorderColor,
+            ::onItemClick
+        )
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
@@ -360,9 +360,12 @@ class CrashLogActivity : Activity() {
 
         infoCardLayout.addView(statsRow)
 
+        // ---- Refresh Button (with reset filter logic) ----
         val refreshBtn = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
             loadLogsAsync()
-            Toast.makeText(this, "Refreshing logs...", Toast.LENGTH_SHORT).show()
+            // Reset filter to ALL after refresh
+            switchFilterTab(FILTER_ALL)
+            Toast.makeText(this, "Refreshed logs, filter set to ALL", Toast.LENGTH_SHORT).show()
         }.apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
         }
@@ -508,9 +511,13 @@ class CrashLogActivity : Activity() {
                 if (tab == TAB_LOGS) {
                     logsLayout.visibility = View.VISIBLE
                     infoLayout.visibility = View.GONE
+                    // Animate logs layout when switching to Logs
+                    applyEntranceAnimations(listOf(logsLayout))
                 } else {
                     logsLayout.visibility = View.GONE
                     infoLayout.visibility = View.VISIBLE
+                    // Animate info layout when switching to Info
+                    applyEntranceAnimations(listOf(infoLayout))
                 }
                 scrollView.scrollTo(0, 0)
             }
@@ -655,6 +662,22 @@ class CrashLogActivity : Activity() {
                 }
             )
             logAdapter.updateLogs(filteredLogs)
+            // Animate RecyclerView when filter changes
+            animateRecyclerView()
+        }
+    }
+
+    private fun animateRecyclerView() {
+        // Fade in with a slight slide-up
+        recyclerView.apply {
+            translationY = dpToPx(20f).toFloat()
+            alpha = 0f
+            animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(400)
+                .setInterpolator(DecelerateInterpolator(1.5f))
+                .start()
         }
     }
 
@@ -1363,4 +1386,163 @@ class CrashLogActivity : Activity() {
     }
 
     private fun dpToPx(dp: Int): Int = dpToPx(dp.toFloat())
+
+    // Click handler for log items
+    private fun onItemClick(entry: LogEntry) {
+        val intent = Intent(this, CrashDetailActivity::class.java).apply {
+            putExtra("type", entry.type)
+            putExtra("appName", entry.appName)
+            putExtra("timestamp", entry.timestamp)
+            putExtra("details", entry.details)
+        }
+        startActivity(intent)
+    }
+
+    // Entrance animations for layouts
+    private fun applyEntranceAnimations(views: List<View>) {
+        views.forEachIndexed { index, view ->
+            view.translationY = dpToPx(40f).toFloat()
+            view.alpha = 0f
+            view.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(400)
+                .setStartDelay((index * 60).toLong())
+                .setInterpolator(DecelerateInterpolator(1.5f))
+                .start()
+        }
+    }
+}
+
+// ========== DATA CLASSES ==========
+data class LogEntry(
+    val timestamp: String,
+    val appName: String,
+    val type: String,
+    val details: String = ""
+)
+
+// ========== LOG ADAPTER ==========
+class LogAdapter(
+    private var logs: List<LogEntry>,
+    private val context: Context,
+    private val packageManager: PackageManager,
+    private val cardBgColor: Int,
+    private val cardBorderColor: Int,
+    private val onItemClick: (LogEntry) -> Unit
+) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
+
+    private val defaultIcon = ContextCompat.getDrawable(
+        context,
+        android.R.drawable.sym_def_app_icon
+    )
+
+    fun updateLogs(newLogs: List<LogEntry>) {
+        logs = newLogs
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_log, parent, false)
+        return LogViewHolder(view, onItemClick)
+    }
+
+    override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
+        holder.bind(
+            logs[position],
+            packageManager,
+            defaultIcon,
+            cardBgColor,
+            cardBorderColor
+        )
+    }
+
+    override fun getItemCount(): Int = logs.size
+
+    class LogViewHolder(
+        itemView: View,
+        private val onItemClick: (LogEntry) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
+        private val appIcon: ImageView = itemView.findViewById(R.id.appIcon)
+        private val timestampText: TextView = itemView.findViewById(R.id.timestampText)
+        private val appNameText: TextView = itemView.findViewById(R.id.appNameText)
+        private val typeBadge: TextView = itemView.findViewById(R.id.typeBadge)
+        private val cardLayout: LinearLayout = itemView.findViewById(R.id.cardLayout)
+
+        fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?, cardBg: Int, cardBorder: Int) {
+            timestampText.text = log.timestamp
+            val cleanPackage = log.appName.substringBefore(":")
+            appNameText.text = cleanPackage
+
+            // --- Set card background to match old project style ---
+            val cardDrawable = GradientDrawable().apply {
+                setColor(cardBg)
+                cornerRadius = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    16f,
+                    itemView.context.resources.displayMetrics
+                )
+                setStroke(
+                    TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        1f,
+                        itemView.context.resources.displayMetrics
+                    ).toInt(),
+                    cardBorder
+                )
+            }
+            cardLayout.background = cardDrawable
+
+            // --- Magisk special ---
+            val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
+            val badgeText = if (isMagisk) "Magisk" else log.type
+            typeBadge.text = badgeText
+
+            // Load icon
+            var iconLoaded = false
+            if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
+                try {
+                    val appInfo = pm.getApplicationInfo(cleanPackage, 0)
+                    appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
+                    iconLoaded = true
+                } catch (e: PackageManager.NameNotFoundException) {
+                    try {
+                        val packages = pm.getInstalledApplications(0)
+                        for (pkg in packages) {
+                            if (pkg.packageName.equals(cleanPackage, ignoreCase = true)) {
+                                appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
+                                iconLoaded = true
+                                break
+                            }
+                        }
+                    } catch (e2: Exception) { /* ignore */ }
+                }
+            }
+            if (!iconLoaded) {
+                appIcon.setImageDrawable(defaultIcon)
+            }
+
+            // Badge color
+            val radiusPx = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                100f,
+                itemView.context.resources.displayMetrics
+            )
+            val badgeColor = when {
+                isMagisk -> Color.parseColor("#00af9c")
+                log.type == "Crash" -> ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark)
+                log.type == "ANR" -> ContextCompat.getColor(itemView.context, android.R.color.holo_orange_dark)
+                else -> ContextCompat.getColor(itemView.context, android.R.color.darker_gray)
+            }
+            val badgeDrawable = GradientDrawable().apply {
+                cornerRadius = radiusPx
+                setColor(badgeColor)
+            }
+            typeBadge.background = badgeDrawable
+            typeBadge.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.white))
+
+            itemView.setOnClickListener { onItemClick(log) }
+        }
+    }
 }
