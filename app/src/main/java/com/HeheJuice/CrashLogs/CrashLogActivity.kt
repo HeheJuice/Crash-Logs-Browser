@@ -231,62 +231,65 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // Filter drag listener - synchronized with bottom bar logic
-        filterPillContainer.setOnTouchListener { view, event ->
-            val x0 = filterAllBtn.left.toFloat() + (filterAllBtn.width / 2f)
-            val x1 = filterAnrBtn.left.toFloat() + (filterAnrBtn.width / 2f)
+// Filter drag listener - smooth full-range tracking
+filterPillContainer.setOnTouchListener { view, event ->
+    val containerWidth = filterPillContainer.width - filterPillContainer.paddingLeft - filterPillContainer.paddingRight
+    val x0 = filterAllBtn.left.toFloat()
+    val x2 = filterAnrBtn.left.toFloat() + filterAnrBtn.width
+    val totalSpan = x2 - x0
 
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    view.animate().cancel()
-                    view.animate()
-                        .scaleX(0.95f)
-                        .scaleY(0.95f)
-                        .alpha(0.9f)
-                        .setDuration(120)
-                        .setInterpolator(DecelerateInterpolator(1.5f))
-                        .start()
+    when (event.actionMasked) {
+        MotionEvent.ACTION_DOWN -> {
+            view.animate().cancel()
+            view.animate()
+                .scaleX(0.95f)
+                .scaleY(0.95f)
+                .alpha(0.9f)
+                .setDuration(120)
+                .setInterpolator(DecelerateInterpolator(1.5f))
+                .start()
 
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-                    updateFilterPillPosition(progress)
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-                    updateFilterPillPosition(progress)
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val touchX = event.x - filterPillContainer.paddingLeft
-                    val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
-                    val targetProgress = when {
-                        progress < 0.25f -> 0f
-                        progress < 0.75f -> 0.5f
-                        else -> 1f
-                    }
-                    val targetFilter = when (targetProgress) {
-                        0f -> FILTER_ALL
-                        0.5f -> FILTER_CRASH
-                        else -> FILTER_ANR
-                    }
-                    animateFilterPillTo(targetProgress) {
-                        switchFilterTab(targetFilter)
-                    }
-                    view.animate().cancel()
-                    view.animate()
-                        .scaleX(1.0f)
-                        .scaleY(1.0f)
-                        .alpha(1.0f)
-                        .setDuration(350)
-                        .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f))
-                        .start()
-                    true
-                }
-                else -> false
-            }
+            val touchX = (event.x - filterPillContainer.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+            val progress = if (totalSpan > 0f) (touchX / totalSpan).coerceIn(0f, 1f) else 0f
+            updateFilterPillPosition(progress)
+            true
         }
+        MotionEvent.ACTION_MOVE -> {
+            val touchX = (event.x - filterPillContainer.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+            val progress = if (totalSpan > 0f) (touchX / totalSpan).coerceIn(0f, 1f) else 0f
+            updateFilterPillPosition(progress)
+            true
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            val touchX = (event.x - filterPillContainer.paddingLeft).coerceIn(0f, containerWidth.toFloat())
+            val progress = if (totalSpan > 0f) (touchX / totalSpan).coerceIn(0f, 1f) else 0f
+
+            val targetProgress = when {
+                progress < 0.33f -> 0f
+                progress < 0.66f -> 0.5f
+                else -> 1f
+            }
+            val targetFilter = when (targetProgress) {
+                0f -> FILTER_ALL
+                0.5f -> FILTER_CRASH
+                else -> FILTER_ANR
+            }
+            animateFilterPillTo(targetProgress) {
+                switchFilterTab(targetFilter)
+            }
+            view.animate().cancel()
+            view.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .alpha(1.0f)
+                .setDuration(350)
+                .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f))
+                .start()
+            true
+        }
+        else -> false
+    }
+}
 
         logsLayout.addView(filterPillContainer)
 
