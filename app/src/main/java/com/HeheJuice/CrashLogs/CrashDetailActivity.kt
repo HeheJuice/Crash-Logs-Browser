@@ -47,7 +47,6 @@ class CrashDetailActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
             }
-            // Add top padding to avoid touching status bar
             setPadding(dpToPx(20f), statusBarHeight + dpToPx(12f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -98,7 +97,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button – smaller icon (36dp), with 12dp padding to keep touch area large
+        // Copy button – smaller icon (48dp touch area, 14dp padding)
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -109,14 +108,12 @@ class CrashDetailActivity : Activity() {
                     shape = GradientDrawable.OVAL
                     setColor(backBtnBgColor)
                 }
-                // Larger padding to make icon smaller inside the 48dp circle
                 setPadding(dpToPx(14f), dpToPx(14f), dpToPx(14f), dpToPx(14f))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { copyToClipboard(details) }
                 setOnTouchListener(pressScaleTouchListener)
-                // Touch area remains 48dp
                 layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                     gravity = Gravity.CENTER_VERTICAL
                 }
@@ -146,8 +143,7 @@ class CrashDetailActivity : Activity() {
 
         rootLayout.addView(headerLayout)
 
-        // ---- Removed the thin separator line ----
-        // (No separator added)
+        // No separator line
 
         // Info row (package and time)
         val infoLayout = LinearLayout(this).apply {
@@ -190,6 +186,11 @@ class CrashDetailActivity : Activity() {
             }
             movementMethod = ScrollingMovementMethod.getInstance()
             maxLines = Int.MAX_VALUE
+            // Ensure it fills the scroll view
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
         scrollDetails.addView(detailsTv)
         rootLayout.addView(scrollDetails)

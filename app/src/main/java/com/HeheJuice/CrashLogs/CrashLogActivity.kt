@@ -82,8 +82,8 @@ class CrashLogActivity : Activity() {
     private lateinit var filterAnrBtn: TextView
     private var currentFilterTab = FILTER_ALL
 
-    // Loading indicator
-    private lateinit var progressBar: ProgressBar
+    // Loading text view (instead of progress bar)
+    private lateinit var loadingText: TextView
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: ScrollView
@@ -281,21 +281,23 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading ProgressBar ----
-        progressBar = ProgressBar(this).apply {
+        // ---- Loading TextView ----
+        loadingText = TextView(this).apply {
+            text = "Loading..."
+            textSize = 18f
+            setTextColor(secondaryTextColor)
+            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.CENTER
-                bottomMargin = dpToPx(16f)
+                topMargin = dpToPx(40f)
+                bottomMargin = dpToPx(40f)
             }
             visibility = View.GONE
-            indeterminateDrawable = ContextCompat.getDrawable(this@CrashLogActivity, android.R.drawable.progress_indeterminate_horizontal)?.apply {
-                setTint(accentColor)
-            }
         }
-        logsLayout.addView(progressBar)
+        logsLayout.addView(loadingText)
 
         // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
@@ -747,12 +749,12 @@ class CrashLogActivity : Activity() {
 
     // ========== LOG PARSING WITH LOADING STATE ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
-        progressBar.visibility = View.VISIBLE
+        loadingText.visibility = View.VISIBLE
         recyclerView.visibility = View.GONE
         Thread {
             loadLogs()
             runOnUiThread {
-                progressBar.visibility = View.GONE
+                loadingText.visibility = View.GONE
                 recyclerView.visibility = View.VISIBLE
                 logAdapter.updateLogs(filteredLogs)
                 updateStats()
