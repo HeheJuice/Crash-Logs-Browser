@@ -5,11 +5,12 @@
 > A Simple / Light-Weight Android Crash or ANRs Logs Viewer 
 
 ## Badges
+
 [![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)]
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white&style=for-the-badge)]
 
-[![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)]
+[![LICENSE](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)](LICENCE)
 
 
 ## Features 
