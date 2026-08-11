@@ -109,7 +109,6 @@ class DetailsActivity : Activity() {
             textSize = 32f
             setTextColor(Color.WHITE)
 
-            // Bold rounded configuration: Higher weight for boldness, high ROND axis for rounded style
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 700, false)
                 fontVariationSettings = "'wght' 700, 'ROND' 100, 'opsz' 14"
@@ -170,7 +169,7 @@ class DetailsActivity : Activity() {
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // ----- NEW INFO CARD: Source Code & License Buttons -----
+        // ===== NEW INFO CARD: Source Code & License BUTTONS (vertical) =====
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -187,14 +186,7 @@ class DetailsActivity : Activity() {
             }
         }
 
-        val buttonRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
+        // Button: View Source Code
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
@@ -205,8 +197,11 @@ class DetailsActivity : Activity() {
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginEnd = dpToPx(8f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(8f)
             }
             isClickable = true
             isFocusable = true
@@ -216,6 +211,7 @@ class DetailsActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
+        // Button: View GPL-3.0 License
         val licenseBtn = TextView(this).apply {
             text = "View GPL-3.0 License"
             textSize = 15f
@@ -226,8 +222,11 @@ class DetailsActivity : Activity() {
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dpToPx(8f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(8f)
             }
             isClickable = true
             isFocusable = true
@@ -237,9 +236,8 @@ class DetailsActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        buttonRow.addView(sourceBtn)
-        buttonRow.addView(licenseBtn)
-        infoCard.addView(buttonRow)
+        infoCard.addView(sourceBtn)
+        infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
         // ----- CREDITS CARD -----
