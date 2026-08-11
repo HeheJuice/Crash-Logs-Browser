@@ -6,8 +6,8 @@
 
 ## Badges
 [![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)]
-[![Kotlin](https://img.shields.io/badge/kotlin-2.4.10-7F52FF)](https://kotlinlang.org/)
-[![License](https://img.shields.io/github/license/HeheJuice/Crash-Logs-Browser&style=for-the-badge)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-50f270?logo=kotlin&logoColor=white&style=for-the-badge)]
+[![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)]
 
 
 ## Features 
