@@ -97,9 +97,14 @@ class CrashLogActivity : Activity() {
     // Loading text view
     private lateinit var loadingText: TextView
 
-    // Refresh timer
-    private var refreshTimer: CountDownTimer? = null
-    private lateinit var refreshButton: TextView
+    // Refresh cooldown
+    private var cooldownTimer: CountDownTimer? = null
+    private var isCooldown = false
+    private var remainingSeconds = 0
+
+    // UI references
+    private lateinit var refreshButton: TextView        // Info tab refresh button
+    private lateinit var topBarRefreshBtn: ImageView   // top‑right refresh button
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -487,6 +492,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
+        // Refresh button in Info tab – will be updated by cooldown timer
         refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
@@ -496,7 +502,8 @@ class CrashLogActivity : Activity() {
         }
         buttonRow.addView(refreshButton)
 
-        val clearCacheBtn = createAnimatedButton("Clear Cache", primaryTextColor, secondaryBtnColor, LinearLayout.LayoutParams.MATCH_PARENT) {
+        // Clear Cache button – now red
+        val clearCacheBtn = createAnimatedButton("Clear Cache", Color.WHITE, redBtnColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             clearCache()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
@@ -544,6 +551,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // Back button
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -559,8 +567,28 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
+        // ====== NEW REFRESH BUTTON (top‑right) with padding & scale fix ======
+        topBarRefreshBtn = ImageView(this).apply {
+            setImageResource(R.drawable.refresh_24px)
+            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+            // Avoid clipping by scaling down and adding padding
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            contentDescription = "Refresh"
+            isClickable = true
+            isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.END or Gravity.CENTER_VERTICAL)
+            setOnClickListener { performRefresh() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
+        topBarLayout.addView(topBarRefreshBtn)
         rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR with icons ==========
@@ -764,25 +792,50 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH ==========
+    // ========== REFRESH WITH COOLDOWN ==========
     private fun performRefresh() {
-        if (refreshTimer != null) return
+        if (isCooldown) {
+            // Show toast with remaining seconds
+            Toast.makeText(this, "Cooldown ${remainingSeconds}s", Toast.LENGTH_SHORT).show()
+            return
+        }
 
+        // Start refresh
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
+        topBarRefreshBtn.isEnabled = false
+
         loadLogsAsync {
-            refreshTimer = object : CountDownTimer(5000, 1000) {
-                override fun onTick(millisUntilFinished: Long) {
-                    val seconds = (millisUntilFinished / 1000).toInt()
-                    refreshButton.text = "Cooldown $seconds"
-                }
-                override fun onFinish() {
-                    refreshButton.text = "Refresh Logs"
-                    refreshButton.isEnabled = true
-                    refreshTimer = null
-                }
-            }.start()
+            // After load completes, start cooldown
+            startCooldown()
         }
+    }
+
+    private fun startCooldown() {
+        isCooldown = true
+        remainingSeconds = 5
+
+        cooldownTimer?.cancel()
+        cooldownTimer = object : CountDownTimer(5000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                remainingSeconds = (millisUntilFinished / 1000).toInt()
+                refreshButton.text = "Cooldown $remainingSeconds"
+                // Keep button disabled; top bar button also disabled via isCooldown check
+            }
+
+            override fun onFinish() {
+                isCooldown = false
+                refreshButton.text = "Refresh Logs"
+                refreshButton.isEnabled = true
+                topBarRefreshBtn.isEnabled = true
+                cooldownTimer = null
+            }
+        }.start()
+    }
+
+    override fun onDestroy() {
+        cooldownTimer?.cancel()
+        super.onDestroy()
     }
 
     // ========== FILTER PILL FUNCTIONS ==========
