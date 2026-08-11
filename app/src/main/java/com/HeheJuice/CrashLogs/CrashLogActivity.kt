@@ -1,6 +1,7 @@
 package com.HeheJuice.CrashLogs
 
 import android.animation.Animator
+import androidx.core.content.ContextCompat
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
