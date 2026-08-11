@@ -21,11 +21,19 @@ class DetailsActivity : Activity() {
 
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
+    private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
+
+        // Load Google Sans Flex from assets folder
+        googleSansFlexTypeface = try {
+            Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
+        } catch (e: Exception) {
+            null
+        }
 
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -58,7 +66,7 @@ class DetailsActivity : Activity() {
             )
         }
 
-        // ----- Banner Card (keeps the banner image) -----
+        // ----- Banner Card -----
         val bannerCard = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
@@ -72,7 +80,6 @@ class DetailsActivity : Activity() {
             )
         }
 
-        // Banner image – uses hehejuicebanner drawable if exists
         val backgroundImage = ImageView(this).apply {
             val imageResId = resources.getIdentifier("hehejuicebanner", "drawable", packageName)
             if (imageResId != 0) {
@@ -99,9 +106,17 @@ class DetailsActivity : Activity() {
 
         val titleText = TextView(this).apply {
             text = getString(R.string.details_title) // "Crash Logs Browser"
-            textSize = 28f
+            textSize = 32f
             setTextColor(Color.WHITE)
-            setTypeface(null, Typeface.BOLD)
+            
+            // Apply Google Sans Flex variable settings matching the tall/condensed look from reference image:
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 400, false)
+                fontVariationSettings = "'wght' 450, 'wdth' 75, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
+
             gravity = Gravity.CENTER
             translationY = -dpToPx(3f).toFloat()
             layoutParams = FrameLayout.LayoutParams(
@@ -110,7 +125,6 @@ class DetailsActivity : Activity() {
             )
         }
         bannerCard.addView(titleText)
-
         scrollContent.addView(bannerCard)
 
         // ----- UPDATE CHECKER CARD -----
@@ -134,6 +148,7 @@ class DetailsActivity : Activity() {
             text = getString(R.string.update_checking)
             textSize = 15f
             setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
         }
         updateCard.addView(updateStatusView)
@@ -142,8 +157,8 @@ class DetailsActivity : Activity() {
             text = ""
             textSize = 15f
             setTextColor(accentColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
             isClickable = true
             isFocusable = true
             visibility = View.GONE
@@ -153,7 +168,6 @@ class DetailsActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
         updateCard.addView(updateActionView)
-
         scrollContent.addView(updateCard)
 
         // ----- CREDITS CARD -----
@@ -177,7 +191,7 @@ class DetailsActivity : Activity() {
             text = getString(R.string.credits_title)
             textSize = 20f
             setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             setPadding(0, 0, 0, dpToPx(16f))
         }
         creditsCard.addView(creditsTitle)
@@ -197,7 +211,6 @@ class DetailsActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Avatar
         val avatarResId = resources.getIdentifier(hehejuiceName.lowercase(), "drawable", packageName)
         val avatar1 = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
@@ -222,17 +235,14 @@ class DetailsActivity : Activity() {
         }
         row1.addView(avatar1)
 
-        // If no avatar image, show a text with initial
         if (avatarResId == 0) {
             val initialTv = TextView(this).apply {
                 text = "H"
                 textSize = 24f
                 setTextColor(Color.WHITE)
+                if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
                 gravity = Gravity.CENTER
-                layoutParams = FrameLayout.LayoutParams(
-                    dpToPx(48f),
-                    dpToPx(48f)
-                )
+                layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
             }
             val avatarContainer = FrameLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
@@ -247,18 +257,14 @@ class DetailsActivity : Activity() {
 
         val textContainer1 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val nameView1 = TextView(this).apply {
             text = hehejuiceName
             textSize = 17f
             setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             isClickable = true
             isFocusable = true
             setOnClickListener { openTelegram("HeheJuice") }
@@ -270,13 +276,13 @@ class DetailsActivity : Activity() {
             text = hehejuiceDesc
             textSize = 14f
             setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
         }
         textContainer1.addView(descView1)
-
         row1.addView(textContainer1)
         creditsCard.addView(row1)
 
-        // ----- CREDIT 2: Material Design (NEW) -----
+        // ----- CREDIT 2: Material Design -----
         val materialName = "Material Design"
         val materialDesc = "XML Vector Android Icon"
 
@@ -291,7 +297,6 @@ class DetailsActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Material Design avatar using androidcredit.webp
         val materialAvatarResId = resources.getIdentifier("androidcredit", "drawable", packageName)
         val avatar2 = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
@@ -306,7 +311,6 @@ class DetailsActivity : Activity() {
                 }
                 clipToOutline = true
             } else {
-                // Fallback: "M" in a circle
                 val drawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(accentColor)
@@ -317,17 +321,14 @@ class DetailsActivity : Activity() {
         }
         row2.addView(avatar2)
 
-        // If no avatar image, show a text with initial "M"
         if (materialAvatarResId == 0) {
             val initialTv = TextView(this).apply {
                 text = "M"
                 textSize = 24f
                 setTextColor(Color.WHITE)
+                if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
                 gravity = Gravity.CENTER
-                layoutParams = FrameLayout.LayoutParams(
-                    dpToPx(48f),
-                    dpToPx(48f)
-                )
+                layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
             }
             val avatarContainer = FrameLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
@@ -342,18 +343,14 @@ class DetailsActivity : Activity() {
 
         val textContainer2 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val nameView2 = TextView(this).apply {
             text = materialName
             textSize = 17f
             setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             isClickable = true
             isFocusable = true
             setOnClickListener {
@@ -367,14 +364,89 @@ class DetailsActivity : Activity() {
             text = materialDesc
             textSize = 14f
             setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
         }
         textContainer2.addView(descView2)
-
         row2.addView(textContainer2)
         creditsCard.addView(row2)
 
-        scrollContent.addView(creditsCard)
+        // ----- CREDIT 3: Google Sans Flex (NEW) -----
+        val fontCreditName = "Google Sans Flex"
+        val fontCreditDesc = "Fonts Used in Some UI"
 
+        val row3 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        // Fallback / initial view "G" for Google Sans Flex
+        val fontAvatar = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                marginEnd = dpToPx(16f)
+            }
+            val drawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(accentColor)
+            }
+            background = drawable
+            setImageDrawable(null)
+        }
+        row3.addView(fontAvatar)
+
+        val fontInitialTv = TextView(this).apply {
+            text = "G"
+            textSize = 24f
+            setTextColor(Color.WHITE)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
+        }
+        val fontAvatarContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                marginEnd = dpToPx(16f)
+            }
+            addView(fontAvatar)
+            addView(fontInitialTv)
+        }
+        row3.removeView(fontAvatar)
+        row3.addView(fontAvatarContainer, 0)
+
+        val textContainer3 = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val nameView3 = TextView(this).apply {
+            text = fontCreditName
+            textSize = 17f
+            setTextColor(primaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://fonts.google.com")))
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        textContainer3.addView(nameView3)
+
+        val descView3 = TextView(this).apply {
+            text = fontCreditDesc
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+        }
+        textContainer3.addView(descView3)
+        row3.addView(textContainer3)
+        creditsCard.addView(row3)
+
+        scrollContent.addView(creditsCard)
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
@@ -388,10 +460,10 @@ class DetailsActivity : Activity() {
         }
 
         val topBarTitle = TextView(this).apply {
-            text = getString(R.string.details_topbar_title) // "About"
+            text = getString(R.string.details_topbar_title)
             textSize = 16f
             setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(backBtnBgColor)
@@ -454,7 +526,6 @@ class DetailsActivity : Activity() {
 
         setContentView(rootFrameLayout)
 
-        // Start update check
         val versionName = getVersionName()
         if (versionName.contains("Debug", ignoreCase = true)) {
             updateStatusView.text = getString(R.string.update_disabled_debug)
@@ -522,8 +593,7 @@ class DetailsActivity : Activity() {
 
                 val responseCode = connection.responseCode
                 if (responseCode == HttpsURLConnection.HTTP_OK) {
-                    val inputStream = connection.inputStream
-                    val response = inputStream.bufferedReader().use { it.readText() }
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(response)
                     val latestTag = json.getString("tag_name")
                     val currentVersion = getVersionName()

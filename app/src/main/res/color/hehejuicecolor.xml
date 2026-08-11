@@ -5,15 +5,15 @@
     android:centerY="480.0"
     android:gradientRadius="350.0">
     <item
-        android:color="@android:color/system_accent1_200"
+        android:color="@android:color/system_accent1_100"
         android:offset="0.0"/>
     <item
-        android:color="@android:color/system_accent1_300"
+        android:color="@android:color/system_accent1_200"
         android:offset="0.1"/>
     <item
-        android:color="@android:color/system_accent2_500"
+        android:color="@android:color/system_accent2_300"
         android:offset="0.5"/>
     <item
-        android:color="@android:color/system_accent1_700"
+        android:color="@android:color/system_accent1_400"
         android:offset="1.0"/>
 </gradient>
