@@ -10,7 +10,7 @@
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white&style=for-the-badge)](https://kotlinlang.org)
 
-[![LICENSE](https://img.shields.io/badge/LICENCE-MIT_LICENCE-50f270?style=for-the-badge)](https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE)
+[![LICENSE](https://img.shields.io/badge/LICENCE-MIT_LICENCE-750014?style=for-the-badge)](https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE)
 
 
 ## Features 
