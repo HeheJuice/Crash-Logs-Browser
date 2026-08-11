@@ -1038,12 +1038,19 @@ class CrashLogActivity : Activity() {
     }
 
     private val pressScaleTouchListener = View.OnTouchListener { v, event ->
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> v.animate().cancel().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().cancel().scaleX(1.0f).scaleY(1.0f).alpha(1.0f).setDuration(350).setInterpolator(miuixSpringInterpolator).start()
+    when (event.action) {
+        MotionEvent.ACTION_DOWN -> {
+            v.animate().cancel()
+            v.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
         }
-        false
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            v.animate().cancel()
+            v.animate().scaleX(1.0f).scaleY(1.0f).alpha(1.0f).setDuration(350).setInterpolator(miuixSpringInterpolator).start()
+        }
     }
+    false
+}
+
 
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
