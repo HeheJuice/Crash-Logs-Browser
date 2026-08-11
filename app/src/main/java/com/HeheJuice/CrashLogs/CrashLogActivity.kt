@@ -567,16 +567,12 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== TOP‑RIGHT REFRESH BUTTON (shows toast on cooldown) ======
+        // ====== TOP‑RIGHT REFRESH BUTTON – always enabled, shows toast on every press ======
         topBarRefreshBtn = ImageView(this).apply {
-            // Load and scale the refresh icon to avoid clipping
-            val refreshDrawable = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.refresh_24px)?.apply {
-                setBounds(0, 0, dpToPx(20f), dpToPx(20f))  // smaller than the 44dp circle
-                setTint(primaryTextColor)
-            }
-            setImageDrawable(refreshDrawable)
+            setImageResource(R.drawable.refresh_24px)
+            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
+            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(backBtnBgColor)
@@ -795,13 +791,18 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH WITH COOLDOWN ==========
+    // ========== REFRESH WITH COOLDOWN AND TOAST ==========
     private fun performRefresh(showToast: Boolean = false) {
         if (isCooldown) {
             if (showToast) {
                 Toast.makeText(this, "Cooldown ${remainingSeconds}s", Toast.LENGTH_SHORT).show()
             }
             return
+        }
+
+        // Show refreshing toast if requested (top‑right button)
+        if (showToast) {
+            Toast.makeText(this, "Refreshing...", Toast.LENGTH_SHORT).show()
         }
 
         // Start refresh
@@ -824,7 +825,7 @@ class CrashLogActivity : Activity() {
             override fun onTick(millisUntilFinished: Long) {
                 remainingSeconds = (millisUntilFinished / 1000).toInt()
                 refreshButton.text = "Cooldown $remainingSeconds"
-                // Keep button disabled; top bar button also disabled via isCooldown check
+                // Keep button disabled; top bar button remains enabled (handled by isCooldown)
             }
 
             override fun onFinish() {
