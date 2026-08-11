@@ -1631,7 +1631,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER (unchanged, with icon scaling) ==========
+// ========== LOG ADAPTER (lower quality + fixed display) ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
@@ -1648,7 +1648,9 @@ class LogAdapter(
     )
 
     private val iconCache = LruCache<String, Bitmap>(50)
-    private val MAX_ICON_SIZE_PX = dpToPx(40f)
+
+    // Lower quality: max 32dp, RGB_565
+    private val MAX_ICON_SIZE_PX = dpToPx(32f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
         logs = newLogs
@@ -1695,19 +1697,37 @@ class LogAdapter(
 
         val width = bitmap.width
         val height = bitmap.height
-        var scaledBitmap = bitmap
+        var scaledBitmap: Bitmap? = null
+
         if (width > MAX_ICON_SIZE_PX || height > MAX_ICON_SIZE_PX) {
             val scale = MAX_ICON_SIZE_PX.toFloat() / maxOf(width, height)
             val newWidth = (width * scale).toInt()
             val newHeight = (height * scale).toInt()
-            scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+
+            // Create RGB_565 bitmap to halve memory
+            scaledBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.RGB_565)
+            val canvas = Canvas(scaledBitmap)
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+            canvas.drawBitmap(bitmap, Rect(0, 0, width, height),
+                Rect(0, 0, newWidth, newHeight), paint)
+
+            if (scaledBitmap != bitmap) {
+                bitmap.recycle()
+            }
+        } else {
+            // If already small enough, convert to RGB_565
+            scaledBitmap = bitmap.copy(Bitmap.Config.RGB_565, false)
             if (scaledBitmap != bitmap) {
                 bitmap.recycle()
             }
         }
 
-        iconCache.put(packageName, scaledBitmap)
-        return BitmapDrawable(context.resources, scaledBitmap)
+        scaledBitmap?.let {
+            iconCache.put(packageName, it)
+            return BitmapDrawable(context.resources, it)
+        }
+
+        return nonNullDrawable
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap? {
@@ -1725,6 +1745,7 @@ class LogAdapter(
         return bitmap
     }
 
+    // ---------- ViewHolder ----------
     class LogViewHolder(
         itemView: View,
         private val onItemClick: (LogEntry) -> Unit
@@ -1747,6 +1768,12 @@ class LogAdapter(
             if (outValue.resourceId != 0) {
                 itemView.foreground = ContextCompat.getDrawable(itemView.context, outValue.resourceId)
             }
+
+            // Ensure icons are displayed without cropping
+            appIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
+            // Optional: make icons circular to avoid transparency edges
+            appIcon.clipToOutline = true
+            appIcon.outlineProvider = android.view.ViewOutlineProvider()
         }
 
         fun bind(
