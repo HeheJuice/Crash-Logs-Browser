@@ -126,7 +126,7 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
-        // ========== SCROLL VIEW ==========
+        // ========== SCROLL VIEW (NestedScrollView) ==========
         scrollView = NestedScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
@@ -233,7 +233,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FILTER PILL TOUCH LISTENER =====
+        // ===== FIXED FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -536,7 +536,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR (with icons) ==========
+        // ========== BOTTOM BAR with icons ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -581,7 +581,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Logs button with assignment icon
+        // ---- Logs button with icon ----
         logsPillBtn = TextView(this).apply {
             text = "Logs"
             textSize = 14f
@@ -601,7 +601,7 @@ class CrashLogActivity : Activity() {
             compoundDrawablePadding = dpToPx(8f)
         }
 
-        // Info button with info icon
+        // ---- Info button with icon ----
         infoPillBtn = TextView(this).apply {
             text = "Info"
             textSize = 14f
@@ -822,7 +822,7 @@ class CrashLogActivity : Activity() {
         recyclerView.translationY = 0f
     }
 
-    // ========== BOTTOM PILL FUNCTIONS (with icon tint) ==========
+    // ========== BOTTOM PILL FUNCTIONS (with icon tinting) ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = logsPillBtn.left.toFloat()
@@ -1631,7 +1631,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER (lower quality – faster) ==========
+// ========== LOG ADAPTER (unchanged, with icon scaling) ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
@@ -1647,11 +1647,8 @@ class LogAdapter(
         android.R.drawable.sym_def_app_icon
     )
 
-    // Cache scaled icons (max 50 entries)
     private val iconCache = LruCache<String, Bitmap>(50)
-
-    // Lower quality: max 24dp and RGB_565
-    private val MAX_ICON_SIZE_PX = dpToPx(24f)
+    private val MAX_ICON_SIZE_PX = dpToPx(40f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
         logs = newLogs
@@ -1677,15 +1674,12 @@ class LogAdapter(
 
     override fun getItemCount(): Int = logs.size
 
-    // ---------- Get scaled icon (lower quality) ----------
     private fun getScaledIcon(packageName: String): Drawable? {
-        // Check cache
         val cached = iconCache.get(packageName)
         if (cached != null) {
             return BitmapDrawable(context.resources, cached)
         }
 
-        // Get original drawable
         val originalDrawable = try {
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
             packageManager.getApplicationIcon(appInfo)
@@ -1701,37 +1695,19 @@ class LogAdapter(
 
         val width = bitmap.width
         val height = bitmap.height
-        var scaledBitmap: Bitmap? = null
-
+        var scaledBitmap = bitmap
         if (width > MAX_ICON_SIZE_PX || height > MAX_ICON_SIZE_PX) {
             val scale = MAX_ICON_SIZE_PX.toFloat() / maxOf(width, height)
             val newWidth = (width * scale).toInt()
             val newHeight = (height * scale).toInt()
-
-            // Create RGB_565 bitmap to halve memory
-            scaledBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.RGB_565)
-            val canvas = Canvas(scaledBitmap)
-            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-            canvas.drawBitmap(bitmap, Rect(0, 0, width, height),
-                Rect(0, 0, newWidth, newHeight), paint)
-
-            if (scaledBitmap != bitmap) {
-                bitmap.recycle()
-            }
-        } else {
-            // If already small enough, convert to RGB_565
-            scaledBitmap = bitmap.copy(Bitmap.Config.RGB_565, false)
+            scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
             if (scaledBitmap != bitmap) {
                 bitmap.recycle()
             }
         }
 
-        scaledBitmap?.let {
-            iconCache.put(packageName, it)
-            return BitmapDrawable(context.resources, it)
-        }
-
-        return nonNullDrawable
+        iconCache.put(packageName, scaledBitmap)
+        return BitmapDrawable(context.resources, scaledBitmap)
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap? {
@@ -1749,7 +1725,6 @@ class LogAdapter(
         return bitmap
     }
 
-    // ---------- ViewHolder (unchanged) ----------
     class LogViewHolder(
         itemView: View,
         private val onItemClick: (LogEntry) -> Unit
