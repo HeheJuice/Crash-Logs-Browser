@@ -211,9 +211,9 @@ class DetailsActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // Button: View GPL-3.0 License
+        // Button: View License
         val licenseBtn = TextView(this).apply {
-            text = "View GPL-3.0 License"
+            text = "View License"
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
