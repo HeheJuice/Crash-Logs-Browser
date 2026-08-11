@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.HeheJuice.CrashLogs"
-        minSdk = 35
+        minSdk = 33
         targetSdk = 36
         versionCode = 10
         versionName = "V.1.0"
