@@ -1,13 +1,12 @@
 <div align="center">
 
-[![Banner](https://socialify.git.ci/HeheJuice/Crash-Logs-Browser/image?description=0&forks=0&issues=0&language=1&name=1&owner=1&pulls=0&stargazers=1&theme=Auto)](https://github.com/HeheJuice/Crash-Logs-Browser/releases)
-
-
 # Crash Logs Browser
-### A Simple / Light-Weight Android Crash Logs Viewer 
-### Min SDK 33 / Android 13 +
+> A Simple / Light-Weight Android Crash Logs Viewer 
+> Min SDK 33 / Android 13 +
 
 </div>
+
+## Screenshots
 
 <div style="display: flex; overflow-x: auto; gap: 10px; padding-bottom: 10px;">
   <img src="Banner.jpg" alt="Banner" height="400" />
