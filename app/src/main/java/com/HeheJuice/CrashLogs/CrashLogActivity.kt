@@ -23,8 +23,6 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.util.LruCache
 import android.util.TypedValue
@@ -76,8 +74,12 @@ class CrashLogActivity : Activity() {
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
 
-    // Bottom bar
+    // MiuiX Bottom Bar Navigation Components
     private lateinit var slidingPillView: View
+    private lateinit var logsTabItem: LinearLayout
+    private lateinit var infoTabItem: LinearLayout
+    private lateinit var logsIconView: ImageView
+    private lateinit var infoIconView: ImageView
     private lateinit var logsPillBtn: TextView
     private lateinit var infoPillBtn: TextView
     private var currentTab = TAB_LOGS
@@ -233,7 +235,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FIXED FILTER PILL TOUCH LISTENER =====
+        // ===== FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -247,7 +249,6 @@ class CrashLogActivity : Activity() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(0.95f)
@@ -267,7 +268,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     val progress = computeProgress(event.x)
                     val targetProgress = when {
                         progress < 0.33f -> 0f
@@ -296,7 +296,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -487,14 +486,14 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== TOP BAR ==========
+        // ========== TOP BAR (MIUIX APP BAR) ==========
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
             setBackgroundColor(rootBgColor)
-            elevation = dpToPx(4f).toFloat()
+            elevation = dpToPx(6f).toFloat()
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
         }
 
@@ -536,27 +535,28 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR ==========
+        // ========== MIUIX FLOATING BOTTOM NAVIGATION BAR ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             ).apply {
-                bottomMargin = dpToPx(16f)
+                bottomMargin = dpToPx(20f)
             }
         }
 
         val tabPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(100f).toFloat()
+                cornerRadius = dpToPx(28f).toFloat()
                 setColor(cardBgColor)
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            elevation = dpToPx(8f).toFloat()
+            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -565,7 +565,7 @@ class CrashLogActivity : Activity() {
 
         val activeTabBg = GradientDrawable().apply {
             setColor(secondaryBtnColor)
-            cornerRadius = dpToPx(100f).toFloat()
+            cornerRadius = dpToPx(22f).toFloat()
         }
         slidingPillView = View(this).apply {
             background = activeTabBg
@@ -581,17 +581,51 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // --- Logs Tab Pill ---
+        logsTabItem = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(44f)
+            )
+        }
+
+        logsIconView = ImageView(this).apply {
+            setImageDrawable(createLogsNavIcon(primaryTextColor))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(18f), dpToPx(18f)).apply {
+                marginEnd = dpToPx(8f)
+            }
+        }
+
         logsPillBtn = TextView(this).apply {
             text = "Logs"
             textSize = 14f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
+        }
+
+        logsTabItem.addView(logsIconView)
+        logsTabItem.addView(logsPillBtn)
+
+        // --- Info Tab Pill ---
+        infoTabItem = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(20f), 0, dpToPx(20f), 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 dpToPx(44f)
             )
+        }
+
+        infoIconView = ImageView(this).apply {
+            setImageDrawable(createInfoNavIcon(secondaryTextColor))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(18f), dpToPx(18f)).apply {
+                marginEnd = dpToPx(8f)
+            }
         }
 
         infoPillBtn = TextView(this).apply {
@@ -600,31 +634,29 @@ class CrashLogActivity : Activity() {
             setTextColor(secondaryTextColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                dpToPx(44f)
-            )
         }
 
-        tabButtonsLayout.addView(logsPillBtn)
-        tabButtonsLayout.addView(infoPillBtn)
+        infoTabItem.addView(infoIconView)
+        infoTabItem.addView(infoPillBtn)
+
+        tabButtonsLayout.addView(logsTabItem)
+        tabButtonsLayout.addView(infoTabItem)
 
         tabPillContainer.addView(slidingPillView)
         tabPillContainer.addView(tabButtonsLayout)
 
         tabPillContainer.post {
             slidingPillView.layoutParams = slidingPillView.layoutParams.apply {
-                width = logsPillBtn.width
+                width = logsTabItem.width
             }
-            slidingPillView.translationX = logsPillBtn.left.toFloat()
+            slidingPillView.translationX = logsTabItem.left.toFloat()
             slidingPillView.requestLayout()
         }
 
         bottomBarLayout.addView(tabPillContainer)
         rootFrameLayout.addView(bottomBarLayout)
 
-        // ====== BOTTOM PILL SWITCH ======
+        // ====== MIUIX BOTTOM PILL INTERACTION ======
         val switchTab: (Int) -> Unit = { tab ->
             if (currentTab != tab) {
                 currentTab = tab
@@ -644,16 +676,16 @@ class CrashLogActivity : Activity() {
         }
 
         tabPillContainer.setOnTouchListener { view, event ->
-            val x0 = logsPillBtn.left.toFloat() + (logsPillBtn.width / 2f)
-            val x1 = infoPillBtn.left.toFloat() + (infoPillBtn.width / 2f)
+            val x0 = logsTabItem.left.toFloat() + (logsTabItem.width / 2f)
+            val x1 = infoTabItem.left.toFloat() + (infoTabItem.width / 2f)
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.animate().cancel()
                     view.animate()
-                        .scaleX(0.95f)
-                        .scaleY(0.95f)
-                        .alpha(0.9f)
+                        .scaleX(0.94f)
+                        .scaleY(0.94f)
+                        .alpha(0.92f)
                         .setDuration(120)
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
@@ -686,7 +718,7 @@ class CrashLogActivity : Activity() {
                         .scaleY(1.0f)
                         .alpha(1.0f)
                         .setDuration(350)
-                        .setInterpolator(android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f))
+                        .setInterpolator(android.view.animation.PathInterpolator(0.2f, 1.0f, 0.36f, 1.0f))
                         .start()
                     true
                 }
@@ -716,7 +748,7 @@ class CrashLogActivity : Activity() {
 
             topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(8f), dpToPx(16f), dpToPx(8f))
             scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(60f), dpToPx(16f), dpToPx(140f))
-            (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(16f) + bottomInset
+            (bottomBarLayout.layoutParams as FrameLayout.LayoutParams).bottomMargin = dpToPx(20f) + bottomInset
             insets
         }
 
@@ -808,13 +840,13 @@ class CrashLogActivity : Activity() {
         recyclerView.translationY = 0f
     }
 
-    // ========== BOTTOM PILL FUNCTIONS ==========
+    // ========== MIUIX BOTTOM NAV PILL FUNCTIONS ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
-        val x0 = logsPillBtn.left.toFloat()
-        val x1 = infoPillBtn.left.toFloat()
-        val w0 = logsPillBtn.width.toFloat()
-        val w1 = infoPillBtn.width.toFloat()
+        val x0 = logsTabItem.left.toFloat()
+        val x1 = infoTabItem.left.toFloat()
+        val w0 = logsTabItem.width.toFloat()
+        val w1 = infoTabItem.width.toFloat()
 
         val currentX = x0 + (x1 - x0) * p
         val currentW = (w0 + (w1 - w0) * p).toInt()
@@ -827,22 +859,26 @@ class CrashLogActivity : Activity() {
 
         if (p < 0.5f) {
             logsPillBtn.setTextColor(primaryTextColor)
+            logsIconView.setImageDrawable(createLogsNavIcon(primaryTextColor))
             infoPillBtn.setTextColor(secondaryTextColor)
+            infoIconView.setImageDrawable(createInfoNavIcon(secondaryTextColor))
         } else {
             logsPillBtn.setTextColor(secondaryTextColor)
+            logsIconView.setImageDrawable(createLogsNavIcon(secondaryTextColor))
             infoPillBtn.setTextColor(primaryTextColor)
+            infoIconView.setImageDrawable(createInfoNavIcon(primaryTextColor))
         }
     }
 
     private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
         val currentX = slidingPillView.translationX
-        val x0 = logsPillBtn.left.toFloat()
-        val x1 = infoPillBtn.left.toFloat()
+        val x0 = logsTabItem.left.toFloat()
+        val x1 = infoTabItem.left.toFloat()
         val currentProgress = if (x1 > x0) ((currentX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
 
         ValueAnimator.ofFloat(currentProgress, targetProgress).apply {
-            duration = 220L
-            interpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+            duration = 240L
+            interpolator = android.view.animation.PathInterpolator(0.2f, 1.0f, 0.36f, 1.0f)
             addUpdateListener { anim ->
                 updatePillPosition(anim.animatedValue as Float)
             }
@@ -1188,7 +1224,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // ---- Permission status list ----
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -1254,7 +1289,6 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ---- ADB commands block with copy icon ----
         val adbLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1273,7 +1307,6 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Header: title + copy icon
         val adbHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1359,7 +1392,6 @@ class CrashLogActivity : Activity() {
 
         cardLayout.addView(adbLayout)
 
-        // ---- Grant with Root ----
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -1373,7 +1405,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        // ---- Button row: Exit App & Check Again ----
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -1434,7 +1465,7 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== UI HELPERS ==========
+    // ========== UI HELPERS & PROGRAMMATIC VECTOR DRAWABLES ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
@@ -1601,6 +1632,81 @@ class CrashLogActivity : Activity() {
             @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
         }
     }
+
+    // --- MiuiX Navigation Vector Drawables ---
+    private fun createLogsNavIcon(color: Int): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val w = bounds.width().toFloat()
+                val h = bounds.height().toFloat()
+                if (w <= 0 || h <= 0) return
+                val pad = dpToPx(3f).toFloat()
+                val left = pad
+                val top = pad
+                val right = w - pad
+                val bottom = h - pad
+
+                val rect = RectF(left, top, right, bottom)
+                canvas.drawRoundRect(rect, dpToPx(3f).toFloat(), dpToPx(3f).toFloat(), paint)
+
+                val lineLeft = left + dpToPx(3.5f)
+                val lineRight = right - dpToPx(3.5f)
+                val y1 = top + (bottom - top) * 0.35f
+                val y2 = top + (bottom - top) * 0.65f
+                canvas.drawLine(lineLeft, y1, lineRight, y1, paint)
+                canvas.drawLine(lineLeft, y2, lineRight - dpToPx(4f), y2, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private fun createInfoNavIcon(color: Int): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+            }
+            private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.FILL
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val r = (minOf(bounds.width(), bounds.height()) / 2f) - dpToPx(2.5f)
+                if (r <= 0) return
+
+                canvas.drawCircle(cx, cy, r, paint)
+
+                val dotY = cy - r * 0.4f
+                canvas.drawCircle(cx, dotY, dpToPx(1.5f).toFloat(), fillPaint)
+
+                val lineTop = cy - r * 0.05f
+                val lineBottom = cy + r * 0.5f
+                canvas.drawLine(cx, lineTop, cx, lineBottom, paint)
+            }
+            override fun setAlpha(alpha: Int) {
+                paint.alpha = alpha
+                fillPaint.alpha = alpha
+            }
+            override fun setColorFilter(cf: ColorFilter?) {
+                paint.colorFilter = cf
+                fillPaint.colorFilter = cf
+            }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
 }
 
 // ========== DATA CLASSES ==========
@@ -1627,10 +1733,7 @@ class LogAdapter(
         android.R.drawable.sym_def_app_icon
     )
 
-    // Cache scaled icons (max 50 entries)
     private val iconCache = LruCache<String, Bitmap>(50)
-
-    // Scale icons to 40dp (the actual ImageView size)
     private val MAX_ICON_SIZE_PX = dpToPx(40f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
@@ -1657,15 +1760,12 @@ class LogAdapter(
 
     override fun getItemCount(): Int = logs.size
 
-    // ---------- Get scaled icon (fixed null-safety) ----------
     private fun getScaledIcon(packageName: String): Drawable? {
-        // Check cache
         val cached = iconCache.get(packageName)
         if (cached != null) {
             return BitmapDrawable(context.resources, cached)
         }
 
-        // Get original drawable (may be null)
         val originalDrawable = try {
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
             packageManager.getApplicationIcon(appInfo)
@@ -1673,16 +1773,10 @@ class LogAdapter(
             defaultIcon
         } ?: defaultIcon
 
-        // If still null, fallback to a generic icon (or return null)
         val nonNullDrawable = originalDrawable ?: return null
 
-        // Convert to Bitmap
-        val bitmap = drawableToBitmap(nonNullDrawable)
-        if (bitmap == null) {
-            return nonNullDrawable // fallback to unscaled drawable
-        }
+        val bitmap = drawableToBitmap(nonNullDrawable) ?: return nonNullDrawable
 
-        // Scale down if larger than MAX_ICON_SIZE_PX
         val width = bitmap.width
         val height = bitmap.height
         var scaledBitmap = bitmap
@@ -1696,7 +1790,6 @@ class LogAdapter(
             }
         }
 
-        // Cache the scaled bitmap
         iconCache.put(packageName, scaledBitmap)
 
         return BitmapDrawable(context.resources, scaledBitmap)
@@ -1717,7 +1810,6 @@ class LogAdapter(
         return bitmap
     }
 
-    // ---------- ViewHolder ----------
     class LogViewHolder(
         itemView: View,
         private val onItemClick: (LogEntry) -> Unit
@@ -1754,7 +1846,6 @@ class LogAdapter(
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
 
-            // Card background
             val cardDrawable = GradientDrawable().apply {
                 setColor(cardBg)
                 cornerRadius = TypedValue.applyDimension(
@@ -1773,12 +1864,10 @@ class LogAdapter(
             }
             cardLayout.background = cardDrawable
 
-            // Badge text
             val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
             val badgeText = if (isMagisk) "Magisk" else log.type
             typeBadge.text = badgeText
 
-            // Load and scale icon
             val iconDrawable = if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 iconLoader(cleanPackage) ?: defaultIcon
             } else {
@@ -1786,7 +1875,6 @@ class LogAdapter(
             }
             appIcon.setImageDrawable(iconDrawable)
 
-            // Badge color
             val radiusPx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 100f,
