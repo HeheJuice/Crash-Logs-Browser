@@ -13,8 +13,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.widget.*
-import androidx.core.content.ContextCompat
-import com.google.android.material.color.DynamicColors
 import org.json.JSONObject
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -24,49 +22,74 @@ class DetailsActivity : Activity() {
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
     private var googleSansFlexTypeface: Typeface? = null
-    private var accentColor: Int = 0
-    private var primaryTextColor: Int = 0
-    private var secondaryTextColor: Int = 0
-    private var cardBgColor: Int = 0
-    private var cardBorderColor: Int = 0
-    private var backBtnBgColor: Int = 0
-    private var bgColor: Int = 0
+
+    private fun getMonetColor(resId: Int, fallback: Int): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                getColor(resId)
+            } catch (e: Exception) {
+                fallback
+            }
+        } else {
+            fallback
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // Apply Material You dynamic colors (Android 12+)
-        DynamicColors.applyToActivityIfAvailable(this)
-
-        // Load Google Sans Flex from assets
+        // Load Google Sans Flex from assets folder
         googleSansFlexTypeface = try {
             Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
         } catch (e: Exception) {
             null
         }
 
-        // Determine dark mode
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
 
-        // Base colors (same as before)
-        bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-        cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
-
-        // ----- Material You dynamic accent color -----
-        val typedValue = android.util.TypedValue()
-        theme.resolveAttribute(android.R.attr.colorAccent, typedValue, true)
-        accentColor = if (typedValue.resourceId != 0) {
-            ContextCompat.getColor(this, typedValue.resourceId)
+        val bgColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
         } else {
-            // Fallback if theme doesn't define it
-            if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+            getMonetColor(android.R.color.system_neutral1_10, Color.parseColor("#F2F2F7"))
+        }
+
+        val cardBgColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral1_800, Color.parseColor("#1C1C1E"))
+        } else {
+            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
+        }
+
+        val cardBorderColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#2C2C2E"))
+        } else {
+            getMonetColor(android.R.color.system_neutral2_200, Color.parseColor("#E5E5EA"))
+        }
+
+        val primaryTextColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
+        } else {
+            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
+        }
+
+        val secondaryTextColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral2_300, Color.parseColor("#8E8E93"))
+        } else {
+            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#6C6C70"))
+        }
+
+        val accentColor = if (isDark) {
+            getMonetColor(android.R.color.system_accent1_300, Color.parseColor("#3E82F7"))
+        } else {
+            getMonetColor(android.R.color.system_accent1_600, Color.parseColor("#0066FF"))
+        }
+
+        val backBtnBgColor = if (isDark) {
+            getMonetColor(android.R.color.system_neutral2_800, Color.parseColor("#3A3A3C"))
+        } else {
+            getMonetColor(android.R.color.system_neutral2_100, Color.parseColor("#E5E5EA"))
         }
 
         val statusBarHeight = getStatusBarHeight()
@@ -108,7 +131,7 @@ class DetailsActivity : Activity() {
             if (imageResId != 0) {
                 setImageResource(imageResId)
             } else {
-                setBackgroundColor(accentColor) // Dynamic accent
+                setBackgroundColor(accentColor)
             }
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = FrameLayout.LayoutParams(
@@ -131,12 +154,14 @@ class DetailsActivity : Activity() {
             text = getString(R.string.details_title)
             textSize = 32f
             setTextColor(Color.WHITE)
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 700, false)
                 fontVariationSettings = "'wght' 700, 'ROND' 100, 'opsz' 14"
             } else {
                 typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
             }
+
             gravity = Gravity.CENTER
             translationY = -dpToPx(3f).toFloat()
             layoutParams = FrameLayout.LayoutParams(
@@ -176,7 +201,7 @@ class DetailsActivity : Activity() {
         updateActionView = TextView(this).apply {
             text = ""
             textSize = 15f
-            setTextColor(accentColor) // Dynamic accent
+            setTextColor(accentColor)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
             isClickable = true
@@ -245,7 +270,6 @@ class DetailsActivity : Activity() {
                 }
                 clipToOutline = true
             } else {
-                // Fallback circle with dynamic accent
                 val drawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(accentColor)
@@ -410,7 +434,6 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
-            // Use dynamic accent for background
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(accentColor)
