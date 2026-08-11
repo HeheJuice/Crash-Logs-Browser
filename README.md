@@ -4,14 +4,15 @@
 
 > A Simple / Light-Weight Android Crash or ANRs Logs Viewer 
 
-> Android 13 and Up
-
-> Support adb command or Root to grant permission for the app
+## Badges
+  <img alt="Abdroid" src="https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge"/>
 
 
 ## Features 
 
 > Viewing Crashes and ANRs
+
+> Support adb command or Root to grant permission for the app
 
 ## Screenshots
 
