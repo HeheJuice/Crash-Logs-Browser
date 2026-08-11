@@ -103,8 +103,10 @@ class CrashLogActivity : Activity() {
     private var remainingSeconds = 0
 
     // UI references
-    private lateinit var refreshButton: TextView        // Info tab refresh button
-    private lateinit var topBarRefreshBtn: TextView    // top‑right refresh button (TextView)
+    private lateinit var refreshButton: TextView            // Info tab refresh button
+    private lateinit var topBarRefreshContainer: FrameLayout // container for the top‑right button
+    private lateinit var topBarRefreshIcon: ImageView       // refresh icon inside container
+    private lateinit var topBarRefreshCountdown: TextView   // countdown text inside container
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -567,38 +569,53 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== TOP‑RIGHT REFRESH BUTTON (TextView) – fully centered ======
-        topBarRefreshBtn = TextView(this).apply {
-            // Set refresh icon as compound drawable (initial state)
-            val refreshDrawable = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.refresh_24px)?.apply {
-                setTint(primaryTextColor)
-                setBounds(0, 0, dpToPx(20f), dpToPx(20f))
-            }
-            setCompoundDrawables(refreshDrawable, null, null, null)
-            compoundDrawablePadding = 0
-            // Force centering
-            gravity = Gravity.CENTER
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-            text = ""  // no text initially
-            textSize = 20f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+        // ====== TOP‑RIGHT REFRESH BUTTON – FrameLayout container ======
+        topBarRefreshContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(backBtnBgColor)
             }
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            contentDescription = "Refresh"
+            layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.END or Gravity.CENTER_VERTICAL)
             isClickable = true
             isFocusable = true
-            layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.END or Gravity.CENTER_VERTICAL)
             setOnClickListener { performRefresh() }
             setOnTouchListener(pressScaleTouchListener)
         }
 
+        // Refresh icon (ImageView)
+        topBarRefreshIcon = ImageView(this).apply {
+            setImageResource(R.drawable.refresh_24px)
+            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        }
+
+        // Countdown text (TextView) – initially hidden
+        topBarRefreshCountdown = TextView(this).apply {
+            visibility = View.GONE
+            textSize = 20f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        }
+
+        topBarRefreshContainer.addView(topBarRefreshIcon)
+        topBarRefreshContainer.addView(topBarRefreshCountdown)
+
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
-        topBarLayout.addView(topBarRefreshBtn)
+        topBarLayout.addView(topBarRefreshContainer)
         rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR with icons ==========
@@ -805,17 +822,19 @@ class CrashLogActivity : Activity() {
     // ========== REFRESH WITH COOLDOWN – COUNTDOWN ON BUTTON ==========
     private fun performRefresh() {
         if (isCooldown) {
-            // Do nothing – button shows the countdown already
+            // Do nothing – countdown already running
             return
         }
 
-        // Start refresh – disable both buttons
+        // Start refresh – disable Info button, hide icon, show countdown with "5"
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
-        topBarRefreshBtn.isEnabled = false
-        // Clear compound drawable and set placeholder text (will be replaced by countdown)
-        topBarRefreshBtn.setCompoundDrawables(null, null, null, null)
-        topBarRefreshBtn.text = ""  // clear any old text
+
+        // Show countdown and hide icon
+        topBarRefreshIcon.visibility = View.GONE
+        topBarRefreshCountdown.visibility = View.VISIBLE
+        topBarRefreshCountdown.text = "5"
+        topBarRefreshContainer.isEnabled = false
 
         loadLogsAsync {
             // After load completes, start cooldown
@@ -827,21 +846,18 @@ class CrashLogActivity : Activity() {
         isCooldown = true
         remainingSeconds = 5
 
-        // Immediately set the top‑right button to "5"
-        topBarRefreshBtn.text = "5"
-        topBarRefreshBtn.isEnabled = false
-
+        // Countdown is already showing "5" – now start timer to update to 4,3,2,1
         cooldownTimer?.cancel()
         cooldownTimer = object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 remainingSeconds = (millisUntilFinished / 1000).toInt()
                 // Update Info button text
                 refreshButton.text = "Cooldown $remainingSeconds"
-                // Update top‑right button: show the number
-                topBarRefreshBtn.text = remainingSeconds.toString()
+                // Update countdown text
+                topBarRefreshCountdown.text = remainingSeconds.toString()
                 // Keep both disabled
                 refreshButton.isEnabled = false
-                topBarRefreshBtn.isEnabled = false
+                topBarRefreshContainer.isEnabled = false
             }
 
             override fun onFinish() {
@@ -849,14 +865,10 @@ class CrashLogActivity : Activity() {
                 // Restore Info button
                 refreshButton.text = "Refresh Logs"
                 refreshButton.isEnabled = true
-                // Restore top‑right button: refresh icon
-                topBarRefreshBtn.isEnabled = true
-                topBarRefreshBtn.text = ""
-                val refreshDrawable = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.refresh_24px)?.apply {
-                    setTint(primaryTextColor)
-                    setBounds(0, 0, dpToPx(20f), dpToPx(20f))
-                }
-                topBarRefreshBtn.setCompoundDrawables(refreshDrawable, null, null, null)
+                // Restore top‑right button: show icon, hide countdown
+                topBarRefreshContainer.isEnabled = true
+                topBarRefreshIcon.visibility = View.VISIBLE
+                topBarRefreshCountdown.visibility = View.GONE
                 cooldownTimer = null
             }
         }.start()
@@ -1718,7 +1730,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // Single implementation of createAnimatedButton
     private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
         return TextView(this).apply {
             text = textStr
