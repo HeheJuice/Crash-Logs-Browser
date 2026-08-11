@@ -10,7 +10,8 @@
 
 
 ## Features 
-Viewing Crashes and ANRs
+
+> Viewing Crashes and ANRs
 
 ## Screenshots
 
