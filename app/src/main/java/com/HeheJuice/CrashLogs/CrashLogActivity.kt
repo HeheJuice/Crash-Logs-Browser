@@ -233,7 +233,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FIXED FILTER PILL TOUCH LISTENER (with parent interception prevention) =====
+        // ===== FIXED FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -348,7 +348,6 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER
         }
 
-        // Create adapter with dpToPx function for icon scaling
         logAdapter = LogAdapter(
             filteredLogs,
             this,
@@ -1658,6 +1657,7 @@ class LogAdapter(
 
     override fun getItemCount(): Int = logs.size
 
+    // ---------- Get scaled icon (fixed null-safety) ----------
     private fun getScaledIcon(packageName: String): Drawable? {
         // Check cache
         val cached = iconCache.get(packageName)
@@ -1665,6 +1665,7 @@ class LogAdapter(
             return BitmapDrawable(context.resources, cached)
         }
 
+        // Get original drawable (may be null)
         val originalDrawable = try {
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
             packageManager.getApplicationIcon(appInfo)
@@ -1672,10 +1673,13 @@ class LogAdapter(
             defaultIcon
         } ?: defaultIcon
 
+        // If still null, fallback to a generic icon (or return null)
+        val nonNullDrawable = originalDrawable ?: return null
+
         // Convert to Bitmap
-        val bitmap = drawableToBitmap(originalDrawable)
+        val bitmap = drawableToBitmap(nonNullDrawable)
         if (bitmap == null) {
-            return originalDrawable
+            return nonNullDrawable // fallback to unscaled drawable
         }
 
         // Scale down if larger than MAX_ICON_SIZE_PX
