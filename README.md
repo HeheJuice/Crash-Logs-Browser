@@ -9,6 +9,9 @@
 > Support adb command or Root to grant permission for the app
 
 
+## Features 
+Viewing Crashes and ANRs
+
 ## Screenshots
 
 <p align="center">
