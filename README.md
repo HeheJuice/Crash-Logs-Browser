@@ -11,9 +11,13 @@
 
 ## Screenshots
 
-| | | | |
-| :---: | :---: | :---: | :---: |
-| <img src="Banner/SS1.png" height="400"> | <img src="Banner/SS2.png" height="400"> | <img src="Banner/SS3.png" height="400"> | <img src="Banner/SS4.png" height="400"> |
+<p align="center">
+  <a href="Banner/SS1.png"><img src="Banner/SS1.png" width="22%" alt="Screenshot 1"></a>
+  <a href="Banner/SS2.png"><img src="Banner/SS2.png" width="22%" alt="Screenshot 2"></a>
+  <a href="Banner/SS3.png"><img src="Banner/SS3.png" width="22%" alt="Screenshot 3"></a>
+  <a href="Banner/SS4.png"><img src="Banner/SS4.png" width="22%" alt="Screenshot 4"></a>
+</p>
+
 
 
 
