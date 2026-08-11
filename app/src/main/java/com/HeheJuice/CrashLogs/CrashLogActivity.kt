@@ -13,6 +13,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -25,6 +26,7 @@ import android.os.Process
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.util.LruCache
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -346,13 +348,15 @@ class CrashLogActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER
         }
 
+        // Create adapter with dpToPx function for icon scaling
         logAdapter = LogAdapter(
             filteredLogs,
             this,
             packageManager,
             cardBgColor,
             cardBorderColor,
-            ::onItemClick
+            ::onItemClick,
+            this::dpToPx
         )
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
@@ -1615,13 +1619,20 @@ class LogAdapter(
     private val packageManager: PackageManager,
     private val cardBgColor: Int,
     private val cardBorderColor: Int,
-    private val onItemClick: (LogEntry) -> Unit
+    private val onItemClick: (LogEntry) -> Unit,
+    private val dpToPx: (Float) -> Int
 ) : RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
 
     private val defaultIcon = ContextCompat.getDrawable(
         context,
         android.R.drawable.sym_def_app_icon
     )
+
+    // Cache scaled icons (max 50 entries)
+    private val iconCache = LruCache<String, Bitmap>(50)
+
+    // Scale icons to 40dp (the actual ImageView size)
+    private val MAX_ICON_SIZE_PX = dpToPx(40f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
         logs = newLogs
@@ -1640,12 +1651,69 @@ class LogAdapter(
             packageManager,
             defaultIcon,
             cardBgColor,
-            cardBorderColor
+            cardBorderColor,
+            ::getScaledIcon
         )
     }
 
     override fun getItemCount(): Int = logs.size
 
+    private fun getScaledIcon(packageName: String): Drawable? {
+        // Check cache
+        val cached = iconCache.get(packageName)
+        if (cached != null) {
+            return BitmapDrawable(context.resources, cached)
+        }
+
+        val originalDrawable = try {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationIcon(appInfo)
+        } catch (e: PackageManager.NameNotFoundException) {
+            defaultIcon
+        } ?: defaultIcon
+
+        // Convert to Bitmap
+        val bitmap = drawableToBitmap(originalDrawable)
+        if (bitmap == null) {
+            return originalDrawable
+        }
+
+        // Scale down if larger than MAX_ICON_SIZE_PX
+        val width = bitmap.width
+        val height = bitmap.height
+        var scaledBitmap = bitmap
+        if (width > MAX_ICON_SIZE_PX || height > MAX_ICON_SIZE_PX) {
+            val scale = MAX_ICON_SIZE_PX.toFloat() / maxOf(width, height)
+            val newWidth = (width * scale).toInt()
+            val newHeight = (height * scale).toInt()
+            scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+            if (scaledBitmap != bitmap) {
+                bitmap.recycle()
+            }
+        }
+
+        // Cache the scaled bitmap
+        iconCache.put(packageName, scaledBitmap)
+
+        return BitmapDrawable(context.resources, scaledBitmap)
+    }
+
+    private fun drawableToBitmap(drawable: Drawable): Bitmap? {
+        if (drawable is BitmapDrawable) {
+            return drawable.bitmap
+        }
+        val width = drawable.intrinsicWidth
+        val height = drawable.intrinsicHeight
+        if (width <= 0 || height <= 0) return null
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
+    }
+
+    // ---------- ViewHolder ----------
     class LogViewHolder(
         itemView: View,
         private val onItemClick: (LogEntry) -> Unit
@@ -1670,11 +1738,19 @@ class LogAdapter(
             }
         }
 
-        fun bind(log: LogEntry, pm: PackageManager, defaultIcon: Drawable?, cardBg: Int, cardBorder: Int) {
+        fun bind(
+            log: LogEntry,
+            pm: PackageManager,
+            defaultIcon: Drawable?,
+            cardBg: Int,
+            cardBorder: Int,
+            iconLoader: (String) -> Drawable?
+        ) {
             timestampText.text = log.timestamp
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
 
+            // Card background
             val cardDrawable = GradientDrawable().apply {
                 setColor(cardBg)
                 cornerRadius = TypedValue.applyDimension(
@@ -1693,33 +1769,20 @@ class LogAdapter(
             }
             cardLayout.background = cardDrawable
 
+            // Badge text
             val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
             val badgeText = if (isMagisk) "Magisk" else log.type
             typeBadge.text = badgeText
 
-            var iconLoaded = false
-            if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
-                try {
-                    val appInfo = pm.getApplicationInfo(cleanPackage, 0)
-                    appIcon.setImageDrawable(pm.getApplicationIcon(appInfo))
-                    iconLoaded = true
-                } catch (e: PackageManager.NameNotFoundException) {
-                    try {
-                        val packages = pm.getInstalledApplications(0)
-                        for (pkg in packages) {
-                            if (pkg.packageName.equals(cleanPackage, ignoreCase = true)) {
-                                appIcon.setImageDrawable(pm.getApplicationIcon(pkg))
-                                iconLoaded = true
-                                break
-                            }
-                        }
-                    } catch (e2: Exception) { /* ignore */ }
-                }
+            // Load and scale icon
+            val iconDrawable = if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
+                iconLoader(cleanPackage) ?: defaultIcon
+            } else {
+                defaultIcon
             }
-            if (!iconLoaded) {
-                appIcon.setImageDrawable(defaultIcon)
-            }
+            appIcon.setImageDrawable(iconDrawable)
 
+            // Badge color
             val radiusPx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 100f,
