@@ -2,7 +2,9 @@
 
 # Crash Logs Browser
 > A Simple / Light-Weight Android Crash Logs Viewer 
+
 > Min SDK 33 / Android 13 +
+
 > Support adb command or Root to grant permission for the app
 
 </div>
