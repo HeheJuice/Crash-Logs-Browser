@@ -3,7 +3,7 @@
 # Crash Logs Browser
 > A Simple / Light-Weight Android Crash Logs Viewer 
 
-> Min SDK 33 / Android 13 +
+> Android 13 and Up
 
 > Support adb command or Root to grant permission for the app
 
@@ -12,11 +12,10 @@
 ## Screenshots
 
 <div style="display: flex; overflow-x: auto; gap: 10px; padding-bottom: 10px;">
-  <img src="Banner.jpg" alt="Banner" height="400" />
-  <img src="SS1.jpg" alt="Screenshot 1" height="400" />
-  <img src="SS2.jpg" alt="Screenshot 2" height="400" />
-  <img src="SS3.jpg" alt="Screenshot 3" height="400" />
-  <img src="SS4.jpg" alt="Screenshot 4" height="400" />
+  <img src="SS1.png" alt="Screenshot 1" height="400" />
+  <img src="SS2.png" alt="Screenshot 2" height="400" />
+  <img src="SS3.png" alt="Screenshot 3" height="400" />
+  <img src="SS4.png" alt="Screenshot 4" height="400" />
 </div>
 
 ## Acknowledgements
