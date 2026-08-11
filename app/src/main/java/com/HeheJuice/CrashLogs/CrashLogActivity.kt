@@ -41,7 +41,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.*
@@ -94,9 +97,16 @@ class CrashLogActivity : Activity() {
     // Loading text view
     private lateinit var loadingText: TextView
 
-    // Refresh timer
-    private var refreshTimer: CountDownTimer? = null
-    private lateinit var refreshButton: TextView
+    // Refresh cooldown
+    private var cooldownTimer: CountDownTimer? = null
+    private var isCooldown = false
+    private var remainingSeconds = 0
+
+    // UI references
+    private lateinit var refreshButton: TextView            // Info tab refresh button
+    private lateinit var topBarRefreshContainer: FrameLayout // container for the top‑right button
+    private lateinit var topBarRefreshIcon: ImageView       // refresh icon inside container
+    private lateinit var topBarRefreshCountdown: TextView   // countdown text inside container
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -322,7 +332,7 @@ class CrashLogActivity : Activity() {
 
         // ---- Loading Text (updated message) ----
         loadingText = TextView(this).apply {
-            text = "Loading Full Logs (Might Take 5 ~ 10 Seconds) ..."
+            text = "Loading Full Logs (Might Take 5 to 10 Seconds the first time)"
             textSize = 18f
             setTextColor(secondaryTextColor)
             gravity = Gravity.CENTER
@@ -473,13 +483,38 @@ class CrashLogActivity : Activity() {
         statsRow.addView(createStatCard("ANR", "0", accentColor, false))
         statsCard.addView(statsRow)
 
-        // Refresh button
-        refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
+        // ---- Button row: Refresh Logs & Clear Cache ----
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(16f)
+            }
+        }
+
+        // Refresh button in Info tab
+        refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
+            layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
+                marginEnd = dpToPx(6f)
+            }
         }
-        statsCard.addView(refreshButton)
+        buttonRow.addView(refreshButton)
+
+        // Clear Cache button – now red
+        val clearCacheBtn = createAnimatedButton("Clear Cache", Color.WHITE, redBtnColor, LinearLayout.LayoutParams.MATCH_PARENT) {
+            clearCache()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
+                marginStart = dpToPx(6f)
+            }
+        }
+        buttonRow.addView(clearCacheBtn)
+
+        statsCard.addView(buttonRow)
 
         infoLayout.addView(statsCard)
 
@@ -518,6 +553,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // Back button
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -533,8 +569,53 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
+        // ====== TOP‑RIGHT REFRESH BUTTON – FrameLayout container ======
+        topBarRefreshContainer = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.END or Gravity.CENTER_VERTICAL)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { performRefresh() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
+        // Refresh icon (ImageView)
+        topBarRefreshIcon = ImageView(this).apply {
+            setImageResource(R.drawable.refresh_24px)
+            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        }
+
+        // Countdown text (TextView) – initially hidden
+        topBarRefreshCountdown = TextView(this).apply {
+            visibility = View.GONE
+            textSize = 20f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        }
+
+        topBarRefreshContainer.addView(topBarRefreshIcon)
+        topBarRefreshContainer.addView(topBarRefreshCountdown)
+
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
+        topBarLayout.addView(topBarRefreshContainer)
         rootFrameLayout.addView(topBarLayout)
 
         // ========== BOTTOM BAR with icons ==========
@@ -738,25 +819,64 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH ==========
+    // ========== REFRESH WITH COOLDOWN – COUNTDOWN ON BUTTON ==========
     private fun performRefresh() {
-        if (refreshTimer != null) return
+        if (isCooldown) {
+            // Do nothing – countdown already running
+            return
+        }
 
+        // Start refresh – disable Info button, hide icon, show countdown with "5"
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
+
+        // Show countdown and hide icon
+        topBarRefreshIcon.visibility = View.GONE
+        topBarRefreshCountdown.visibility = View.VISIBLE
+        topBarRefreshCountdown.text = "5"
+        topBarRefreshContainer.isEnabled = false
+
         loadLogsAsync {
-            refreshTimer = object : CountDownTimer(5000, 1000) {
-                override fun onTick(millisUntilFinished: Long) {
-                    val seconds = (millisUntilFinished / 1000).toInt()
-                    refreshButton.text = "Cooldown $seconds"
-                }
-                override fun onFinish() {
-                    refreshButton.text = "Refresh Logs"
-                    refreshButton.isEnabled = true
-                    refreshTimer = null
-                }
-            }.start()
+            // After load completes, start cooldown
+            startCooldown()
         }
+    }
+
+    private fun startCooldown() {
+        isCooldown = true
+        remainingSeconds = 5
+
+        // Countdown is already showing "5" – now start timer to update to 4,3,2,1
+        cooldownTimer?.cancel()
+        cooldownTimer = object : CountDownTimer(5000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                remainingSeconds = (millisUntilFinished / 1000).toInt()
+                // Update Info button text
+                refreshButton.text = "Cooldown $remainingSeconds"
+                // Update countdown text
+                topBarRefreshCountdown.text = remainingSeconds.toString()
+                // Keep both disabled
+                refreshButton.isEnabled = false
+                topBarRefreshContainer.isEnabled = false
+            }
+
+            override fun onFinish() {
+                isCooldown = false
+                // Restore Info button
+                refreshButton.text = "Refresh Logs"
+                refreshButton.isEnabled = true
+                // Restore top‑right button: show icon, hide countdown
+                topBarRefreshContainer.isEnabled = true
+                topBarRefreshIcon.visibility = View.VISIBLE
+                topBarRefreshCountdown.visibility = View.GONE
+                cooldownTimer = null
+            }
+        }.start()
+    }
+
+    override fun onDestroy() {
+        cooldownTimer?.cancel()
+        super.onDestroy()
     }
 
     // ========== FILTER PILL FUNCTIONS ==========
@@ -876,20 +996,103 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== CACHING ==========
+    private fun getCacheFile(): File {
+        return File(filesDir, "crash_logs_cache.json")
+    }
+
+    private fun saveLogsToCache() {
+        try {
+            val jsonArray = JSONArray()
+            for (log in allLogs) {
+                val obj = JSONObject()
+                obj.put("timestamp", log.timestamp)
+                obj.put("appName", log.appName)
+                obj.put("type", log.type)
+                obj.put("details", log.details)
+                jsonArray.put(obj)
+            }
+            getCacheFile().writeText(jsonArray.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save cache", e)
+        }
+    }
+
+    private fun loadLogsFromCache(): List<LogEntry>? {
+        return try {
+            val file = getCacheFile()
+            if (!file.exists()) return null
+            val content = file.readText()
+            val jsonArray = JSONArray(content)
+            val list = mutableListOf<LogEntry>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val timestamp = obj.getString("timestamp")
+                val appName = obj.getString("appName")
+                val type = obj.getString("type")
+                val details = obj.getString("details")
+                list.add(LogEntry(timestamp, appName, type, details))
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load cache", e)
+            null
+        }
+    }
+
+    private fun clearCache() {
+        try {
+            val file = getCacheFile()
+            if (file.exists()) file.delete()
+            allLogs.clear()
+            filteredLogs.clear()
+            logAdapter.updateLogs(filteredLogs)
+            updateStats()
+            Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear cache", e)
+        }
+    }
+
     // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
-        loadingText.visibility = View.VISIBLE
-        recyclerView.visibility = View.GONE
-        Thread {
-            loadLogs()
-            runOnUiThread {
-                loadingText.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-                applyFilters()
-                updateStats()
-                onComplete()
-            }
-        }.start()
+        // First, try to load from cache
+        val cachedLogs = loadLogsFromCache()
+        if (cachedLogs != null) {
+            // Show cached data immediately
+            allLogs.clear()
+            allLogs.addAll(cachedLogs)
+            applyFilters()
+            updateStats()
+            recyclerView.visibility = View.VISIBLE
+            loadingText.visibility = View.GONE
+            // Now fetch fresh logs in background
+            Thread {
+                loadLogs()
+                runOnUiThread {
+                    // After fresh load, update UI and save cache again
+                    applyFilters()
+                    updateStats()
+                    saveLogsToCache()
+                    onComplete()
+                }
+            }.start()
+        } else {
+            // No cache: show loading and fetch fresh
+            loadingText.visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+            Thread {
+                loadLogs()
+                runOnUiThread {
+                    loadingText.visibility = View.GONE
+                    recyclerView.visibility = View.VISIBLE
+                    applyFilters()
+                    updateStats()
+                    saveLogsToCache()
+                    onComplete()
+                }
+            }.start()
+        }
     }
 
     private fun updateStats() {
@@ -1632,7 +1835,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER (original quality + circular icons) ==========
+// ========== LOG ADAPTER ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,

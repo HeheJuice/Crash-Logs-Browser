@@ -1,12 +1,23 @@
 <div align="center">
 
 # Crash Logs Browser
+
 > A Simple / Light-Weight Android Crash or ANRs Logs Viewer 
 
-> Android 13 and Up
+## Badges
+
+[![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)](https://www.android.com/intl/zh-HK_hk)
+
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white&style=for-the-badge)](https://kotlinlang.org)
+
+[![LICENSE](https://img.shields.io/badge/LICENCE-MIT_LICENCE-750014?style=for-the-badge)](https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE)
+
+
+## Features 
+
+> Viewing Crashes and ANRs
 
 > Support adb command or Root to grant permission for the app
-
 
 ## Screenshots
 
@@ -19,10 +30,10 @@
 
 ## Acknowledgements
 
-This project uses codes from the following projects 
+> This project uses codes from the following projects 
 
-[Google / Google Sans Flex](https://design.google/library/google-sans-flex-font)
+> [Google / Google Sans Flex](https://design.google/library/google-sans-flex-font)
 
-[Google / Material Design Icons](https://m3.material.io/styles/icons)
+> [Google / Material Design Icons](https://m3.material.io/styles/icons)
 
 </div>
