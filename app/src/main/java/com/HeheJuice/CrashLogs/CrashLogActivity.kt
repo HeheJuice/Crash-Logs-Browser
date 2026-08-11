@@ -805,10 +805,9 @@ class CrashLogActivity : Activity() {
             Toast.makeText(this, "Refreshing...", Toast.LENGTH_SHORT).show()
         }
 
-        // Start refresh
+        // Start refresh – only disable the Info button, keep top‑right enabled
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
-        topBarRefreshBtn.isEnabled = false
 
         loadLogsAsync {
             // After load completes, start cooldown
@@ -825,14 +824,13 @@ class CrashLogActivity : Activity() {
             override fun onTick(millisUntilFinished: Long) {
                 remainingSeconds = (millisUntilFinished / 1000).toInt()
                 refreshButton.text = "Cooldown $remainingSeconds"
-                // Keep button disabled; top bar button remains enabled (handled by isCooldown)
+                // Info button remains disabled; top‑right is always enabled
             }
 
             override fun onFinish() {
                 isCooldown = false
                 refreshButton.text = "Refresh Logs"
                 refreshButton.isEnabled = true
-                topBarRefreshBtn.isEnabled = true
                 cooldownTimer = null
             }
         }.start()
