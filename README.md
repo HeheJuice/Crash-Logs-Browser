@@ -11,12 +11,10 @@
 
 ## Screenshots
 
-<div style="display: flex; overflow-x: auto; gap: 10px; padding-bottom: 10px;">
-  <img src="Banner/SS1.png" alt="Screenshot 1" height="400" />
-  <img src="Banner/SS2.png" alt="Screenshot 2" height="400" />
-  <img src="Banner/SS3.png" alt="Screenshot 3" height="400" />
-  <img src="Banner/SS4.png" alt="Screenshot 4" height="400" />
-</div>
+| | | | |
+| :---: | :---: | :---: | :---: |
+| <img src="Banner/SS1.png" height="400"> | <img src="Banner/SS2.png" height="400"> | <img src="Banner/SS3.png" height="400"> | <img src="Banner/SS4.png" height="400"> |
+
 
 ## Acknowledgements
 
