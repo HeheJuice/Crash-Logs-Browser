@@ -370,7 +370,7 @@ class DetailsActivity : Activity() {
         row2.addView(textContainer2)
         creditsCard.addView(row2)
 
-        // ----- CREDIT 3: Google Sans Flex (NEW) -----
+        // ----- CREDIT 3: Google Sans Flex -----
         val fontCreditName = "Google Sans Flex"
         val fontCreditDesc = "Fonts Used in Some UI"
 
@@ -385,19 +385,15 @@ class DetailsActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Fallback / initial view "G" for Google Sans Flex
         val fontAvatar = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
-            val drawable = GradientDrawable().apply {
+            background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(accentColor)
             }
-            background = drawable
-            setImageDrawable(null)
         }
-        row3.addView(fontAvatar)
 
         val fontInitialTv = TextView(this).apply {
             text = "G"
@@ -405,8 +401,12 @@ class DetailsActivity : Activity() {
             setTextColor(Color.WHITE)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
+            layoutParams = FrameLayout.LayoutParams(
+                dpToPx(48f),
+                dpToPx(48f)
+            )
         }
+
         val fontAvatarContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
@@ -414,8 +414,7 @@ class DetailsActivity : Activity() {
             addView(fontAvatar)
             addView(fontInitialTv)
         }
-        row3.removeView(fontAvatar)
-        row3.addView(fontAvatarContainer, 0)
+        row3.addView(fontAvatarContainer)
 
         val textContainer3 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
