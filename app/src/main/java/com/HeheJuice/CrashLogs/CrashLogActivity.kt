@@ -51,7 +51,6 @@ class CrashLogActivity : Activity() {
         private const val FILTER_ANR = 2
     }
 
-    private var bgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
@@ -60,7 +59,6 @@ class CrashLogActivity : Activity() {
     private var cardBorderColor: Int = 0
     private var secondaryBtnColor: Int = 0
     private var redBtnColor: Int = 0
-    private var anrColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
     private var isDark: Boolean = false
@@ -126,7 +124,7 @@ class CrashLogActivity : Activity() {
 
     private fun setupUI() {
         rootFrameLayout = FrameLayout(this).apply {
-            setBackgroundColor(bgColor)
+            setBackgroundColor(if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7"))
         }
 
         val statusBarHeight = getStatusBarHeight()
@@ -292,6 +290,7 @@ class CrashLogActivity : Activity() {
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val touchX = event.x - filterPillContainer.paddingLeft
+                    val midPoint = (x0 + x1) / 2f
                     val targetFilter = when {
                         touchX < (x0 + filterAllBtn.width / 2f) -> FILTER_ALL
                         touchX < (x1 - filterAnrBtn.width / 2f) -> FILTER_CRASH
@@ -495,9 +494,8 @@ class CrashLogActivity : Activity() {
             )
             tag = "statsRow"
         }
-        // Preserved explicit red and warning colors for crashes and ANR icons
         statsRow.addView(createStatCard("Crashes", "0", redBtnColor, true))
-        statsRow.addView(createStatCard("ANR", "0", anrColor, false))
+        statsRow.addView(createStatCard("ANR", "0", accentColor, false))
         statsCard.addView(statsRow)
 
         // Refresh button
@@ -664,10 +662,11 @@ class CrashLogActivity : Activity() {
         bottomBarContainer.addView(tabPillContainer)
         bottomBarContainer.addView(searchContainer)
 
-        // ===== SEARCH BUTTON =====
+        // ===== SEARCH BUTTON (matches pill style) =====
         val searchBtnDrawable = createSearchDrawable()
         searchButton = ImageView(this).apply {
             setImageDrawable(searchBtnDrawable)
+            // Same background as pill: cardBgColor with cardBorderColor stroke
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(cardBgColor)
@@ -769,11 +768,13 @@ class CrashLogActivity : Activity() {
             insets
         }
 
+        // Make filter pill visible initially
         filterPillContainer.visibility = View.VISIBLE
 
         setContentView(rootFrameLayout)
     }
 
+    // ========== SWITCH TAB ==========
     private fun switchTab(tab: Int) {
         if (currentTab != tab) {
             currentTab = tab
@@ -792,12 +793,15 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== SEARCH TOGGLE (with auto-switch to Logs) ==========
     private fun toggleSearch() {
+        // If currently on Info tab, switch to Logs first
         if (currentTab == TAB_INFO) {
             switchTab(TAB_LOGS)
         }
 
         if (isSearchActive) {
+            // Close
             val anim = ValueAnimator.ofInt(searchContainer.width, 0)
             anim.duration = 250
             anim.interpolator = DecelerateInterpolator(1.2f)
@@ -821,6 +825,7 @@ class CrashLogActivity : Activity() {
             applyFilters()
             isSearchActive = false
         } else {
+            // Open
             searchContainer.visibility = View.VISIBLE
             searchContainer.layoutParams.width = 0
             tabPillContainer.visibility = View.GONE
@@ -845,6 +850,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== REFRESH COUNTDOWN ==========
     private fun startRefreshCountdown() {
         if (refreshTimer != null) return
         refreshButton.isEnabled = false
@@ -871,6 +877,7 @@ class CrashLogActivity : Activity() {
         }.start()
     }
 
+    // ========== FILTER PILL FUNCTIONS ==========
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = filterAllBtn.left.toFloat()
@@ -921,6 +928,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== APPLY FILTERS ==========
     private fun applyFilters() {
         var result = when (currentFilterTab) {
             FILTER_CRASH -> allLogs.filter { it.type == "Crash" }
@@ -952,6 +960,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== BOTTOM PILL FUNCTIONS ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = logsPillBtn.left.toFloat()
@@ -998,6 +1007,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
         loadingText.visibility = View.VISIBLE
         recyclerView.visibility = View.GONE
@@ -1148,6 +1158,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== PERMISSION CHECKS ==========
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
@@ -1196,6 +1207,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== ROOT PERMISSION GRANT ==========
     private fun grantPermissionsWithRoot() {
         Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
         Thread {
@@ -1244,6 +1256,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== CUSTOM PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1488,6 +1501,7 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
+    // ========== DRAWABLES ==========
     private fun createArrowBackDrawable(): Drawable {
         return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1538,79 +1552,19 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== UI HELPERS ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
-
-        fun getMonetColor(resId: Int, fallback: Int): Int {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    getColor(resId)
-                } catch (e: Exception) {
-                    fallback
-                }
-            } else {
-                fallback
-            }
-        }
-
-        bgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_10, Color.parseColor("#F2F2F7"))
-        }
-
-        cardBgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_800, Color.parseColor("#1C1C1E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
-        }
-
-        cardBorderColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#2C2C2E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_200, Color.parseColor("#E5E5EA"))
-        }
-
-        primaryTextColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
-        }
-
-        secondaryTextColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_300, Color.parseColor("#8E8E93"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#6C6C70"))
-        }
-
-        accentColor = if (isDark) {
-            getMonetColor(android.R.color.system_accent1_300, Color.parseColor("#3E82F7"))
-        } else {
-            getMonetColor(android.R.color.system_accent1_600, Color.parseColor("#0066FF"))
-        }
-
-        secondaryBtnColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#2C2C2E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_100, Color.parseColor("#E5E5EA"))
-        }
-
-        backBtnBgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_800, Color.parseColor("#3A3A3C"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_100, Color.parseColor("#E5E5EA"))
-        }
-
-        inputBgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_800, Color.parseColor("#2C2C2E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_100, Color.parseColor("#F2F2F7"))
-        }
-
-        // Preserved explicit colors for Crashes & ANR icons
+        cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+        cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+        primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+        secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+        secondaryBtnColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
         redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
-        anrColor = if (isDark) Color.parseColor("#FF9F0A") else Color.parseColor("#FF9500")
+        backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
+        inputBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
     }
 
     private fun createCardBackground(): GradientDrawable {

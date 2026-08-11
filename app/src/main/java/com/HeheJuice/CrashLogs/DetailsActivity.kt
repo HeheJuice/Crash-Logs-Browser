@@ -23,18 +23,6 @@ class DetailsActivity : Activity() {
     private lateinit var updateActionView: TextView
     private var googleSansFlexTypeface: Typeface? = null
 
-    private fun getMonetColor(resId: Int, fallback: Int): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                getColor(resId)
-            } catch (e: Exception) {
-                fallback
-            }
-        } else {
-            fallback
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
@@ -50,47 +38,13 @@ class DetailsActivity : Activity() {
         val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
 
-        val bgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_10, Color.parseColor("#F2F2F7"))
-        }
-
-        val cardBgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_800, Color.parseColor("#1C1C1E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
-        }
-
-        val cardBorderColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#2C2C2E"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_200, Color.parseColor("#E5E5EA"))
-        }
-
-        val primaryTextColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral1_50, Color.parseColor("#FFFFFF"))
-        } else {
-            getMonetColor(android.R.color.system_neutral1_900, Color.parseColor("#000000"))
-        }
-
-        val secondaryTextColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_300, Color.parseColor("#8E8E93"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_700, Color.parseColor("#6C6C70"))
-        }
-
-        val accentColor = if (isDark) {
-            getMonetColor(android.R.color.system_accent1_300, Color.parseColor("#3E82F7"))
-        } else {
-            getMonetColor(android.R.color.system_accent1_600, Color.parseColor("#0066FF"))
-        }
-
-        val backBtnBgColor = if (isDark) {
-            getMonetColor(android.R.color.system_neutral2_800, Color.parseColor("#3A3A3C"))
-        } else {
-            getMonetColor(android.R.color.system_neutral2_100, Color.parseColor("#E5E5EA"))
-        }
+        val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+        val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+        val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+        val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+        val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        val accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+        val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
 
         val statusBarHeight = getStatusBarHeight()
         val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
@@ -151,10 +105,11 @@ class DetailsActivity : Activity() {
         bannerCard.addView(dimOverlay)
 
         val titleText = TextView(this).apply {
-            text = getString(R.string.details_title)
+            text = getString(R.string.details_title) // "Crash Logs Browser"
             textSize = 32f
             setTextColor(Color.WHITE)
             
+            // Bold rounded configuration: Higher weight for boldness, high ROND axis for rounded style
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 700, false)
                 fontVariationSettings = "'wght' 700, 'ROND' 100, 'opsz' 14"
