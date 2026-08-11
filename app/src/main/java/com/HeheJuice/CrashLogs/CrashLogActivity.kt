@@ -104,7 +104,7 @@ class CrashLogActivity : Activity() {
 
     // UI references
     private lateinit var refreshButton: TextView        // Info tab refresh button
-    private lateinit var topBarRefreshBtn: TextView    // top‑right refresh button (now a TextView)
+    private lateinit var topBarRefreshBtn: TextView    // top‑right refresh button (TextView)
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -492,7 +492,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Refresh button in Info tab – shows "Cooldown X" text
+        // Refresh button in Info tab
         refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
@@ -567,24 +567,26 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== TOP‑RIGHT REFRESH BUTTON (now a TextView) ======
+        // ====== TOP‑RIGHT REFRESH BUTTON (TextView) – fully centered ======
         topBarRefreshBtn = TextView(this).apply {
-            // Set the refresh icon as a compound drawable (centered)
+            // Set refresh icon as compound drawable (initial state)
             val refreshDrawable = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.refresh_24px)?.apply {
                 setTint(primaryTextColor)
                 setBounds(0, 0, dpToPx(20f), dpToPx(20f))
             }
             setCompoundDrawables(refreshDrawable, null, null, null)
             compoundDrawablePadding = 0
+            // Force centering
             gravity = Gravity.CENTER
-            textSize = 18f
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            text = ""  // no text initially
+            textSize = 20f
             setTextColor(primaryTextColor)
             setTypeface(null, Typeface.BOLD)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(backBtnBgColor)
             }
-            // Add padding to avoid clipping
             setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
             contentDescription = "Refresh"
             isClickable = true
@@ -811,9 +813,9 @@ class CrashLogActivity : Activity() {
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
         topBarRefreshBtn.isEnabled = false
-        // Clear the compound drawable and set a placeholder (will be replaced by countdown)
+        // Clear compound drawable and set placeholder text (will be replaced by countdown)
         topBarRefreshBtn.setCompoundDrawables(null, null, null, null)
-        topBarRefreshBtn.text = ""
+        topBarRefreshBtn.text = ""  // clear any old text
 
         loadLogsAsync {
             // After load completes, start cooldown
@@ -824,6 +826,10 @@ class CrashLogActivity : Activity() {
     private fun startCooldown() {
         isCooldown = true
         remainingSeconds = 5
+
+        // Immediately set the top‑right button to "5"
+        topBarRefreshBtn.text = "5"
+        topBarRefreshBtn.isEnabled = false
 
         cooldownTimer?.cancel()
         cooldownTimer = object : CountDownTimer(5000, 1000) {
