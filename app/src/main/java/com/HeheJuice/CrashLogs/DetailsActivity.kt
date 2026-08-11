@@ -109,10 +109,10 @@ class DetailsActivity : Activity() {
             textSize = 32f
             setTextColor(Color.WHITE)
             
-            // Apply Google Sans Flex variable settings matching the tall/condensed look from reference image:
+            // Bold rounded configuration: Higher weight for boldness, high ROND axis for rounded style
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
-                typeface = Typeface.create(googleSansFlexTypeface, 400, false)
-                fontVariationSettings = "'wght' 450, 'wdth' 75, 'opsz' 14"
+                typeface = Typeface.create(googleSansFlexTypeface, 700, false)
+                fontVariationSettings = "'wght' 700, 'ROND' 100, 'opsz' 14"
             } else {
                 typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
             }
