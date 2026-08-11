@@ -536,7 +536,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR ==========
+        // ========== BOTTOM BAR with icons ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -581,6 +581,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // ---- Logs button with icon ----
         logsPillBtn = TextView(this).apply {
             text = "Logs"
             textSize = 14f
@@ -592,8 +593,15 @@ class CrashLogActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 dpToPx(44f)
             )
+            val icon = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.assignment_20px)?.apply {
+                setTint(primaryTextColor)
+                setBounds(0, 0, dpToPx(20f), dpToPx(20f))
+            }
+            setCompoundDrawables(icon, null, null, null)
+            compoundDrawablePadding = dpToPx(8f)
         }
 
+        // ---- Info button with icon ----
         infoPillBtn = TextView(this).apply {
             text = "Info"
             textSize = 14f
@@ -605,6 +613,12 @@ class CrashLogActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 dpToPx(44f)
             )
+            val icon = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.info_20px)?.apply {
+                setTint(secondaryTextColor)
+                setBounds(0, 0, dpToPx(20f), dpToPx(20f))
+            }
+            setCompoundDrawables(icon, null, null, null)
+            compoundDrawablePadding = dpToPx(8f)
         }
 
         tabButtonsLayout.addView(logsPillBtn)
@@ -808,7 +822,7 @@ class CrashLogActivity : Activity() {
         recyclerView.translationY = 0f
     }
 
-    // ========== BOTTOM PILL FUNCTIONS ==========
+    // ========== BOTTOM PILL FUNCTIONS (with icon tinting) ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = logsPillBtn.left.toFloat()
@@ -832,6 +846,12 @@ class CrashLogActivity : Activity() {
             logsPillBtn.setTextColor(secondaryTextColor)
             infoPillBtn.setTextColor(primaryTextColor)
         }
+
+        // Tint icons to match text color
+        val logsIcon = logsPillBtn.compoundDrawables[0]
+        val infoIcon = infoPillBtn.compoundDrawables[0]
+        logsIcon?.setTint(if (p < 0.5f) primaryTextColor else secondaryTextColor)
+        infoIcon?.setTint(if (p < 0.5f) secondaryTextColor else primaryTextColor)
     }
 
     private fun animatePillTo(targetProgress: Float, onEnd: () -> Unit) {
@@ -1611,7 +1631,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER ==========
+// ========== LOG ADAPTER (unchanged, with icon scaling) ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
@@ -1627,10 +1647,7 @@ class LogAdapter(
         android.R.drawable.sym_def_app_icon
     )
 
-    // Cache scaled icons (max 50 entries)
     private val iconCache = LruCache<String, Bitmap>(50)
-
-    // Scale icons to 40dp (the actual ImageView size)
     private val MAX_ICON_SIZE_PX = dpToPx(40f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
@@ -1657,15 +1674,12 @@ class LogAdapter(
 
     override fun getItemCount(): Int = logs.size
 
-    // ---------- Get scaled icon (fixed null-safety) ----------
     private fun getScaledIcon(packageName: String): Drawable? {
-        // Check cache
         val cached = iconCache.get(packageName)
         if (cached != null) {
             return BitmapDrawable(context.resources, cached)
         }
 
-        // Get original drawable (may be null)
         val originalDrawable = try {
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
             packageManager.getApplicationIcon(appInfo)
@@ -1673,16 +1687,12 @@ class LogAdapter(
             defaultIcon
         } ?: defaultIcon
 
-        // If still null, fallback to a generic icon (or return null)
         val nonNullDrawable = originalDrawable ?: return null
-
-        // Convert to Bitmap
         val bitmap = drawableToBitmap(nonNullDrawable)
         if (bitmap == null) {
-            return nonNullDrawable // fallback to unscaled drawable
+            return nonNullDrawable
         }
 
-        // Scale down if larger than MAX_ICON_SIZE_PX
         val width = bitmap.width
         val height = bitmap.height
         var scaledBitmap = bitmap
@@ -1696,9 +1706,7 @@ class LogAdapter(
             }
         }
 
-        // Cache the scaled bitmap
         iconCache.put(packageName, scaledBitmap)
-
         return BitmapDrawable(context.resources, scaledBitmap)
     }
 
@@ -1717,7 +1725,6 @@ class LogAdapter(
         return bitmap
     }
 
-    // ---------- ViewHolder ----------
     class LogViewHolder(
         itemView: View,
         private val onItemClick: (LogEntry) -> Unit
@@ -1754,7 +1761,6 @@ class LogAdapter(
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
 
-            // Card background
             val cardDrawable = GradientDrawable().apply {
                 setColor(cardBg)
                 cornerRadius = TypedValue.applyDimension(
@@ -1773,12 +1779,10 @@ class LogAdapter(
             }
             cardLayout.background = cardDrawable
 
-            // Badge text
             val isMagisk = cleanPackage.equals("magisk", ignoreCase = true)
             val badgeText = if (isMagisk) "Magisk" else log.type
             typeBadge.text = badgeText
 
-            // Load and scale icon
             val iconDrawable = if (cleanPackage.isNotEmpty() && cleanPackage.contains(".")) {
                 iconLoader(cleanPackage) ?: defaultIcon
             } else {
@@ -1786,7 +1790,6 @@ class LogAdapter(
             }
             appIcon.setImageDrawable(iconDrawable)
 
-            // Badge color
             val radiusPx = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
                 100f,
