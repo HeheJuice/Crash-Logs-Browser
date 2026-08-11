@@ -41,7 +41,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.*
@@ -322,7 +325,7 @@ class CrashLogActivity : Activity() {
 
         // ---- Loading Text (updated message) ----
         loadingText = TextView(this).apply {
-            text = "Loading Full Logs (Might Take 5 ~ 10 Seconds) ..."
+            text = "Loading Full Logs (Might Take 5 to 10 Seconds the first time)"
             textSize = 18f
             setTextColor(secondaryTextColor)
             gravity = Gravity.CENTER
@@ -473,13 +476,36 @@ class CrashLogActivity : Activity() {
         statsRow.addView(createStatCard("ANR", "0", accentColor, false))
         statsCard.addView(statsRow)
 
-        // Refresh button
-        refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, buttonHeightPx) {
+        // ---- Button row: Refresh Logs & Clear Cache ----
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(16f)
+            }
+        }
+
+        refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(16f)
+            layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
+                marginEnd = dpToPx(6f)
+            }
         }
-        statsCard.addView(refreshButton)
+        buttonRow.addView(refreshButton)
+
+        val clearCacheBtn = createAnimatedButton("Clear Cache", primaryTextColor, secondaryBtnColor, LinearLayout.LayoutParams.MATCH_PARENT) {
+            clearCache()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
+                marginStart = dpToPx(6f)
+            }
+        }
+        buttonRow.addView(clearCacheBtn)
+
+        statsCard.addView(buttonRow)
 
         infoLayout.addView(statsCard)
 
@@ -876,20 +902,103 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== CACHING ==========
+    private fun getCacheFile(): File {
+        return File(filesDir, "crash_logs_cache.json")
+    }
+
+    private fun saveLogsToCache() {
+        try {
+            val jsonArray = JSONArray()
+            for (log in allLogs) {
+                val obj = JSONObject()
+                obj.put("timestamp", log.timestamp)
+                obj.put("appName", log.appName)
+                obj.put("type", log.type)
+                obj.put("details", log.details)
+                jsonArray.put(obj)
+            }
+            getCacheFile().writeText(jsonArray.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save cache", e)
+        }
+    }
+
+    private fun loadLogsFromCache(): List<LogEntry>? {
+        return try {
+            val file = getCacheFile()
+            if (!file.exists()) return null
+            val content = file.readText()
+            val jsonArray = JSONArray(content)
+            val list = mutableListOf<LogEntry>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val timestamp = obj.getString("timestamp")
+                val appName = obj.getString("appName")
+                val type = obj.getString("type")
+                val details = obj.getString("details")
+                list.add(LogEntry(timestamp, appName, type, details))
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load cache", e)
+            null
+        }
+    }
+
+    private fun clearCache() {
+        try {
+            val file = getCacheFile()
+            if (file.exists()) file.delete()
+            allLogs.clear()
+            filteredLogs.clear()
+            logAdapter.updateLogs(filteredLogs)
+            updateStats()
+            Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear cache", e)
+        }
+    }
+
     // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
-        loadingText.visibility = View.VISIBLE
-        recyclerView.visibility = View.GONE
-        Thread {
-            loadLogs()
-            runOnUiThread {
-                loadingText.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-                applyFilters()
-                updateStats()
-                onComplete()
-            }
-        }.start()
+        // First, try to load from cache
+        val cachedLogs = loadLogsFromCache()
+        if (cachedLogs != null) {
+            // Show cached data immediately
+            allLogs.clear()
+            allLogs.addAll(cachedLogs)
+            applyFilters()
+            updateStats()
+            recyclerView.visibility = View.VISIBLE
+            loadingText.visibility = View.GONE
+            // Now fetch fresh logs in background
+            Thread {
+                loadLogs()
+                runOnUiThread {
+                    // After fresh load, update UI and save cache again
+                    applyFilters()
+                    updateStats()
+                    saveLogsToCache()
+                    onComplete()
+                }
+            }.start()
+        } else {
+            // No cache: show loading and fetch fresh
+            loadingText.visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+            Thread {
+                loadLogs()
+                runOnUiThread {
+                    loadingText.visibility = View.GONE
+                    recyclerView.visibility = View.VISIBLE
+                    applyFilters()
+                    updateStats()
+                    saveLogsToCache()
+                    onComplete()
+                }
+            }.start()
+        }
     }
 
     private fun updateStats() {
@@ -1527,7 +1636,32 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // Two overloads for createAnimatedButton
     private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = textStr
+            textSize = 15f
+            setTextColor(textColor)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(bgColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                height
+            )
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+    }
+
+    private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
+        // This overload is for when we need to pass MATCH_PARENT or other constants that are Int.
+        // Since the signature is the same, we can keep one. The one above works for all.
+        // I'll keep both for clarity.
         return TextView(this).apply {
             text = textStr
             textSize = 15f
@@ -1632,7 +1766,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER (original quality + circular icons) ==========
+// ========== LOG ADAPTER ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
