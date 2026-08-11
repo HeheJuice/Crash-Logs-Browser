@@ -108,7 +108,7 @@ class DetailsActivity : Activity() {
             text = getString(R.string.details_title) // "Crash Logs Browser"
             textSize = 32f
             setTextColor(Color.WHITE)
-            
+
             // Bold rounded configuration: Higher weight for boldness, high ROND axis for rounded style
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 700, false)
@@ -169,6 +169,78 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
+
+        // ----- NEW INFO CARD: Source Code & License Buttons -----
+        val infoCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(cardBgColor)
+                cornerRadius = dpToPx(28f).toFloat()
+                setStroke(dpToPx(1f), cardBorderColor)
+            }
+            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(16f)
+            }
+        }
+
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val sourceBtn = TextView(this).apply {
+            text = "View Source Code"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accentColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dpToPx(8f)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser")))
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
+        val licenseBtn = TextView(this).apply {
+            text = "View GPL-3.0 License"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accentColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dpToPx(8f)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE")))
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+
+        buttonRow.addView(sourceBtn)
+        buttonRow.addView(licenseBtn)
+        infoCard.addView(buttonRow)
+        scrollContent.addView(infoCard)
 
         // ----- CREDITS CARD -----
         val creditsCard = LinearLayout(this).apply {
