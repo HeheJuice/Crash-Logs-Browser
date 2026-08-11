@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -54,7 +56,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Header – back | title | copy
+        // Header – back | title | open | copy
         val headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -97,7 +99,76 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Copy button – smaller icon (48dp touch area, 14dp padding)
+        // ----- OPEN APP BUTTON -----
+        val openDrawable = ContextCompat.getDrawable(this, R.drawable.open_in_new_24px)
+        val openBtn: View
+        if (openDrawable != null) {
+            openBtn = ImageView(this).apply {
+                setImageDrawable(openDrawable)
+                setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(14f), dpToPx(14f), dpToPx(14f), dpToPx(14f))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    try {
+                        val launchIntent = packageManager.getLaunchIntentForPackage(appName)
+                        if (launchIntent != null) {
+                            startActivity(launchIntent)
+                        } else {
+                            Toast.makeText(this@CrashDetailActivity, "Cannot launch app", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@CrashDetailActivity, "Cannot launch app", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    marginEnd = dpToPx(8f)
+                }
+            }
+        } else {
+            // Fallback text button if icon missing
+            openBtn = TextView(this).apply {
+                text = "Open"
+                textSize = 14f
+                setTextColor(primaryTextColor)
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    try {
+                        val launchIntent = packageManager.getLaunchIntentForPackage(appName)
+                        if (launchIntent != null) {
+                            startActivity(launchIntent)
+                        } else {
+                            Toast.makeText(this@CrashDetailActivity, "Cannot launch app", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@CrashDetailActivity, "Cannot launch app", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    marginEnd = dpToPx(8f)
+                }
+            }
+        }
+        headerLayout.addView(openBtn)
+
+        // ----- COPY BUTTON -----
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -142,8 +213,6 @@ class CrashDetailActivity : Activity() {
         headerLayout.addView(copyBtn)
 
         rootLayout.addView(headerLayout)
-
-        // No separator line
 
         // Info row (package and time)
         val infoLayout = LinearLayout(this).apply {
