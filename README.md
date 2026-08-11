@@ -24,10 +24,10 @@
 
 ## Acknowledgements
 
-This project uses codes from the following projects 
+> This project uses codes from the following projects 
 
-[Google / Google Sans Flex](https://design.google/library/google-sans-flex-font)
+> [Google / Google Sans Flex](https://design.google/library/google-sans-flex-font)
 
-[Google / Material Design Icons](https://m3.material.io/styles/icons)
+> [Google / Material Design Icons](https://m3.material.io/styles/icons)
 
 </div>
