@@ -118,7 +118,6 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== SETUP UI (unchanged) ==========
     private fun setupUI() {
         val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
 
@@ -235,7 +234,7 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FILTER PILL TOUCH LISTENER =====
+        // ===== FIXED FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -321,9 +320,9 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading Text ----
+        // ---- Loading Text (updated message) ----
         loadingText = TextView(this).apply {
-            text = "Loading..."
+            text = "Loading Full Logs (Might Take Some Times) ..."
             textSize = 18f
             setTextColor(secondaryTextColor)
             gravity = Gravity.CENTER
@@ -1164,7 +1163,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG (RESTORED – FULL) ==========
+    // ========== CUSTOM PERMISSION DIALOG (FULL – RESTORED) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1633,7 +1632,7 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER (with fixed circular icons & lower quality) ==========
+// ========== LOG ADAPTER (original quality + circular icons) ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,
@@ -1650,7 +1649,7 @@ class LogAdapter(
     )
 
     private val iconCache = LruCache<String, Bitmap>(50)
-    private val MAX_ICON_SIZE_PX = dpToPx(32f)
+    private val MAX_ICON_SIZE_PX = dpToPx(40f)
 
     fun updateLogs(newLogs: List<LogEntry>) {
         logs = newLogs
@@ -1704,7 +1703,7 @@ class LogAdapter(
             val newWidth = (width * scale).toInt()
             val newHeight = (height * scale).toInt()
 
-            scaledBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.RGB_565)
+            scaledBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(scaledBitmap)
             val paint = Paint(Paint.FILTER_BITMAP_FLAG)
             canvas.drawBitmap(bitmap, Rect(0, 0, width, height),
@@ -1714,7 +1713,7 @@ class LogAdapter(
                 bitmap.recycle()
             }
         } else {
-            scaledBitmap = bitmap.copy(Bitmap.Config.RGB_565, false)
+            scaledBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
             if (scaledBitmap != bitmap) {
                 bitmap.recycle()
             }
