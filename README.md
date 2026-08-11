@@ -1,6 +1,9 @@
 <div align="center">
 
 # Crash Logs Browser
+
+  <img alt="API" src="https://img.shields.io/badge/Android-13_and_Up-50f270?logo=android&logoColor=black&style=for-the-badge"/></a>
+
 > A Simple / Light-Weight Android Crash or ANRs Logs Viewer 
 
 > Android 13 and Up
