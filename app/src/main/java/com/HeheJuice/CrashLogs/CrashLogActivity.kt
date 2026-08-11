@@ -492,9 +492,9 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Refresh button in Info tab – will be updated by cooldown timer
+        // Refresh button in Info tab – no toast, only text update
         refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
-            performRefresh()
+            performRefresh(showToast = false)
         }.apply {
             layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
                 marginEnd = dpToPx(6f)
@@ -567,13 +567,16 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== NEW REFRESH BUTTON (top‑right) with padding & scale fix ======
+        // ====== TOP‑RIGHT REFRESH BUTTON (shows toast on cooldown) ======
         topBarRefreshBtn = ImageView(this).apply {
-            setImageResource(R.drawable.refresh_24px)
-            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
-            // Avoid clipping by scaling down and adding padding
+            // Load and scale the refresh icon to avoid clipping
+            val refreshDrawable = ContextCompat.getDrawable(this@CrashLogActivity, R.drawable.refresh_24px)?.apply {
+                setBounds(0, 0, dpToPx(20f), dpToPx(20f))  // smaller than the 44dp circle
+                setTint(primaryTextColor)
+            }
+            setImageDrawable(refreshDrawable)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-            setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
+            setPadding(dpToPx(6f), dpToPx(6f), dpToPx(6f), dpToPx(6f))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(backBtnBgColor)
@@ -582,7 +585,7 @@ class CrashLogActivity : Activity() {
             isClickable = true
             isFocusable = true
             layoutParams = FrameLayout.LayoutParams(dpToPx(44f), dpToPx(44f), Gravity.END or Gravity.CENTER_VERTICAL)
-            setOnClickListener { performRefresh() }
+            setOnClickListener { performRefresh(showToast = true) }
             setOnTouchListener(pressScaleTouchListener)
         }
 
@@ -793,10 +796,11 @@ class CrashLogActivity : Activity() {
     }
 
     // ========== REFRESH WITH COOLDOWN ==========
-    private fun performRefresh() {
+    private fun performRefresh(showToast: Boolean = false) {
         if (isCooldown) {
-            // Show toast with remaining seconds
-            Toast.makeText(this, "Cooldown ${remainingSeconds}s", Toast.LENGTH_SHORT).show()
+            if (showToast) {
+                Toast.makeText(this, "Cooldown ${remainingSeconds}s", Toast.LENGTH_SHORT).show()
+            }
             return
         }
 
