@@ -322,7 +322,7 @@ class CrashLogActivity : Activity() {
 
         // ---- Loading Text (updated message) ----
         loadingText = TextView(this).apply {
-            text = "Loading Full Logs (Might Take Some Times) ..."
+            text = "Loading Full Logs (Might Take 5 ~ 10 Seconds) ..."
             textSize = 18f
             setTextColor(secondaryTextColor)
             gravity = Gravity.CENTER

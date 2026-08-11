@@ -1,7 +1,7 @@
 <div align="center">
 
 # Crash Logs Browser
-> A Simple / Light-Weight Android Crash Logs Viewer 
+> A Simple / Light-Weight Android Crash or ANRs Logs Viewer 
 
 > Android 13 and Up
 
@@ -17,15 +17,11 @@
   <a href="Banner/SS4.png"><img src="Banner/SS4.png" width="22%" alt="Screenshot 4"></a>
 </p>
 
-
-
-
 ## Acknowledgements
 
 This project uses codes from the following projects 
 
 [Google / Google Sans Flex](https://design.google/library/google-sans-flex-font)
-
 
 [Google / Material Design Icons](https://m3.material.io/styles/icons)
 
