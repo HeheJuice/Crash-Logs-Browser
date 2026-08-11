@@ -1636,32 +1636,8 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // Two overloads for createAnimatedButton
+    // Single implementation of createAnimatedButton
     private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
-        return TextView(this).apply {
-            text = textStr
-            textSize = 15f
-            setTextColor(textColor)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(bgColor)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                height
-            )
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { onClick() }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-    }
-
-    private fun createAnimatedButton(textStr: String, textColor: Int, bgColor: Int, height: Int, onClick: () -> Unit): TextView {
-        // This overload is for when we need to pass MATCH_PARENT or other constants that are Int.
-        // Since the signature is the same, we can keep one. The one above works for all.
-        // I'll keep both for clarity.
         return TextView(this).apply {
             text = textStr
             textSize = 15f
