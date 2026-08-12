@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.graphics.drawable.ColorDrawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
