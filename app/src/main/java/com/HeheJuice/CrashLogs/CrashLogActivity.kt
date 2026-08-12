@@ -61,8 +61,6 @@ class CrashLogActivity : Activity() {
         private const val FILTER_CRASH = 1
         private const val FILTER_ANR = 2
 
-        // ========== SIGNATURE CHECK ==========
-        // SHA-256 digest from the signing certificate (V2)
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
     }
 
@@ -103,16 +101,19 @@ class CrashLogActivity : Activity() {
     // Loading text view
     private lateinit var loadingText: TextView
 
+    // Empty state view (static, not clickable)
+    private lateinit var emptyStateText: TextView
+
     // Refresh cooldown
     private var cooldownTimer: CountDownTimer? = null
     private var isCooldown = false
     private var remainingSeconds = 0
 
     // UI references
-    private lateinit var refreshButton: TextView            // Info tab refresh button
-    private lateinit var topBarRefreshContainer: FrameLayout // container for the top‑right button
-    private lateinit var topBarRefreshIcon: ImageView       // refresh icon inside container
-    private lateinit var topBarRefreshCountdown: TextView   // countdown text inside container
+    private lateinit var refreshButton: TextView
+    private lateinit var topBarRefreshContainer: FrameLayout
+    private lateinit var topBarRefreshIcon: ImageView
+    private lateinit var topBarRefreshCountdown: TextView
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -122,7 +123,6 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // ========== SIGNATURE CHECK (runs in both debug and release) ==========
         if (!checkSignature()) {
             showTamperedDialog()
             return
@@ -140,7 +140,7 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== SIGNATURE CHECK METHODS ==========
+    // ========== SIGNATURE CHECK ==========
     private fun checkSignature(): Boolean {
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -157,16 +157,12 @@ class CrashLogActivity : Activity() {
                 packageInfo.signatures
             }
 
-            if (certificates == null || certificates.isEmpty()) {
-                return false
-            }
+            if (certificates == null || certificates.isEmpty()) return false
 
             val cert = certificates[0]
             val certBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                // X509Certificate – get encoded bytes
-                cert.getEncoded()   // <-- FIXED: use getEncoded() instead of encoded
+                cert.getEncoded()
             } else {
-                // Signature – convert to byte array
                 @Suppress("DEPRECATION")
                 cert.toByteArray()
             }
@@ -206,7 +202,6 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Warning icon
         val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
             setTint(red)
         }
@@ -238,7 +233,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(messageTv)
 
-        // Buttons: Uninstall & Exit
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -313,7 +307,7 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== THE REST OF THE ACTIVITY (unchanged) ==========
+    // ========== UI SETUP ==========
     private fun setupUI() {
         val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
 
@@ -323,7 +317,6 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
-        // ========== SCROLL VIEW (NestedScrollView) ==========
         scrollView = NestedScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
@@ -430,7 +423,6 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FIXED FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -444,7 +436,6 @@ class CrashLogActivity : Activity() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(0.95f)
@@ -453,7 +444,6 @@ class CrashLogActivity : Activity() {
                         .setDuration(120)
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
-
                     updateFilterPillPosition(computeProgress(event.x))
                     true
                 }
@@ -464,7 +454,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     val progress = computeProgress(event.x)
                     val targetProgress = when {
                         progress < 0.33f -> 0f
@@ -476,11 +465,9 @@ class CrashLogActivity : Activity() {
                         0.5f -> FILTER_CRASH
                         else -> FILTER_ANR
                     }
-
                     animateFilterPillTo(targetProgress) {
                         switchFilterTab(targetFilter)
                     }
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -493,7 +480,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -501,7 +487,6 @@ class CrashLogActivity : Activity() {
                         .alpha(1.0f)
                         .setDuration(200)
                         .start()
-
                     val activeProgress = when (currentFilterTab) {
                         FILTER_ALL -> 0f
                         FILTER_CRASH -> 0.5f
@@ -516,7 +501,7 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading Text (updated message) ----
+        // ---- Loading Text ----
         loadingText = TextView(this).apply {
             text = "Loading Full Logs (Might Take 5 to 10 Seconds the first time)"
             textSize = 18f
@@ -533,6 +518,21 @@ class CrashLogActivity : Activity() {
             visibility = View.GONE
         }
         logsLayout.addView(loadingText)
+
+        // ---- Empty State (static, not clickable) ----
+        emptyStateText = TextView(this).apply {
+            text = "No logs found.\nTry refresh?"
+            textSize = 18f
+            setTextColor(secondaryTextColor)
+            gravity = Gravity.CENTER
+            setPadding(0, dpToPx(80f), 0, dpToPx(80f))
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        logsLayout.addView(emptyStateText)
 
         // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
@@ -752,7 +752,6 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== TOP‑RIGHT REFRESH BUTTON – FrameLayout container ======
         topBarRefreshContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -932,7 +931,6 @@ class CrashLogActivity : Activity() {
                         .setDuration(120)
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
-
                     val touchX = event.x - tabPillContainer.paddingLeft
                     val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
                     updatePillPosition(progress)
@@ -950,11 +948,9 @@ class CrashLogActivity : Activity() {
                     val targetIsLogs = touchX < midPoint
                     val targetTab = if (targetIsLogs) TAB_LOGS else TAB_INFO
                     val targetProgress = if (targetIsLogs) 0f else 1f
-
                     animatePillTo(targetProgress) {
                         switchTab(targetTab)
                     }
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -1000,9 +996,7 @@ class CrashLogActivity : Activity() {
 
     // ========== REFRESH WITH COOLDOWN ==========
     private fun performRefresh() {
-        if (isCooldown) {
-            return
-        }
+        if (isCooldown) return
 
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
@@ -1108,6 +1102,15 @@ class CrashLogActivity : Activity() {
         filteredLogs.clear()
         filteredLogs.addAll(result)
         logAdapter.updateLogs(filteredLogs)
+
+        // Show/hide recycler and empty state
+        if (filteredLogs.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.VISIBLE
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
+        }
         recyclerView.alpha = 1f
         recyclerView.translationY = 0f
     }
@@ -1215,6 +1218,7 @@ class CrashLogActivity : Activity() {
             allLogs.clear()
             filteredLogs.clear()
             logAdapter.updateLogs(filteredLogs)
+            applyFilters() // this will show the empty state
             updateStats()
             Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
@@ -1231,6 +1235,7 @@ class CrashLogActivity : Activity() {
             applyFilters()
             updateStats()
             recyclerView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
             loadingText.visibility = View.GONE
             Thread {
                 loadLogs()
@@ -1244,11 +1249,13 @@ class CrashLogActivity : Activity() {
         } else {
             loadingText.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.GONE
             Thread {
                 loadLogs()
                 runOnUiThread {
                     loadingText.visibility = View.GONE
                     recyclerView.visibility = View.VISIBLE
+                    emptyStateText.visibility = View.GONE
                     applyFilters()
                     updateStats()
                     saveLogsToCache()
