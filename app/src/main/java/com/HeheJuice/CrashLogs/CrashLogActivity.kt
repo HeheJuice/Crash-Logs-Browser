@@ -1118,7 +1118,6 @@ class CrashLogActivity : Activity() {
         filteredLogs.addAll(result)
         logAdapter.updateLogs(filteredLogs)
 
-        // Show/hide recycler and empty state
         if (filteredLogs.isEmpty()) {
             recyclerView.visibility = View.GONE
             emptyStateText.visibility = View.VISIBLE
