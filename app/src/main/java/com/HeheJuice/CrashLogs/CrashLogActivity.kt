@@ -17,6 +17,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -46,6 +47,7 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -58,6 +60,16 @@ class CrashLogActivity : Activity() {
         private const val FILTER_ALL = 0
         private const val FILTER_CRASH = 1
         private const val FILTER_ANR = 2
+
+        // ========== SIGNATURE CHECK ==========
+        // SHA-256 digest from the signing certificate (V2)
+        private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
+        private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
+
+        // SharedPreferences keys for caching
+        private const val PREFS_NAME = "CrashLogsPrefs"
+        private const val KEY_SIGNATURE_VERIFIED = "signature_verified"
+        private const val KEY_VERIFIED_VERSION = "verified_version"
     }
 
     private var primaryTextColor: Int = 0
@@ -79,6 +91,9 @@ class CrashLogActivity : Activity() {
 
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
+
+    // Empty state
+    private lateinit var emptyStateText: TextView
 
     // Bottom bar
     private lateinit var slidingPillView: View
@@ -116,6 +131,12 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
+        // ========== SIGNATURE CHECK (cached) ==========
+        if (!checkSignatureCached()) {
+            showTamperedDialog()
+            return
+        }
+
         initColors()
         buttonHeightPx = dpToPx(54f)
 
@@ -128,6 +149,212 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
+    // ========== CACHED SIGNATURE CHECK ==========
+    private fun checkSignatureCached(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val verified = prefs.getBoolean(KEY_SIGNATURE_VERIFIED, false)
+        val savedVersion = prefs.getInt(KEY_VERIFIED_VERSION, 0)
+        val currentVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        } catch (e: Exception) {
+            0
+        }
+
+        // If verified and version matches, skip actual check
+        if (verified && savedVersion == currentVersion) {
+            return true
+        }
+
+        // Otherwise, run the actual check
+        val result = checkSignature()
+        if (result) {
+            prefs.edit()
+                .putBoolean(KEY_SIGNATURE_VERIFIED, true)
+                .putInt(KEY_VERIFIED_VERSION, currentVersion)
+                .apply()
+        }
+        return result
+    }
+
+    // ========== ACTUAL SIGNATURE CHECK ==========
+    private fun checkSignature(): Boolean {
+        return try {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            }
+
+            val certificates = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+
+            if (certificates == null || certificates.isEmpty()) {
+                return false
+            }
+
+            val cert = certificates[0]
+            val certBytes = cert.toByteArray()
+
+            val digest = MessageDigest.getInstance("SHA-256")
+            val hash = digest.digest(certBytes)
+            val hexHash = hash.joinToString("") { "%02x".format(it) }
+            hexHash.equals(EXPECTED_SIGNATURE_HASH, ignoreCase = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Signature check failed", e)
+            false
+        }
+    }
+
+    // ========== TAMPERED DIALOG (TWO BUTTONS) ==========
+    private fun showTamperedDialog() {
+    val dialog = Dialog(this)
+    dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+    val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+    val cardBg = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+    val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+    val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+    val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+    val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+    val red = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
+    val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+
+    val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+
+    val cardLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(cardBg)
+            cornerRadius = dpToPx(28f).toFloat()
+            setStroke(dpToPx(1f), cardBorder)
+        }
+        setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+    }
+
+    // Warning icon (error drawable)
+    val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
+        setTint(red)
+    }
+    val iconIv = ImageView(this).apply {
+        setImageDrawable(warnDrawable)
+        layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = dpToPx(8f)
+        }
+    }
+    cardLayout.addView(iconIv)
+
+    // Title – no emoji
+    val titleTv = TextView(this).apply {
+        text = "Security Alert"
+        textSize = 22f
+        setTextColor(primaryText)
+        setTypeface(null, Typeface.BOLD)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(4f))
+    }
+    cardLayout.addView(titleTv)
+
+    // Message – more professional
+    val messageTv = TextView(this).apply {
+        text = "This application has been modified by an unknown third party. Its authenticity and integrity cannot be verified. Using it may pose a security risk. Please download the official version from the trusted source."
+        textSize = 15f
+        setTextColor(secondaryText)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(16f))
+    }
+    cardLayout.addView(messageTv)
+
+    // ---- BUTTONS (vertical) ----
+    val btnLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    // Button 1: Download from Official Source
+    val downloadBtn = TextView(this).apply {
+        text = "Download from Official Source"
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(accent)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dpToPx(54f)
+        ).apply {
+            bottomMargin = dpToPx(8f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_SOURCE_URL)))
+            finish()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnLayout.addView(downloadBtn)
+
+    // Button 2: Exit and Uninstall
+    val exitUninstallBtn = TextView(this).apply {
+        text = "Exit and Uninstall"
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(red)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dpToPx(54f)
+        ).apply {
+            topMargin = dpToPx(8f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+            try {
+                val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this@CrashLogActivity, "Unable to uninstall", Toast.LENGTH_SHORT).show()
+            }
+            finish()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnLayout.addView(exitUninstallBtn)
+
+    cardLayout.addView(btnLayout)
+
+    dialog.setContentView(cardLayout)
+
+    dialog.window?.apply {
+        setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    dialog.setCancelable(false)
+    dialog.show()
+}
+
+    // ========== UI SETUP ==========
     private fun setupUI() {
         val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
 
@@ -137,7 +364,6 @@ class CrashLogActivity : Activity() {
 
         val statusBarHeight = getStatusBarHeight()
 
-        // ========== SCROLL VIEW (NestedScrollView) ==========
         scrollView = NestedScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_ALWAYS
@@ -244,7 +470,6 @@ class CrashLogActivity : Activity() {
             filterSlidingView.requestLayout()
         }
 
-        // ===== FIXED FILTER PILL TOUCH LISTENER =====
         filterPillContainer.setOnTouchListener { view, event ->
             val x0 = filterAllBtn.left.toFloat()
             val x1 = filterAnrBtn.left.toFloat()
@@ -258,7 +483,6 @@ class CrashLogActivity : Activity() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(0.95f)
@@ -267,7 +491,6 @@ class CrashLogActivity : Activity() {
                         .setDuration(120)
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
-
                     updateFilterPillPosition(computeProgress(event.x))
                     true
                 }
@@ -278,7 +501,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     val progress = computeProgress(event.x)
                     val targetProgress = when {
                         progress < 0.33f -> 0f
@@ -290,11 +512,9 @@ class CrashLogActivity : Activity() {
                         0.5f -> FILTER_CRASH
                         else -> FILTER_ANR
                     }
-
                     animateFilterPillTo(targetProgress) {
                         switchFilterTab(targetFilter)
                     }
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -307,7 +527,6 @@ class CrashLogActivity : Activity() {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -315,7 +534,6 @@ class CrashLogActivity : Activity() {
                         .alpha(1.0f)
                         .setDuration(200)
                         .start()
-
                     val activeProgress = when (currentFilterTab) {
                         FILTER_ALL -> 0f
                         FILTER_CRASH -> 0.5f
@@ -330,7 +548,7 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading Text (updated message) ----
+        // ---- Loading Text ----
         loadingText = TextView(this).apply {
             text = "Loading Full Logs (Might Take 5 to 10 Seconds the first time)"
             textSize = 18f
@@ -347,6 +565,21 @@ class CrashLogActivity : Activity() {
             visibility = View.GONE
         }
         logsLayout.addView(loadingText)
+
+        // ---- Empty State (static, not clickable) ----
+        emptyStateText = TextView(this).apply {
+            text = "No logs found.\nTry refresh?"
+            textSize = 18f
+            setTextColor(secondaryTextColor)
+            gravity = Gravity.CENTER
+            setPadding(0, dpToPx(80f), 0, dpToPx(80f))
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        logsLayout.addView(emptyStateText)
 
         // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
@@ -494,7 +727,6 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Refresh button in Info tab
         refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
@@ -504,7 +736,6 @@ class CrashLogActivity : Activity() {
         }
         buttonRow.addView(refreshButton)
 
-        // Clear Cache button – now red
         val clearCacheBtn = createAnimatedButton("Clear Cache", Color.WHITE, redBtnColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             clearCache()
         }.apply {
@@ -553,7 +784,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Back button
         val backDrawable = createArrowBackDrawable()
         val backBtn = ImageView(this).apply {
             setImageDrawable(backDrawable)
@@ -569,7 +799,6 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // ====== TOP‑RIGHT REFRESH BUTTON – FrameLayout container ======
         topBarRefreshContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -582,7 +811,6 @@ class CrashLogActivity : Activity() {
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // Refresh icon (ImageView)
         topBarRefreshIcon = ImageView(this).apply {
             setImageResource(R.drawable.refresh_24px)
             setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
@@ -595,7 +823,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Countdown text (TextView) – initially hidden
         topBarRefreshCountdown = TextView(this).apply {
             visibility = View.GONE
             textSize = 20f
@@ -618,7 +845,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(topBarRefreshContainer)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR with icons ==========
+        // ========== BOTTOM BAR ==========
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -663,7 +890,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // ---- Logs button with icon ----
         logsPillBtn = TextView(this).apply {
             text = "Logs"
             textSize = 14f
@@ -683,7 +909,6 @@ class CrashLogActivity : Activity() {
             compoundDrawablePadding = dpToPx(8f)
         }
 
-        // ---- Info button with icon ----
         infoPillBtn = TextView(this).apply {
             text = "Info"
             textSize = 14f
@@ -753,7 +978,6 @@ class CrashLogActivity : Activity() {
                         .setDuration(120)
                         .setInterpolator(DecelerateInterpolator(1.5f))
                         .start()
-
                     val touchX = event.x - tabPillContainer.paddingLeft
                     val progress = if (x1 > x0) ((touchX - x0) / (x1 - x0)).coerceIn(0f, 1f) else 0f
                     updatePillPosition(progress)
@@ -771,11 +995,9 @@ class CrashLogActivity : Activity() {
                     val targetIsLogs = touchX < midPoint
                     val targetTab = if (targetIsLogs) TAB_LOGS else TAB_INFO
                     val targetProgress = if (targetIsLogs) 0f else 1f
-
                     animatePillTo(targetProgress) {
                         switchTab(targetTab)
                     }
-
                     view.animate().cancel()
                     view.animate()
                         .scaleX(1.0f)
@@ -819,25 +1041,19 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH WITH COOLDOWN – COUNTDOWN ON BUTTON ==========
+    // ========== REFRESH WITH COOLDOWN ==========
     private fun performRefresh() {
-        if (isCooldown) {
-            // Do nothing – countdown already running
-            return
-        }
+        if (isCooldown) return
 
-        // Start refresh – disable Info button, hide icon, show countdown with "5"
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
 
-        // Show countdown and hide icon
         topBarRefreshIcon.visibility = View.GONE
         topBarRefreshCountdown.visibility = View.VISIBLE
         topBarRefreshCountdown.text = "5"
         topBarRefreshContainer.isEnabled = false
 
         loadLogsAsync {
-            // After load completes, start cooldown
             startCooldown()
         }
     }
@@ -846,26 +1062,20 @@ class CrashLogActivity : Activity() {
         isCooldown = true
         remainingSeconds = 5
 
-        // Countdown is already showing "5" – now start timer to update to 4,3,2,1
         cooldownTimer?.cancel()
         cooldownTimer = object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 remainingSeconds = (millisUntilFinished / 1000).toInt()
-                // Update Info button text
                 refreshButton.text = "Cooldown $remainingSeconds"
-                // Update countdown text
                 topBarRefreshCountdown.text = remainingSeconds.toString()
-                // Keep both disabled
                 refreshButton.isEnabled = false
                 topBarRefreshContainer.isEnabled = false
             }
 
             override fun onFinish() {
                 isCooldown = false
-                // Restore Info button
                 refreshButton.text = "Refresh Logs"
                 refreshButton.isEnabled = true
-                // Restore top‑right button: show icon, hide countdown
                 topBarRefreshContainer.isEnabled = true
                 topBarRefreshIcon.visibility = View.VISIBLE
                 topBarRefreshCountdown.visibility = View.GONE
@@ -939,11 +1149,20 @@ class CrashLogActivity : Activity() {
         filteredLogs.clear()
         filteredLogs.addAll(result)
         logAdapter.updateLogs(filteredLogs)
+
+        // Show/hide recycler and empty state
+        if (filteredLogs.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.VISIBLE
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
+        }
         recyclerView.alpha = 1f
         recyclerView.translationY = 0f
     }
 
-    // ========== BOTTOM PILL FUNCTIONS (with icon tinting) ==========
+    // ========== BOTTOM PILL FUNCTIONS ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = logsPillBtn.left.toFloat()
@@ -968,7 +1187,6 @@ class CrashLogActivity : Activity() {
             infoPillBtn.setTextColor(primaryTextColor)
         }
 
-        // Tint icons to match text color
         val logsIcon = logsPillBtn.compoundDrawables[0]
         val infoIcon = infoPillBtn.compoundDrawables[0]
         logsIcon?.setTint(if (p < 0.5f) primaryTextColor else secondaryTextColor)
@@ -1047,6 +1265,7 @@ class CrashLogActivity : Activity() {
             allLogs.clear()
             filteredLogs.clear()
             logAdapter.updateLogs(filteredLogs)
+            applyFilters()
             updateStats()
             Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
@@ -1056,21 +1275,18 @@ class CrashLogActivity : Activity() {
 
     // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
-        // First, try to load from cache
         val cachedLogs = loadLogsFromCache()
         if (cachedLogs != null) {
-            // Show cached data immediately
             allLogs.clear()
             allLogs.addAll(cachedLogs)
             applyFilters()
             updateStats()
             recyclerView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
             loadingText.visibility = View.GONE
-            // Now fetch fresh logs in background
             Thread {
                 loadLogs()
                 runOnUiThread {
-                    // After fresh load, update UI and save cache again
                     applyFilters()
                     updateStats()
                     saveLogsToCache()
@@ -1078,14 +1294,15 @@ class CrashLogActivity : Activity() {
                 }
             }.start()
         } else {
-            // No cache: show loading and fetch fresh
             loadingText.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.GONE
             Thread {
                 loadLogs()
                 runOnUiThread {
                     loadingText.visibility = View.GONE
                     recyclerView.visibility = View.VISIBLE
+                    emptyStateText.visibility = View.GONE
                     applyFilters()
                     updateStats()
                     saveLogsToCache()
@@ -1366,7 +1583,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CUSTOM PERMISSION DIALOG (FULL – RESTORED) ==========
+    // ========== PERMISSION DIALOG ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1412,7 +1629,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // ---- Permission status list ----
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -1478,7 +1694,6 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ---- ADB commands block with copy icon ----
         val adbLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1497,7 +1712,6 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // Header: title + copy icon
         val adbHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1583,7 +1797,6 @@ class CrashLogActivity : Activity() {
 
         cardLayout.addView(adbLayout)
 
-        // ---- Grant with Root ----
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -1597,7 +1810,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        // ---- Button row: Exit App & Check Again ----
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
