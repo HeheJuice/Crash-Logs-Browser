@@ -3,6 +3,7 @@ package com.HeheJuice.CrashLogs
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,8 +12,11 @@ import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.DocumentsContract
+import android.provider.DocumentsContract.Document
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
@@ -22,6 +26,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.ContextCompat
+import java.io.OutputStreamWriter
 
 class CrashDetailActivity : Activity() {
 
@@ -34,20 +39,29 @@ class CrashDetailActivity : Activity() {
     private var backBtnBgColor: Int = 0
     private var isDark: Boolean = false
 
+    private lateinit var appName: String
+    private lateinit var timestamp: String
+    private lateinit var type: String
+    private lateinit var details: String
+
+    companion object {
+        private const val REQUEST_CODE_SAVE_FILE = 1001
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
         initColors()
-        setStatusBarColors() // Fix issue 2
+        setStatusBarColors()
 
-        // Get status bar height
+        // Get data
+        type = intent.getStringExtra("type") ?: "Crash"
+        appName = intent.getStringExtra("appName") ?: "Unknown"
+        timestamp = intent.getStringExtra("timestamp") ?: "Unknown"
+        details = intent.getStringExtra("details") ?: "No details available."
+
         val statusBarHeight = getStatusBarHeight()
-
-        val type = intent.getStringExtra("type") ?: "Crash"
-        val appName = intent.getStringExtra("appName") ?: "Unknown"
-        val timestamp = intent.getStringExtra("timestamp") ?: "Unknown"
-        val details = intent.getStringExtra("details") ?: "No details available."
 
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -61,7 +75,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Header – back | title | open | copy
+        // Header – back | title | open | save | copy
         val headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -71,7 +85,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Back button – fixed 48dp
+        // Back button
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -90,7 +104,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(backBtn)
 
-        // Title – takes remaining space
+        // Title
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -138,7 +152,6 @@ class CrashDetailActivity : Activity() {
                 }
             }
         } else {
-            // Fallback text button if icon missing
             openBtn = TextView(this).apply {
                 text = "Open"
                 textSize = 14f
@@ -172,6 +185,52 @@ class CrashDetailActivity : Activity() {
             }
         }
         headerLayout.addView(openBtn)
+
+        // ----- SAVE AS TXT BUTTON (NEW) -----
+        val saveDrawable = ContextCompat.getDrawable(this, R.drawable.attach_file_24px)
+        val saveBtn: View
+        if (saveDrawable != null) {
+            saveBtn = ImageView(this).apply {
+                setImageDrawable(saveDrawable)
+                setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(14f), dpToPx(14f), dpToPx(14f), dpToPx(14f))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { saveLogToFile() }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    marginEnd = dpToPx(8f)
+                }
+            }
+        } else {
+            saveBtn = TextView(this).apply {
+                text = "Save"
+                textSize = 14f
+                setTextColor(primaryTextColor)
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(backBtnBgColor)
+                }
+                setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { saveLogToFile() }
+                setOnTouchListener(pressScaleTouchListener)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    marginEnd = dpToPx(8f)
+                }
+            }
+        }
+        headerLayout.addView(saveBtn)
 
         // ----- COPY BUTTON -----
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
@@ -219,7 +278,7 @@ class CrashDetailActivity : Activity() {
 
         rootLayout.addView(headerLayout)
 
-        // Info row (package and time)
+        // Info row
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dpToPx(12f), 0, dpToPx(12f))
@@ -238,7 +297,7 @@ class CrashDetailActivity : Activity() {
         infoLayout.addView(timeTv)
         rootLayout.addView(infoLayout)
 
-        // Scrollable details – full content, no truncation
+        // Scrollable details
         val scrollDetails = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -260,7 +319,6 @@ class CrashDetailActivity : Activity() {
             }
             movementMethod = ScrollingMovementMethod.getInstance()
             maxLines = Int.MAX_VALUE
-            // Disable horizontal scrolling so long lines wrap
             setHorizontallyScrolling(false)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -273,13 +331,113 @@ class CrashDetailActivity : Activity() {
         setContentView(rootLayout)
     }
 
-    // ========== STATUS BAR COLOR (Fix issue 2) ==========
+    // ========== SAVE LOG TO FILE ==========
+    private fun saveLogToFile() {
+        // Create filename: PackageName-Time-Crash/ANR.txt
+        val timeClean = timestamp.replace("/", "-").replace(":", "-")
+        val filename = "${appName}-${timeClean}-${type}.txt"
+
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, filename)
+            // Optionally set initial directory (not supported in all devices)
+        }
+        startActivityForResult(intent, REQUEST_CODE_SAVE_FILE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_SAVE_FILE && resultCode == RESULT_OK) {
+            data?.data?.let { uri ->
+                try {
+                    val contentResolver = contentResolver
+                    contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        OutputStreamWriter(outputStream).use { writer ->
+                            val header = "=== $type Details ===\n"
+                            val info = "Package: $appName\nTime: $timestamp\n\n"
+                            writer.write(header)
+                            writer.write(info)
+                            writer.write(details)
+                            writer.flush()
+                        }
+                    }
+                    Toast.makeText(this, "Log saved successfully", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // ========== EXISTING METHODS ==========
+    private fun copyToClipboard(text: String) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Crash Log", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun createArrowBackDrawable(): Drawable {
+        return object : Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = primaryTextColor
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2.5f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val size = dpToPx(6.5f)
+                val path = Path().apply {
+                    moveTo(cx + size * 0.4f, cy - size)
+                    lineTo(cx - size * 0.5f, cy)
+                    lineTo(cx + size * 0.4f, cy + size)
+                }
+                canvas.drawPath(path, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
+        val springBackInterpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(0.94f)
+                    .scaleY(0.94f)
+                    .alpha(0.85f)
+                    .setDuration(120)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                    .start()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                v.animate().cancel()
+                v.animate()
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .alpha(1.0f)
+                    .setDuration(350)
+                    .setInterpolator(springBackInterpolator)
+                    .start()
+            }
+        }
+        false
+    }
+
+    // ========== STATUS BAR & THEME ==========
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
             val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
             window.statusBarColor = statusColor
-            // For light status bar icons on light theme (Android 6.0+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
@@ -291,7 +449,6 @@ class CrashDetailActivity : Activity() {
         }
     }
 
-    // ========== CONFIGURATION CHANGE (dark/light mode) ==========
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -367,7 +524,6 @@ class CrashDetailActivity : Activity() {
             isFocusable = true
             setOnClickListener {
                 dialog.dismiss()
-                // Restart activity
                 val intent = intent
                 finish()
                 startActivity(intent)
@@ -409,68 +565,6 @@ class CrashDetailActivity : Activity() {
         }
         dialog.setCancelable(false)
         dialog.show()
-    }
-
-    // ========== EXISTING METHODS (unchanged) ==========
-    private fun copyToClipboard(text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Crash Log", text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun createArrowBackDrawable(): Drawable {
-        return object : Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = primaryTextColor
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2.5f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val size = dpToPx(6.5f)
-                val path = Path().apply {
-                    moveTo(cx + size * 0.4f, cy - size)
-                    lineTo(cx - size * 0.5f, cy)
-                    lineTo(cx + size * 0.4f, cy + size)
-                }
-                canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
-        val springBackInterpolator = android.view.animation.PathInterpolator(0.22f, 1.0f, 0.36f, 1.0f)
-
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                v.animate().cancel()
-                v.animate()
-                    .scaleX(0.94f)
-                    .scaleY(0.94f)
-                    .alpha(0.85f)
-                    .setDuration(120)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                    .start()
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                v.animate().cancel()
-                v.animate()
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .alpha(1.0f)
-                    .setDuration(350)
-                    .setInterpolator(springBackInterpolator)
-                    .start()
-            }
-        }
-        false
     }
 
     private fun initColors() {
