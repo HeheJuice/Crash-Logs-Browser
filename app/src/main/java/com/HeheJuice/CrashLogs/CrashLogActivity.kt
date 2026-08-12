@@ -64,6 +64,12 @@ class CrashLogActivity : Activity() {
         // ========== SIGNATURE CHECK ==========
         // SHA-256 digest from the signing certificate (V2)
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
+        private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
+
+        // SharedPreferences keys for caching
+        private const val PREFS_NAME = "CrashLogsPrefs"
+        private const val KEY_SIGNATURE_VERIFIED = "signature_verified"
+        private const val KEY_VERIFIED_VERSION = "verified_version"
     }
 
     private var primaryTextColor: Int = 0
@@ -125,8 +131,8 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // ========== SIGNATURE CHECK ==========
-        if (!checkSignature()) {
+        // ========== SIGNATURE CHECK (cached) ==========
+        if (!checkSignatureCached()) {
             showTamperedDialog()
             return
         }
@@ -143,7 +149,34 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== SIGNATURE CHECK METHODS ==========
+    // ========== CACHED SIGNATURE CHECK ==========
+    private fun checkSignatureCached(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val verified = prefs.getBoolean(KEY_SIGNATURE_VERIFIED, false)
+        val savedVersion = prefs.getInt(KEY_VERIFIED_VERSION, 0)
+        val currentVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        } catch (e: Exception) {
+            0
+        }
+
+        // If verified and version matches, skip actual check
+        if (verified && savedVersion == currentVersion) {
+            return true
+        }
+
+        // Otherwise, run the actual check
+        val result = checkSignature()
+        if (result) {
+            prefs.edit()
+                .putBoolean(KEY_SIGNATURE_VERIFIED, true)
+                .putInt(KEY_VERIFIED_VERSION, currentVersion)
+                .apply()
+        }
+        return result
+    }
+
+    // ========== ACTUAL SIGNATURE CHECK ==========
     private fun checkSignature(): Boolean {
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -165,7 +198,6 @@ class CrashLogActivity : Activity() {
             }
 
             val cert = certificates[0]
-            // Both Signature and X509Certificate have toByteArray() in this context
             val certBytes = cert.toByteArray()
 
             val digest = MessageDigest.getInstance("SHA-256")
@@ -178,6 +210,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
+    // ========== TAMPERED DIALOG (TWO BUTTONS) ==========
     private fun showTamperedDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -188,6 +221,7 @@ class CrashLogActivity : Activity() {
         val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
         val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
         val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
         val red = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
         val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
 
@@ -203,6 +237,7 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
+        // Warning icon
         val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
             setTint(red)
         }
@@ -234,16 +269,46 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(messageTv)
 
-        val btnRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // ---- BUTTONS (vertical) ----
+        val btnLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(54f)
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        val uninstallBtn = TextView(this).apply {
-            text = "Uninstall"
+        // Button 1: Download from Official Source
+        val downloadBtn = TextView(this).apply {
+            text = "Download from Official Source"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accent)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(54f)
+            ).apply {
+                bottomMargin = dpToPx(8f)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_SOURCE_URL)))
+                finish()
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        btnLayout.addView(downloadBtn)
+
+        // Button 2: Exit and Uninstall
+        val exitUninstallBtn = TextView(this).apply {
+            text = "Exit and Uninstall"
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
@@ -251,9 +316,12 @@ class CrashLogActivity : Activity() {
                 setColor(red)
                 cornerRadius = dpToPx(100f).toFloat()
             }
-            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f).apply {
-                marginEnd = dpToPx(8f)
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(54f)
+            ).apply {
+                topMargin = dpToPx(8f)
             }
             isClickable = true
             isFocusable = true
@@ -269,33 +337,9 @@ class CrashLogActivity : Activity() {
             }
             setOnTouchListener(pressScaleTouchListener)
         }
+        btnLayout.addView(exitUninstallBtn)
 
-        val exitBtn = TextView(this).apply {
-            text = "Exit"
-            textSize = 15f
-            setTextColor(primaryText)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(inputBg)
-                cornerRadius = dpToPx(100f).toFloat()
-                setStroke(dpToPx(1f), cardBorder)
-            }
-            setPadding(dpToPx(16f), 0, dpToPx(16f), 0)
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f).apply {
-                marginStart = dpToPx(8f)
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-                finish()
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-
-        btnRow.addView(uninstallBtn)
-        btnRow.addView(exitBtn)
-        cardLayout.addView(btnRow)
+        cardLayout.addView(btnLayout)
 
         dialog.setContentView(cardLayout)
 
@@ -1219,7 +1263,7 @@ class CrashLogActivity : Activity() {
             allLogs.clear()
             filteredLogs.clear()
             logAdapter.updateLogs(filteredLogs)
-            applyFilters() // shows empty state
+            applyFilters()
             updateStats()
             Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
