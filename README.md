@@ -6,7 +6,7 @@
 
 ## Badges
 
-[![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)](https://www.android.com/intl/zh-HK_hk)[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white&style=for-the-badge)](https://kotlinlang.org)[![LICENSE](https://img.shields.io/badge/View-LICENCE-87CEEB?style=for-the-badge)](https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE)
+[![Android](https://img.shields.io/badge/Android-13_and_up-50f270?logo=android&logoColor=white&style=for-the-badge)](https://www.android.com/intl/zh-HK_hk)[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white&style=for-the-badge)](https://kotlinlang.org)[![LICENSE](https://img.shields.io/badge/View-LICENCE-87CEEB?style=for-the-badge)](https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE)[![GitHub Downloads](https://img.shields.io/github/downloads/HeheJuice/Crash-Logs-Browser/total?color=blue&label=Downloads+from+GitHub+Source&style=flat-square)](https://github.com/HeheJuice/Crash-Logs-Browser/releases)
 
 
 ## Features 
