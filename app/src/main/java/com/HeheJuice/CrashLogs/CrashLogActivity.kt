@@ -212,145 +212,147 @@ class CrashLogActivity : Activity() {
 
     // ========== TAMPERED DIALOG (TWO BUTTONS) ==========
     private fun showTamperedDialog() {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val dialog = Dialog(this)
+    dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
-        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                Configuration.UI_MODE_NIGHT_YES
-        val cardBg = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
-        val red = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
-        val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+    val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+    val cardBg = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+    val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+    val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+    val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+    val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+    val red = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
+    val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
 
-        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+    val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
 
-        val cardLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(cardBg)
-                cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorder)
-            }
-            setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+    val cardLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(cardBg)
+            cornerRadius = dpToPx(28f).toFloat()
+            setStroke(dpToPx(1f), cardBorder)
         }
-
-        // Warning icon
-        val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
-            setTint(red)
-        }
-        val iconIv = ImageView(this).apply {
-            setImageDrawable(warnDrawable)
-            layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
-                gravity = Gravity.CENTER
-                bottomMargin = dpToPx(8f)
-            }
-        }
-        cardLayout.addView(iconIv)
-
-        val titleTv = TextView(this).apply {
-            text = "⚠️ Security Alert"
-            textSize = 22f
-            setTextColor(primaryText)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dpToPx(4f))
-        }
-        cardLayout.addView(titleTv)
-
-        val messageTv = TextView(this).apply {
-            text = "This app has been modified by unknown people.\nIt is NOT safe to use.\n\nPlease download the official version from the trusted source."
-            textSize = 15f
-            setTextColor(secondaryText)
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dpToPx(16f))
-        }
-        cardLayout.addView(messageTv)
-
-        // ---- BUTTONS (vertical) ----
-        val btnLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        // Button 1: Download from Official Source
-        val downloadBtn = TextView(this).apply {
-            text = "Download from Official Source"
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(accent)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(54f)
-            ).apply {
-                bottomMargin = dpToPx(8f)
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_SOURCE_URL)))
-                finish()
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        btnLayout.addView(downloadBtn)
-
-        // Button 2: Exit and Uninstall
-        val exitUninstallBtn = TextView(this).apply {
-            text = "Exit and Uninstall"
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(red)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(54f)
-            ).apply {
-                topMargin = dpToPx(8f)
-            }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-                try {
-                    val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(this@CrashLogActivity, "Unable to uninstall", Toast.LENGTH_SHORT).show()
-                }
-                finish()
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        btnLayout.addView(exitUninstallBtn)
-
-        cardLayout.addView(btnLayout)
-
-        dialog.setContentView(cardLayout)
-
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        dialog.setCancelable(false)
-        dialog.show()
+        setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
     }
+
+    // Warning icon (error drawable)
+    val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
+        setTint(red)
+    }
+    val iconIv = ImageView(this).apply {
+        setImageDrawable(warnDrawable)
+        layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = dpToPx(8f)
+        }
+    }
+    cardLayout.addView(iconIv)
+
+    // Title – no emoji
+    val titleTv = TextView(this).apply {
+        text = "Security Alert"
+        textSize = 22f
+        setTextColor(primaryText)
+        setTypeface(null, Typeface.BOLD)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(4f))
+    }
+    cardLayout.addView(titleTv)
+
+    // Message – more professional
+    val messageTv = TextView(this).apply {
+        text = "This application has been modified by an unknown third party. Its authenticity and integrity cannot be verified. Using it may pose a security risk. Please download the official version from the trusted source."
+        textSize = 15f
+        setTextColor(secondaryText)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(16f))
+    }
+    cardLayout.addView(messageTv)
+
+    // ---- BUTTONS (vertical) ----
+    val btnLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    // Button 1: Download from Official Source
+    val downloadBtn = TextView(this).apply {
+        text = "Download from Official Source"
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(accent)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dpToPx(54f)
+        ).apply {
+            bottomMargin = dpToPx(8f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_SOURCE_URL)))
+            finish()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnLayout.addView(downloadBtn)
+
+    // Button 2: Exit and Uninstall
+    val exitUninstallBtn = TextView(this).apply {
+        text = "Exit and Uninstall"
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(red)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dpToPx(54f)
+        ).apply {
+            topMargin = dpToPx(8f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+            try {
+                val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this@CrashLogActivity, "Unable to uninstall", Toast.LENGTH_SHORT).show()
+            }
+            finish()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnLayout.addView(exitUninstallBtn)
+
+    cardLayout.addView(btnLayout)
+
+    dialog.setContentView(cardLayout)
+
+    dialog.window?.apply {
+        setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    dialog.setCancelable(false)
+    dialog.show()
+}
 
     // ========== UI SETUP ==========
     private fun setupUI() {
