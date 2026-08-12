@@ -63,7 +63,6 @@ class CrashLogActivity : Activity() {
 
         // ========== SIGNATURE CHECK ==========
         // SHA-256 digest from the signing certificate (V2)
-        // Obtained via: apksigner verify --print-certs app.apk
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
     }
 
@@ -165,7 +164,7 @@ class CrashLogActivity : Activity() {
             val cert = certificates[0]
             val certBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 // X509Certificate – get encoded bytes
-                cert.encoded
+                cert.getEncoded()   // <-- FIXED: use getEncoded() instead of encoded
             } else {
                 // Signature – convert to byte array
                 @Suppress("DEPRECATION")
@@ -315,11 +314,6 @@ class CrashLogActivity : Activity() {
     }
 
     // ========== THE REST OF THE ACTIVITY (unchanged) ==========
-    // All existing methods (setupUI, performRefresh, startCooldown, loadLogsAsync,
-    // filter functions, permission checks, etc.) remain exactly as before.
-    // I have omitted them here for brevity, but the full file with all methods is provided.
-    // Continue below with the remaining methods.
-
     private fun setupUI() {
         val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
 
@@ -1007,22 +1001,18 @@ class CrashLogActivity : Activity() {
     // ========== REFRESH WITH COOLDOWN ==========
     private fun performRefresh() {
         if (isCooldown) {
-            // Do nothing – countdown already running
             return
         }
 
-        // Start refresh – disable Info button, hide icon, show countdown with "5"
         refreshButton.isEnabled = false
         refreshButton.text = "Refreshing..."
 
-        // Show countdown and hide icon
         topBarRefreshIcon.visibility = View.GONE
         topBarRefreshCountdown.visibility = View.VISIBLE
         topBarRefreshCountdown.text = "5"
         topBarRefreshContainer.isEnabled = false
 
         loadLogsAsync {
-            // After load completes, start cooldown
             startCooldown()
         }
     }
@@ -1031,26 +1021,20 @@ class CrashLogActivity : Activity() {
         isCooldown = true
         remainingSeconds = 5
 
-        // Countdown is already showing "5" – now start timer to update to 4,3,2,1
         cooldownTimer?.cancel()
         cooldownTimer = object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 remainingSeconds = (millisUntilFinished / 1000).toInt()
-                // Update Info button text
                 refreshButton.text = "Cooldown $remainingSeconds"
-                // Update countdown text
                 topBarRefreshCountdown.text = remainingSeconds.toString()
-                // Keep both disabled
                 refreshButton.isEnabled = false
                 topBarRefreshContainer.isEnabled = false
             }
 
             override fun onFinish() {
                 isCooldown = false
-                // Restore Info button
                 refreshButton.text = "Refresh Logs"
                 refreshButton.isEnabled = true
-                // Restore top‑right button: show icon, hide countdown
                 topBarRefreshContainer.isEnabled = true
                 topBarRefreshIcon.visibility = View.VISIBLE
                 topBarRefreshCountdown.visibility = View.GONE
@@ -1240,21 +1224,17 @@ class CrashLogActivity : Activity() {
 
     // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
-        // First, try to load from cache
         val cachedLogs = loadLogsFromCache()
         if (cachedLogs != null) {
-            // Show cached data immediately
             allLogs.clear()
             allLogs.addAll(cachedLogs)
             applyFilters()
             updateStats()
             recyclerView.visibility = View.VISIBLE
             loadingText.visibility = View.GONE
-            // Now fetch fresh logs in background
             Thread {
                 loadLogs()
                 runOnUiThread {
-                    // After fresh load, update UI and save cache again
                     applyFilters()
                     updateStats()
                     saveLogsToCache()
@@ -1262,7 +1242,6 @@ class CrashLogActivity : Activity() {
                 }
             }.start()
         } else {
-            // No cache: show loading and fetch fresh
             loadingText.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
             Thread {
