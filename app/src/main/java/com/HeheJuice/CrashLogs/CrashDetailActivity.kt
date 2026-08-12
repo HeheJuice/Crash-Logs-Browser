@@ -6,9 +6,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
@@ -29,12 +31,14 @@ class CrashDetailActivity : Activity() {
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
     private var backBtnBgColor: Int = 0
+    private var isDark: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
         initColors()
+        setStatusBarColors() // Fix issue 2
 
         // Get status bar height
         val statusBarHeight = getStatusBarHeight()
@@ -268,6 +272,145 @@ class CrashDetailActivity : Activity() {
         setContentView(rootLayout)
     }
 
+    // ========== STATUS BAR COLOR (Fix issue 2) ==========
+    private fun setStatusBarColors() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            window.statusBarColor = statusColor
+            // For light status bar icons on light theme (Android 6.0+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val flags = window.decorView.systemUiVisibility
+                if (!isDark) {
+                    window.decorView.systemUiVisibility = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                } else {
+                    window.decorView.systemUiVisibility = flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+                }
+            }
+        }
+    }
+
+    // ========== CONFIGURATION CHANGE (dark/light mode) ==========
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        if (newDark != isDark) {
+            showRestartDialog()
+        }
+    }
+
+    private fun showRestartDialog() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        val cardBg = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+        val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+        val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+        val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+        val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+
+        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+
+        val cardLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(cardBg)
+                cornerRadius = dpToPx(28f).toFloat()
+                setStroke(dpToPx(1f), cardBorder)
+            }
+            setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+        }
+
+        val titleTv = TextView(this).apply {
+            text = "Theme Changed"
+            textSize = 22f
+            setTextColor(primaryText)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(4f))
+        }
+        cardLayout.addView(titleTv)
+
+        val messageTv = TextView(this).apply {
+            text = "The system dark/light mode has changed.\nPlease restart the app to apply the new theme."
+            textSize = 15f
+            setTextColor(secondaryText)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(16f))
+        }
+        cardLayout.addView(messageTv)
+
+        val btnLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val restartBtn = TextView(this).apply {
+            text = "Restart Now"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accent)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+                // Restart activity
+                val intent = intent
+                finish()
+                startActivity(intent)
+                overridePendingTransition(0, 0)
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        btnLayout.addView(restartBtn)
+
+        val laterBtn = TextView(this).apply {
+            text = "Later"
+            textSize = 15f
+            setTextColor(primaryText)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(inputBg)
+                cornerRadius = dpToPx(100f).toFloat()
+                setStroke(dpToPx(1f), cardBorder)
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f).apply {
+                marginStart = dpToPx(8f)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        btnLayout.addView(laterBtn)
+
+        cardLayout.addView(btnLayout)
+
+        dialog.setContentView(cardLayout)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.setCancelable(false)
+        dialog.show()
+    }
+
+    // ========== EXISTING METHODS (unchanged) ==========
     private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Crash Log", text)
@@ -330,8 +473,8 @@ class CrashDetailActivity : Activity() {
     }
 
     private fun initColors() {
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
         cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
         cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
         primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")

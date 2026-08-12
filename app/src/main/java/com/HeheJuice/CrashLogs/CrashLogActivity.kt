@@ -62,7 +62,6 @@ class CrashLogActivity : Activity() {
         private const val FILTER_ANR = 2
 
         // ========== SIGNATURE CHECK ==========
-        // SHA‑256 digest from your signing certificate (V2)
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
@@ -126,7 +125,7 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // ========== SIGNATURE CHECK (performed on every launch) ==========
+        // ========== SIGNATURE CHECK ==========
         if (!checkSignature()) {
             showTamperedDialog()
             return
@@ -135,6 +134,9 @@ class CrashLogActivity : Activity() {
         initColors()
         buttonHeightPx = dpToPx(54f)
 
+        // Set status bar color
+        setStatusBarColors()
+
         if (!checkAllPermissions()) {
             showPermissionDialog()
             return
@@ -142,6 +144,145 @@ class CrashLogActivity : Activity() {
 
         setupUI()
         loadLogsAsync {}
+    }
+
+    // ========== STATUS BAR COLORS ==========
+    private fun setStatusBarColors() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            window.statusBarColor = statusColor
+            // For light status bar icons on light theme (Android 6.0+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val flags = window.decorView.systemUiVisibility
+                if (!isDark) {
+                    window.decorView.systemUiVisibility = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                } else {
+                    window.decorView.systemUiVisibility = flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+                }
+            }
+        }
+    }
+
+    // ========== CONFIGURATION CHANGE (dark/light mode) ==========
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        if (newDark != isDark) {
+            // Show restart dialog
+            showRestartDialog()
+        }
+    }
+
+    private fun showRestartDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        val cardBg = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
+        val cardBorder = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+        val primaryText = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+        val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
+        val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+
+        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+
+        val cardLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(cardBg)
+                cornerRadius = dpToPx(28f).toFloat()
+                setStroke(dpToPx(1f), cardBorder)
+            }
+            setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+        }
+
+        val titleTv = TextView(this).apply {
+            text = "Theme Changed"
+            textSize = 22f
+            setTextColor(primaryText)
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(4f))
+        }
+        cardLayout.addView(titleTv)
+
+        val messageTv = TextView(this).apply {
+            text = "The system dark/light mode has changed.\nPlease restart the app to apply the new theme."
+            textSize = 15f
+            setTextColor(secondaryText)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dpToPx(16f))
+        }
+        cardLayout.addView(messageTv)
+
+        val btnLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val restartBtn = TextView(this).apply {
+            text = "Restart Now"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accent)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+                // Restart activity
+                val intent = intent
+                finish()
+                startActivity(intent)
+                overridePendingTransition(0, 0)
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        btnLayout.addView(restartBtn)
+
+        val laterBtn = TextView(this).apply {
+            text = "Later"
+            textSize = 15f
+            setTextColor(primaryText)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(inputBg)
+                cornerRadius = dpToPx(100f).toFloat()
+                setStroke(dpToPx(1f), cardBorder)
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(54f), 1f).apply {
+                marginStart = dpToPx(8f)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+            }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        btnLayout.addView(laterBtn)
+
+        cardLayout.addView(btnLayout)
+
+        dialog.setContentView(cardLayout)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.setCancelable(false)
+        dialog.show()
     }
 
     // ========== ACTUAL SIGNATURE CHECK ==========
@@ -178,7 +319,7 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== TAMPERED DIALOG (PROFESSIONAL) ==========
+    // ========== TAMPERED DIALOG ==========
     private fun showTamperedDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -205,7 +346,6 @@ class CrashLogActivity : Activity() {
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
 
-        // Warning icon (error drawable)
         val warnDrawable = ContextCompat.getDrawable(this, android.R.drawable.stat_notify_error)?.apply {
             setTint(red)
         }
@@ -218,7 +358,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(iconIv)
 
-        // Title – no emoji
         val titleTv = TextView(this).apply {
             text = "Security Alert"
             textSize = 22f
@@ -229,7 +368,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(titleTv)
 
-        // Message – professional
         val messageTv = TextView(this).apply {
             text = "This application has been modified by an unknown third party. Its authenticity and integrity cannot be verified. Using it may pose a security risk. Please download the official version from the trusted source."
             textSize = 15f
@@ -239,7 +377,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(messageTv)
 
-        // ---- BUTTONS (vertical) ----
         val btnLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -248,7 +385,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // Button 1: Download from Official Source
         val downloadBtn = TextView(this).apply {
             text = "Download from Official Source"
             textSize = 15f
@@ -276,7 +412,6 @@ class CrashLogActivity : Activity() {
         }
         btnLayout.addView(downloadBtn)
 
-        // Button 2: Exit and Uninstall
         val exitUninstallBtn = TextView(this).apply {
             text = "Exit and Uninstall"
             textSize = 15f
@@ -729,7 +864,8 @@ class CrashLogActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
             setBackgroundColor(rootBgColor)
-            elevation = dpToPx(4f).toFloat()
+            // Remove elevation to avoid line in light mode
+            elevation = 0f
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
         }
 
