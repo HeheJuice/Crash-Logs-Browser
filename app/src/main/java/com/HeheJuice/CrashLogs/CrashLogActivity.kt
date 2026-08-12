@@ -61,6 +61,8 @@ class CrashLogActivity : Activity() {
         private const val FILTER_CRASH = 1
         private const val FILTER_ANR = 2
 
+        // ========== SIGNATURE CHECK ==========
+        // SHA-256 digest from the signing certificate (V2)
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
     }
 
@@ -84,6 +86,9 @@ class CrashLogActivity : Activity() {
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
 
+    // Empty state
+    private lateinit var emptyStateText: TextView
+
     // Bottom bar
     private lateinit var slidingPillView: View
     private lateinit var logsPillBtn: TextView
@@ -101,19 +106,16 @@ class CrashLogActivity : Activity() {
     // Loading text view
     private lateinit var loadingText: TextView
 
-    // Empty state view (static, not clickable)
-    private lateinit var emptyStateText: TextView
-
     // Refresh cooldown
     private var cooldownTimer: CountDownTimer? = null
     private var isCooldown = false
     private var remainingSeconds = 0
 
     // UI references
-    private lateinit var refreshButton: TextView
-    private lateinit var topBarRefreshContainer: FrameLayout
-    private lateinit var topBarRefreshIcon: ImageView
-    private lateinit var topBarRefreshCountdown: TextView
+    private lateinit var refreshButton: TextView            // Info tab refresh button
+    private lateinit var topBarRefreshContainer: FrameLayout // container for the top‑right button
+    private lateinit var topBarRefreshIcon: ImageView       // refresh icon inside container
+    private lateinit var topBarRefreshCountdown: TextView   // countdown text inside container
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
@@ -123,6 +125,7 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
+        // ========== SIGNATURE CHECK ==========
         if (!checkSignature()) {
             showTamperedDialog()
             return
@@ -140,7 +143,7 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== SIGNATURE CHECK ==========
+    // ========== SIGNATURE CHECK METHODS ==========
     private fun checkSignature(): Boolean {
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -157,15 +160,13 @@ class CrashLogActivity : Activity() {
                 packageInfo.signatures
             }
 
-            if (certificates == null || certificates.isEmpty()) return false
+            if (certificates == null || certificates.isEmpty()) {
+                return false
+            }
 
             val cert = certificates[0]
-            val certBytes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                cert.getEncoded()
-            } else {
-                @Suppress("DEPRECATION")
-                cert.toByteArray()
-            }
+            // Both Signature and X509Certificate have toByteArray() in this context
+            val certBytes = cert.toByteArray()
 
             val digest = MessageDigest.getInstance("SHA-256")
             val hash = digest.digest(certBytes)
@@ -1218,7 +1219,7 @@ class CrashLogActivity : Activity() {
             allLogs.clear()
             filteredLogs.clear()
             logAdapter.updateLogs(filteredLogs)
-            applyFilters() // this will show the empty state
+            applyFilters() // shows empty state
             updateStats()
             Toast.makeText(this, "Cache cleared", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
