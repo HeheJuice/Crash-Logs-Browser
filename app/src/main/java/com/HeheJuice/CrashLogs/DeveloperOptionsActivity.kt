@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.widget.*
@@ -29,7 +30,6 @@ class DeveloperOptionsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // 设置状态栏颜色
         setStatusBarColors()
 
         val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
@@ -49,35 +49,71 @@ class DeveloperOptionsActivity : Activity() {
         // 根布局
         val rootFrame = FrameLayout(this).apply { setBackgroundColor(bgColor) }
 
-        // 主内容垂直布局（带顶部 padding 避开状态栏）
-        val content = LinearLayout(this).apply {
+        // 主内容垂直布局
+        val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpToPx(20f), getStatusBarHeight() + dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            setPadding(dpToPx(20f), getStatusBarHeight() + dpToPx(16f), dpToPx(20f), dpToPx(20f))
         }
 
-        // 标题
-        val titleView = TextView(this).apply {
-            text = "Developer Options"
-            textSize = 28f
-            setTextColor(primaryTextColor)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+        // 顶部标题栏（与 DetailsActivity 类似）
+        val topBar = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
             setPadding(0, 0, 0, dpToPx(16f))
         }
-        content.addView(titleView)
+
+        val titleText = TextView(this).apply {
+            text = "Developer Options"
+            textSize = 20f
+            setTextColor(primaryTextColor)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        }
+        topBar.addView(titleText)
+
+        // 返回按钮（类似 DetailsActivity 的 backBtn）
+        val backBtn = ImageView(this).apply {
+            setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(backBtnBgColor)
+            }
+            contentDescription = "Back"
+            isClickable = true
+            isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(
+                dpToPx(48f),
+                dpToPx(48f),
+                Gravity.START or Gravity.CENTER_VERTICAL
+            )
+            setOnClickListener { finish() }
+            // 缩放效果
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        topBar.addView(backBtn)
+
+        contentLayout.addView(topBar)
 
         // ----- 模拟更新开关卡片 -----
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
-                cornerRadius = dpToPx(16f).toFloat()
+                cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            setPadding(dpToPx(16f), dpToPx(16f), dpToPx(16f), dpToPx(16f))
+            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -98,15 +134,16 @@ class DeveloperOptionsActivity : Activity() {
             text = "Force Fake Update (v9.9)"
             textSize = 17f
             setTextColor(primaryTextColor)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // 使用 Google Sans Flex 如果有的话
+            }
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row.addView(label)
 
         val switch = Switch(this).apply {
-            // 读取保存的状态
             isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
             setTextColor(primaryTextColor)
-            // 监听变化
             setOnCheckedChangeListener { _, isChecked ->
                 sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
                 Toast.makeText(
@@ -122,37 +159,66 @@ class DeveloperOptionsActivity : Activity() {
         // 说明文字
         val desc = TextView(this).apply {
             text = "When enabled, the app will show version 9.9 with dummy release notes."
-            textSize = 13f
+            textSize = 14f
             setTextColor(secondaryTextColor)
             setPadding(0, dpToPx(8f), 0, 0)
         }
         card.addView(desc)
 
-        content.addView(card)
+        contentLayout.addView(card)
 
-        // ----- 返回按钮（与 Details 风格一致） -----
-        val backBtn = TextView(this).apply {
-            text = "Back"
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            background = GradientDrawable().apply {
-                setColor(accentColor)
-                cornerRadius = dpToPx(100f).toFloat()
-            }
-            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+        // ----- 底部留白 -----
+        val spacer = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dpToPx(24f) }
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { finish() }
+                0,
+                1f
+            )
         }
-        content.addView(backBtn)
+        contentLayout.addView(spacer)
 
-        rootFrame.addView(content)
+        rootFrame.addView(contentLayout)
         setContentView(rootFrame)
+    }
+
+    // 辅助：绘制返回箭头（与 DetailsActivity 相同）
+    private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
+        return object : android.graphics.drawable.Drawable() {
+            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = dpToPx(2.5f).toFloat()
+                strokeCap = android.graphics.Paint.Cap.ROUND
+                strokeJoin = android.graphics.Paint.Join.ROUND
+            }
+            override fun draw(canvas: android.graphics.Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val size = dpToPx(6.5f)
+                val path = android.graphics.Path().apply {
+                    moveTo(cx + size * 0.4f, cy - size)
+                    lineTo(cx - size * 0.5f, cy)
+                    lineTo(cx + size * 0.4f, cy + size)
+                }
+                canvas.drawPath(path, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+        }
+    }
+
+    // 缩放触摸监听（与 DetailsActivity 一致）
+    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                v.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(350).start()
+            }
+        }
+        false
     }
 
     private fun getStatusBarHeight(): Int {

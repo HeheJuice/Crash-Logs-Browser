@@ -379,40 +379,51 @@ class DetailsActivity : Activity() {
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             isClickable = true
             isFocusable = true
-            setOnClickListener { openTelegram("HeheJuice") }
 
-            // 长按计时器
+            // 点击打开 Telegram
+            setOnClickListener {
+                openTelegram("HeheJuice")
+                // 点击缩放效果
+                animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(350).start()
+                }.start()
+            }
+
+            // 长按计时器变量
             var handler: android.os.Handler? = null
             var runnable: Runnable? = null
 
             setOnLongClickListener {
-                if (handler != null) return@setOnLongClickListener true
-                handler = android.os.Handler(android.os.Looper.getMainLooper())
-                runnable = Runnable {
-                    startActivity(Intent(this@DetailsActivity, DeveloperOptionsActivity::class.java))
-                    Toast.makeText(this@DetailsActivity, "Developer Options opened", Toast.LENGTH_SHORT).show()
-                    handler = null
-                    runnable = null
+                if (handler == null) {
+                    handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    runnable = Runnable {
+                        startActivity(Intent(this@DetailsActivity, DeveloperOptionsActivity::class.java))
+                        Toast.makeText(this@DetailsActivity, "Developer Options opened", Toast.LENGTH_SHORT).show()
+                        handler = null
+                        runnable = null
+                    }
+                    handler?.postDelayed(runnable!!, 10000) // 10 秒
+                    // 长按时缩放反馈
+                    animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    return@setOnLongClickListener true
                 }
-                handler?.postDelayed(runnable!!, 10000) // 10 秒
-                true
+                return@setOnLongClickListener false
             }
 
-            // 自定义触控：保留缩放效果，同时取消计时
+            // 触摸监听：用于取消计时和恢复缩放
             setOnTouchListener { v, event ->
                 when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        pressScaleTouchListener.onTouch(v, event)
-                    }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         handler?.removeCallbacks(runnable!!)
                         handler = null
                         runnable = null
-                        pressScaleTouchListener.onTouch(v, event)
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(350).start()
                     }
-                    else -> pressScaleTouchListener.onTouch(v, event)
+                    MotionEvent.ACTION_DOWN -> {
+                        v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    }
                 }
-                true
+                false // 返回 false，不消费事件，让系统继续处理点击/长按
             }
         }
         textContainer1.addView(nameView1)
