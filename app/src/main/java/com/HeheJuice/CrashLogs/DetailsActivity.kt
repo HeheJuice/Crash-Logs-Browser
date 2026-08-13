@@ -523,7 +523,7 @@ class DetailsActivity : Activity() {
 
         // Credit 3: Material Design
         val materialName = "Material Design"
-        val materialDesc = "XML Vector Android Icon"
+        val materialDesc = "Material Design Library"
 
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

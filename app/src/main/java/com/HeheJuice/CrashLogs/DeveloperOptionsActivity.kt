@@ -116,7 +116,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // ----- 卡片（优化间距，更接近系统设置示例） -----
+        // ----- 卡片（调整内边距使开关居中更明显） -----
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -124,8 +124,8 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // 上下内边距调整为 18dp，更平衡
-            setPadding(dpToPx(20f), dpToPx(18f), dpToPx(20f), dpToPx(18f))
+            // 上下内边距增加到 22dp，使开关在卡片高度中更居中
+            setPadding(dpToPx(20f), dpToPx(22f), dpToPx(20f), dpToPx(22f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -150,7 +150,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch  =====
+        // ===== MaterialSwitch =====
         val themedContext = ContextThemeWrapper(
             this,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
@@ -200,12 +200,12 @@ class DeveloperOptionsActivity : Activity() {
 
         card.addView(row)
 
-        // ----- 描述文字（间距增加到 12dp，更透气） -----
+        // ----- 描述文字（恢复完整版本，间距减小到 6dp） -----
         val desc = TextView(this).apply {
-            text = "Show version and dummy release notes."
+            text = "When enabled, the app will show version 9.9 with dummy release notes."
             textSize = 14f
             setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(12f), 0, 0)
+            setPadding(0, dpToPx(6f), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
