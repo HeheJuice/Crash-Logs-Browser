@@ -940,7 +940,7 @@ class DetailsActivity : Activity() {
                 }
                 updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                val fakeBody = "## Update\n- Tester"
+                val fakeBody = "## TEST\n- OTA"
                 val formatted = formatReleaseNotes(fakeBody)
                 releaseNotesView.text = formatted
                 val bg = GradientDrawable().apply {
