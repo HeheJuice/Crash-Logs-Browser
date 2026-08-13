@@ -97,7 +97,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         topBar.addView(titleText)
 
-        // 返回按钮
+        // 返回按钮（保持不变）
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
             background = GradientDrawable().apply {
@@ -162,7 +162,7 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
-        // 设置轨道颜色（开启时与下载按钮一致）
+        // ---- 设置轨道颜色 ----
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -173,10 +173,21 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // 拇指颜色（白色）
+        // ---- 设置拇指颜色（白色） ----
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // 监听变化
+        // ---- 设置对勾图标颜色（开启时 = accentColor，关闭时透明） ----
+        val iconStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val iconColors = intArrayOf(
+            accentColor,
+            Color.TRANSPARENT
+        )
+        switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
+
+        // ---- 监听变化 ----
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
@@ -184,8 +195,10 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
-            // 刷新轨道颜色
+            // 刷新轨道颜色（确保状态变化后正确显示）
             switch.trackTintList = ColorStateList(trackStates, trackColors)
+            // 重新应用对勾颜色（确保刷新）
+            switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
 
         row.addView(switch, LinearLayout.LayoutParams(
