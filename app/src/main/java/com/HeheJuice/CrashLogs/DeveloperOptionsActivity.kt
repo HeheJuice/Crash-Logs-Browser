@@ -116,7 +116,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // ----- 卡片（调整内边距使开关居中更明显） -----
+        // ----- 卡片（平衡内边距） -----
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -124,8 +124,8 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // 上下内边距增加到 22dp，使开关在卡片高度中更居中
-            setPadding(dpToPx(20f), dpToPx(22f), dpToPx(20f), dpToPx(22f))
+            // 上下内边距调整为 20dp，左右保持 20dp
+            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -150,7 +150,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch =====
+        // ===== MaterialSwitch (已设置 thumbIcon 选择器) =====
         val themedContext = ContextThemeWrapper(
             this,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
@@ -161,6 +161,7 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
+        // ---- 轨道颜色 ----
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -170,18 +171,22 @@ class DeveloperOptionsActivity : Activity() {
             if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
+
+        // ---- 拇指颜色（白色） ----
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
+        // ---- 对勾/叉号图标颜色（开启 = accentColor，关闭 = 灰色） ----
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
         val iconColors = intArrayOf(
             accentColor,
-            Color.TRANSPARENT
+            if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
+        // ---- 监听变化 ----
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
@@ -189,6 +194,7 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
+            // 刷新颜色
             switch.trackTintList = ColorStateList(trackStates, trackColors)
             switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
@@ -200,12 +206,12 @@ class DeveloperOptionsActivity : Activity() {
 
         card.addView(row)
 
-        // ----- 描述文字（恢复完整版本，间距减小到 6dp） -----
+        // ----- 描述文字（间距 8dp，更平衡） -----
         val desc = TextView(this).apply {
             text = "When enabled, the app will show version 9.9 with dummy release notes."
             textSize = 14f
             setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(6f), 0, 0)
+            setPadding(0, dpToPx(8f), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
