@@ -40,6 +40,11 @@
     android:exported="false"
     android:theme="@android:style/Theme.DeviceDefault.DayNight"
     android:screenOrientation="portrait" />
+    <activity
+    android:name=".DeveloperOptionsActivity"
+    android:exported="false"
+    android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+    android:screenOrientation="portrait" />
     <provider
     android:name="androidx.core.content.FileProvider"
     android:authorities="${applicationId}.fileprovider"
