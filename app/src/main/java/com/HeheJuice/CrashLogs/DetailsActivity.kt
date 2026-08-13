@@ -2,6 +2,7 @@ package com.HeheJuice.CrashLogs
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
@@ -370,6 +371,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
+        // ----- HeheJuice 名字 TextView（长按 10 秒跳转开发者选项） -----
         val nameView1 = TextView(this).apply {
             text = hehejuiceName
             textSize = 17f
@@ -377,8 +379,52 @@ class DetailsActivity : Activity() {
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             isClickable = true
             isFocusable = true
-            setOnClickListener { openTelegram("HeheJuice") }
-            setOnTouchListener(pressScaleTouchListener)
+
+            // 点击打开 Telegram
+            setOnClickListener {
+                openTelegram("HeheJuice")
+                // 点击缩放效果
+                animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(350).start()
+                }.start()
+            }
+
+            // 长按计时器变量
+            var handler: android.os.Handler? = null
+            var runnable: Runnable? = null
+
+            setOnLongClickListener {
+                if (handler == null) {
+                    handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    runnable = Runnable {
+                        startActivity(Intent(this@DetailsActivity, DeveloperOptionsActivity::class.java))
+                        Toast.makeText(this@DetailsActivity, "Developer Options opened", Toast.LENGTH_SHORT).show()
+                        handler = null
+                        runnable = null
+                    }
+                    handler?.postDelayed(runnable!!, 10000) // 10 秒
+                    // 长按时缩放反馈
+                    animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    return@setOnLongClickListener true
+                }
+                return@setOnLongClickListener false
+            }
+
+            // 触摸监听：用于取消计时和恢复缩放
+            setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        handler?.removeCallbacks(runnable!!)
+                        handler = null
+                        runnable = null
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(350).start()
+                    }
+                    MotionEvent.ACTION_DOWN -> {
+                        v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    }
+                }
+                false // 返回 false，不消费事件，让系统继续处理点击/长按
+            }
         }
         textContainer1.addView(nameView1)
 
@@ -394,7 +440,7 @@ class DetailsActivity : Activity() {
 
         // Credit 2: Mortis
         val mortisName = "Mortis"
-        val mortisDesc = "Upstream Contributor"
+        val mortisDesc = "Some Issues or Bug Fixes"
 
         val rowMortis = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -878,8 +924,50 @@ class DetailsActivity : Activity() {
         } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（使用 GradientDrawable 固定圆角 20dp） ==========
+    // ========== 检查更新（含模拟更新开关） ==========
     private fun checkForUpdates() {
+        // 检查是否启用了模拟更新
+        val prefs = getSharedPreferences("developer_prefs", MODE_PRIVATE)
+        val fakeEnabled = prefs.getBoolean("fake_update_enabled", false)
+
+        if (fakeEnabled) {
+            // 模拟更新：显示版本 9.9 和伪造日志
+            runOnUiThread {
+                updateStatusView.text = getString(R.string.update_new_version, "9.9")
+                updateStatusView.background = GradientDrawable().apply {
+                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                    cornerRadius = dpToPx(100f).toFloat()
+                }
+                updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+
+                val fakeBody = "## Update\n- Tester"
+                val formatted = formatReleaseNotes(fakeBody)
+                releaseNotesView.text = formatted
+                val bg = GradientDrawable().apply {
+                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                    cornerRadius = dpToPx(20f).toFloat()
+                }
+                releaseNotesView.background = bg
+                releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+                releaseNotesView.visibility = View.VISIBLE
+                val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
+                lp.topMargin = dpToPx(8f)
+                lp.bottomMargin = dpToPx(8f)
+                releaseNotesView.layoutParams = lp
+
+                updateActionView.text = "Download"
+                updateActionView.visibility = View.VISIBLE
+                updateActionView.isEnabled = true
+                val lpAct = updateActionView.layoutParams as LinearLayout.LayoutParams
+                lpAct.topMargin = dpToPx(8f)
+                updateActionView.layoutParams = lpAct
+
+                downloadedApkFile = null
+            }
+            return
+        }
+
+        // 正常检查更新（网络请求）
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
         releaseNotesView.visibility = View.GONE
@@ -927,7 +1015,7 @@ class DetailsActivity : Activity() {
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                            // 更新日志 – 使用 GradientDrawable 固定圆角 20dp（稳定且视觉清晰）
+                            // 更新日志 – 使用 GradientDrawable 固定圆角 20dp
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
