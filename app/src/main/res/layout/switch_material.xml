@@ -8,4 +8,5 @@
     android:textOff=""
     android:minWidth="56dp"
     android:padding="0dp"
-    app:thumbIcon="@drawable/mtrl_ic_checkbox_checked" />
+    app:thumbIcon="@drawable/check_24px"
+    app:thumbIconSize="20dp" />

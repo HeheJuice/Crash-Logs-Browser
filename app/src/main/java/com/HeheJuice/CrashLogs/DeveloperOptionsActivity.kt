@@ -31,7 +31,6 @@ class DeveloperOptionsActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // 加载 Google Sans Flex 字体（与 DetailsActivity 一致）
         googleSansFlexTypeface = try {
             Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
         } catch (_: Exception) { null }
@@ -80,7 +79,6 @@ class DeveloperOptionsActivity : Activity() {
             textSize = 20f
             setTextColor(primaryTextColor)
 
-            // 应用 Google Sans Flex Bold Round 字体（与主页横幅一致）
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 800, false)
                 fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
@@ -97,7 +95,6 @@ class DeveloperOptionsActivity : Activity() {
         }
         topBar.addView(titleText)
 
-        // 返回按钮（保持不变）
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
             background = GradientDrawable().apply {
@@ -162,7 +159,7 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
-        // ---- 设置轨道颜色 ----
+        // ---- 轨道颜色 ----
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -173,10 +170,10 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // ---- 设置拇指颜色（白色） ----
+        // ---- 拇指颜色（白色） ----
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // ---- 设置对勾图标颜色（开启时 = accentColor，关闭时透明） ----
+        // ---- 对勾图标颜色（开启时 = accentColor，关闭时透明） ----
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -195,9 +192,7 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
-            // 刷新轨道颜色（确保状态变化后正确显示）
             switch.trackTintList = ColorStateList(trackStates, trackColors)
-            // 重新应用对勾颜色（确保刷新）
             switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
 
@@ -231,7 +226,7 @@ class DeveloperOptionsActivity : Activity() {
         setContentView(rootFrame)
     }
 
-    // ========== 辅助方法（与 DetailsActivity 保持一致） ==========
+    // ========== 辅助方法 ==========
     private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
         return object : android.graphics.drawable.Drawable() {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
