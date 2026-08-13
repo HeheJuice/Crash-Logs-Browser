@@ -116,7 +116,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // ----- 卡片（平衡内边距） -----
+        // ----- 卡片（更紧凑的内边距） -----
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -124,8 +124,8 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // 上下内边距调整为 20dp，左右保持 20dp
-            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
+            // 上下内边距 16dp，左右 20dp
+            setPadding(dpToPx(20f), dpToPx(16f), dpToPx(20f), dpToPx(16f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -150,7 +150,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch (已设置 thumbIcon 选择器) =====
+        // ===== MaterialSwitch =====
         val themedContext = ContextThemeWrapper(
             this,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
@@ -194,7 +194,6 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
-            // 刷新颜色
             switch.trackTintList = ColorStateList(trackStates, trackColors)
             switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
@@ -206,12 +205,12 @@ class DeveloperOptionsActivity : Activity() {
 
         card.addView(row)
 
-        // ----- 描述文字（间距 8dp，更平衡） -----
+        // ----- 描述文字（间距 4dp，更紧凑） -----
         val desc = TextView(this).apply {
             text = "When enabled, the app will show version 9.9 with dummy release notes."
             textSize = 14f
             setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(8f), 0, 0)
+            setPadding(0, dpToPx(4f), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
