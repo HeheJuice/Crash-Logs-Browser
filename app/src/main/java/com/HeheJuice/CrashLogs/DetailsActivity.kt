@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
@@ -14,13 +15,17 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.StyleSpan
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.widget.*
+import androidx.core.content.FileProvider
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
@@ -29,8 +34,10 @@ class DetailsActivity : Activity() {
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
     private lateinit var releaseNotesView: TextView
+    private lateinit var downloadProgressText: TextView
     private var googleSansFlexTypeface: Typeface? = null
     private var isDark: Boolean = false
+    private var downloadTask: DownloadApkTask? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -122,8 +129,8 @@ class DetailsActivity : Activity() {
             setTextColor(Color.WHITE)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
-                typeface = Typeface.create(googleSansFlexTypeface, 700, false)
-                fontVariationSettings = "'wght' 700, 'ROND' 100, 'opsz' 14"
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
             } else {
                 typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
             }
@@ -181,24 +188,51 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(releaseNotesView)
 
-        updateActionView = TextView(this).apply {
-            text = ""
-            textSize = 15f
+        // Download progress text (percentage only)
+        downloadProgressText = TextView(this).apply {
+            text = "0%"
+            visibility = View.GONE
+            textSize = 14f
             setTextColor(accentColor)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(8f)
+                bottomMargin = dpToPx(8f)
+            }
+        }
+        updateCard.addView(downloadProgressText)
+
+        // Download button (pill)
+        updateActionView = TextView(this).apply {
+            text = "Download"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(accentColor)
+                cornerRadius = dpToPx(100f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
             isClickable = true
             isFocusable = true
             visibility = View.GONE
             setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser/releases")))
+                downloadApk()
             }
             setOnTouchListener(pressScaleTouchListener)
         }
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // ===== NEW INFO CARD: Source Code & License BUTTONS (vertical) =====
+        // ===== INFO CARD: Source Code & License BUTTONS (vertical) =====
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -269,7 +303,7 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ----- CREDITS CARD -----
+        // ----- ACKNOWLEDGMENTS CARD (was "Credits") -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -287,7 +321,7 @@ class DetailsActivity : Activity() {
         }
 
         val creditsTitle = TextView(this).apply {
-            text = getString(R.string.credits_title)
+            text = "Acknowledgments"
             textSize = 20f
             setTextColor(primaryTextColor)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
@@ -381,7 +415,93 @@ class DetailsActivity : Activity() {
         row1.addView(textContainer1)
         creditsCard.addView(row1)
 
-        // ----- CREDIT 2: Material Design -----
+        // ----- CREDIT 2: Mortis (using drawable/mortis) -----
+        val mortisName = "Mortis"
+        val mortisDesc = "Some Issues or Bug Fixes"
+
+        val rowMortis = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(12f)
+            }
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val mortisAvatar = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                marginEnd = dpToPx(16f)
+            }
+            val resId = resources.getIdentifier("mortis", "drawable", packageName)
+            if (resId != 0) {
+                setImageResource(resId)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.TRANSPARENT)
+                }
+                clipToOutline = true
+            } else {
+                // Fallback to initial "M" if drawable not found
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(accentColor)
+                }
+                setImageDrawable(null)
+            }
+        }
+        rowMortis.addView(mortisAvatar)
+
+        if (resources.getIdentifier("mortis", "drawable", packageName) == 0) {
+            val initialTv = TextView(this).apply {
+                text = "M"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
+            }
+            val avatarContainer = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    marginEnd = dpToPx(16f)
+                }
+                addView(mortisAvatar)
+                addView(initialTv)
+            }
+            rowMortis.removeView(mortisAvatar)
+            rowMortis.addView(avatarContainer, 0)
+        }
+
+        val textContainerMortis = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val nameViewMortis = TextView(this).apply {
+            text = mortisName
+            textSize = 17f
+            setTextColor(primaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openTelegram("error_5649") }
+            setOnTouchListener(pressScaleTouchListener)
+        }
+        textContainerMortis.addView(nameViewMortis)
+
+        val descViewMortis = TextView(this).apply {
+            text = mortisDesc
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+        }
+        textContainerMortis.addView(descViewMortis)
+        rowMortis.addView(textContainerMortis)
+        creditsCard.addView(rowMortis)
+
+        // ----- CREDIT 3: Material Design -----
         val materialName = "Material Design"
         val materialDesc = "XML Vector Android Icon"
 
@@ -469,7 +589,7 @@ class DetailsActivity : Activity() {
         row2.addView(textContainer2)
         creditsCard.addView(row2)
 
-        // ----- CREDIT 3: Google Sans Flex -----
+        // ----- CREDIT 4: Google Sans Flex -----
         val fontCreditName = "Google Sans Flex"
         val fontCreditDesc = "Fonts Used in Some UI"
 
@@ -629,9 +749,127 @@ class DetailsActivity : Activity() {
             updateStatusView.text = getString(R.string.update_disabled_debug)
             updateActionView.visibility = View.GONE
             releaseNotesView.visibility = View.GONE
+            downloadProgressText.visibility = View.GONE
         } else {
             checkForUpdates()
         }
+    }
+
+    // ========== DOWNLOAD APK ==========
+    private fun downloadApk() {
+        downloadTask?.cancel(true)
+        downloadTask = DownloadApkTask()
+        downloadTask?.execute()
+    }
+
+    inner class DownloadApkTask : AsyncTask<Void, Int, File?>() {
+        private var downloadUrl: String? = null
+
+        override fun onPreExecute() {
+            updateActionView.isEnabled = false
+            updateActionView.text = "Downloading..."
+            downloadProgressText.visibility = View.VISIBLE
+            downloadProgressText.text = "0%"
+        }
+
+        override fun doInBackground(vararg params: Void?): File? {
+            try {
+                val url = URL("https://api.github.com/repos/HeheJuice/Crash-Logs-Browser/releases/latest")
+                val connection = url.openConnection() as HttpsURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                if (connection.responseCode != HttpsURLConnection.HTTP_OK) {
+                    return null
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+                val assets = json.getJSONArray("assets")
+                var apkUrl: String? = null
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val name = asset.getString("name")
+                    if (name.endsWith(".apk")) {
+                        apkUrl = asset.getString("browser_download_url")
+                        break
+                    }
+                }
+                connection.disconnect()
+
+                if (apkUrl == null) return null
+
+                downloadUrl = apkUrl
+
+                val apkConnection = URL(apkUrl).openConnection() as HttpsURLConnection
+                apkConnection.connectTimeout = 10000
+                apkConnection.readTimeout = 10000
+                val contentLength = apkConnection.contentLength
+                val inputStream = apkConnection.inputStream
+
+                val cacheDir = cacheDir
+                val outputFile = File(cacheDir, "app-release.apk")
+                if (outputFile.exists()) outputFile.delete()
+
+                val outputStream = FileOutputStream(outputFile)
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalBytesRead = 0
+
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                    totalBytesRead += bytesRead
+                    if (contentLength > 0) {
+                        val progress = (totalBytesRead * 100 / contentLength)
+                        publishProgress(progress)
+                    }
+                }
+                outputStream.close()
+                inputStream.close()
+                apkConnection.disconnect()
+
+                return outputFile
+            } catch (e: Exception) {
+                Log.e("DetailsActivity", "Download failed", e)
+                return null
+            }
+        }
+
+        override fun onProgressUpdate(vararg values: Int?) {
+            val progress = values[0] ?: 0
+            downloadProgressText.text = "$progress%"
+        }
+
+        override fun onPostExecute(result: File?) {
+            updateActionView.isEnabled = true
+            if (result != null && result.exists()) {
+                updateActionView.text = "Installing..."
+                // Install the APK
+                installApk(result)
+            } else {
+                Toast.makeText(this@DetailsActivity, "Download failed", Toast.LENGTH_SHORT).show()
+                updateActionView.text = "Download"
+                downloadProgressText.visibility = View.GONE
+                downloadTask = null
+            }
+        }
+    }
+
+    private fun installApk(file: File) {
+        val intent = Intent(Intent.ACTION_VIEW)
+        val uri = FileProvider.getUriForFile(
+            this,
+            "${packageName}.fileprovider",
+            file
+        )
+        intent.setDataAndType(uri, "application/vnd.android.package-archive")
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(intent)
+        // After installation, reset UI (but user will leave app)
+        downloadProgressText.visibility = View.GONE
+        updateActionView.text = "Download"
+        downloadTask = null
     }
 
     // ========== STATUS BAR COLOR ==========
@@ -870,6 +1108,7 @@ class DetailsActivity : Activity() {
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
         releaseNotesView.visibility = View.GONE
+        downloadProgressText.visibility = View.GONE
 
         Thread {
             try {
@@ -893,19 +1132,21 @@ class DetailsActivity : Activity() {
                     runOnUiThread {
                         if (comparison > 0) {
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
-                            // Fetch release body and format it
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
                                 releaseNotesView.visibility = View.VISIBLE
                             }
-                            updateActionView.text = getString(R.string.update_download)
+                            // Show download button
+                            updateActionView.text = "Download"
                             updateActionView.visibility = View.VISIBLE
+                            updateActionView.isEnabled = true
                         } else {
                             updateStatusView.text = getString(R.string.update_latest, currentVer)
                             releaseNotesView.visibility = View.GONE
                             updateActionView.visibility = View.GONE
+                            downloadProgressText.visibility = View.GONE
                         }
                     }
                 } else {
@@ -913,6 +1154,7 @@ class DetailsActivity : Activity() {
                         updateStatusView.text = getString(R.string.update_server_error)
                         releaseNotesView.visibility = View.GONE
                         updateActionView.visibility = View.GONE
+                        downloadProgressText.visibility = View.GONE
                     }
                 }
                 connection.disconnect()
@@ -922,6 +1164,7 @@ class DetailsActivity : Activity() {
                     updateStatusView.text = getString(R.string.update_connection_error)
                     releaseNotesView.visibility = View.GONE
                     updateActionView.visibility = View.GONE
+                    downloadProgressText.visibility = View.GONE
                 }
             }
         }.start()
