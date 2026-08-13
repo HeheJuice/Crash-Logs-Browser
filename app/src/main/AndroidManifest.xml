@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.HeheJuice.CrashLogs">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_LOGS" />
     <uses-permission android:name="android.permission.READ_DROPBOX_DATA" />
@@ -39,6 +40,15 @@
     android:exported="false"
     android:theme="@android:style/Theme.DeviceDefault.DayNight"
     android:screenOrientation="portrait" />
+    <provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.fileprovider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+</provider>
     </application>
 
 </manifest>
