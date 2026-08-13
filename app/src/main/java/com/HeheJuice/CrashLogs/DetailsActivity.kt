@@ -13,6 +13,7 @@ import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import android.text.*
 import android.text.style.AbsoluteSizeSpan
+import android.text.TextPaint
 import android.text.style.CharacterStyle
 import android.text.style.StyleSpan
 import android.text.style.TextPaint
