@@ -2,7 +2,7 @@ name: Build Crash Logs Browser
 
 on:
   push:
-    branches: [ "OTA" ]
+    branches: [ "main" ]
     paths-ignore:
       - 'README.md'
       - '**.md'
@@ -54,7 +54,7 @@ jobs:
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add DEV-Only/Debug/App_Debug.apk
         git commit -m "Automated build: Update debug artifact [skip ci]" || echo "No changes to commit"
-        git push origin OTA --force 
+        git push origin main --force 
 
     - name: Upload Finished Artifact
       uses: actions/upload-artifact@v4
