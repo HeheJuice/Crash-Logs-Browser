@@ -6,12 +6,12 @@ import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.widget.*
@@ -22,11 +22,17 @@ class DeveloperOptionsActivity : Activity() {
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
     private var accentColor: Int = 0
+    private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
+
+        // 加载 Google Sans Flex 字体（与 DetailsActivity 一致）
+        googleSansFlexTypeface = try {
+            Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
+        } catch (_: Exception) { null }
 
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
@@ -71,7 +77,15 @@ class DeveloperOptionsActivity : Activity() {
             text = "Developer Options"
             textSize = 20f
             setTextColor(primaryTextColor)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            
+            // 应用 Google Sans Flex Bold Round 字体（与主页横幅一致）
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
+            
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -81,7 +95,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         topBar.addView(titleText)
 
-        // 返回按钮
+        // 返回按钮（保持不变）
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
             background = GradientDrawable().apply {
@@ -103,7 +117,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // 卡片
+        // 卡片（保持不变）
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -135,35 +149,39 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== 从 XML 加载 MaterialSwitch =====
-        val switch = LayoutInflater.from(this)
-            .inflate(R.layout.switch_material, null) as MaterialSwitch
-        switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
+        // ===== MaterialSwitch（已修复 textOn/textOff 问题） =====
+        // 方案：直接实例化，并设置空字符串给 textOn/textOff/text 以避免崩溃
+        val switch = MaterialSwitch(this).apply {
+            textOn = ""
+            textOff = ""
+            text = ""
+            isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
-        // 设置轨道颜色（开启时与下载按钮一致）
-        val trackStates = arrayOf(
-            intArrayOf(android.R.attr.state_checked),
-            intArrayOf()
-        )
-        val trackColors = intArrayOf(
-            accentColor,
-            if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
-        )
-        switch.trackTintList = ColorStateList(trackStates, trackColors)
+            // 设置轨道颜色
+            val trackStates = arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            )
+            val trackColors = intArrayOf(
+                accentColor,
+                if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
+            )
+            trackTintList = ColorStateList(trackStates, trackColors)
 
-        // 拇指颜色（白色）
-        switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+            // 拇指颜色（白色）
+            thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // 监听变化
-        switch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
-            Toast.makeText(
-                this@DeveloperOptionsActivity,
-                if (isChecked) "Fake update enabled" else "Fake update disabled",
-                Toast.LENGTH_SHORT
-            ).show()
-            // 刷新轨道颜色（确保状态变化后正确显示）
-            switch.trackTintList = ColorStateList(trackStates, trackColors)
+            // 监听变化
+            setOnCheckedChangeListener { _, isChecked ->
+                sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
+                Toast.makeText(
+                    this@DeveloperOptionsActivity,
+                    if (isChecked) "Fake update enabled" else "Fake update disabled",
+                    Toast.LENGTH_SHORT
+                ).show()
+                // 刷新轨道颜色
+                trackTintList = ColorStateList(trackStates, trackColors)
+            }
         }
 
         row.addView(switch, LinearLayout.LayoutParams(
@@ -196,7 +214,7 @@ class DeveloperOptionsActivity : Activity() {
         setContentView(rootFrame)
     }
 
-    // ========== 辅助方法 ==========
+    // ========== 辅助方法（与 DetailsActivity 保持一致） ==========
     private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
         return object : android.graphics.drawable.Drawable() {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
