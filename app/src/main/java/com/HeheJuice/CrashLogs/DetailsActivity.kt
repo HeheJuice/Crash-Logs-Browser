@@ -3,7 +3,6 @@ package com.HeheJuice.CrashLogs
 import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
-import android.text.style.MetricAffectingSpan
 import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
@@ -16,6 +15,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.*
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.MetricAffectingSpan
 import android.text.style.StyleSpan
 import android.util.Log
 import android.util.TypedValue
@@ -42,13 +42,15 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
-    // 自定义 TypefaceSpan，用于应用 Google Sans Flex
+    // ★ 修改：添加 isFakeBoldText = true 使文字加粗
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
             tp.typeface = typeface
+            tp.isFakeBoldText = true
         }
         override fun updateMeasureState(p: TextPaint) {
             p.typeface = typeface
+            p.isFakeBoldText = true
         }
     }
 
@@ -1107,7 +1109,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志（标题使用 Google Sans Flex Bold Round） ==========
+    // ========== 格式化发布日志（标题应用 Google Sans Flex + 粗体） ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
