@@ -4,12 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.*
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
-import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import android.text.*
 import android.text.style.AbsoluteSizeSpan
@@ -38,6 +39,38 @@ class DetailsActivity : Activity() {
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
+
+    // 自定义 Drawable – 顶部和底部为半圆，中间矩形
+    private class CapsuleDrawable(private val cornerRadius: Float) : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var path = Path()
+
+        override fun draw(canvas: Canvas) {
+            val bounds = bounds
+            val width = bounds.width().toFloat()
+            val height = bounds.height().toFloat()
+            val radius = cornerRadius.coerceAtMost(height / 2f)
+
+            path.reset()
+            path.moveTo(0f, radius)
+            path.arcTo(0f, 0f, radius * 2, radius * 2, -180f, -180f, false)
+            path.lineTo(width - radius, 0f)
+            path.arcTo(width - radius * 2, 0f, width, radius * 2, 0f, 180f, false)
+            path.lineTo(width, height - radius)
+            path.arcTo(width - radius * 2, height - radius * 2, width, height, 0f, 180f, false)
+            path.lineTo(radius, height)
+            path.arcTo(0f, height - radius * 2, radius * 2, height, 180f, 180f, false)
+            path.close()
+
+            canvas.drawPath(path, paint)
+        }
+
+        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+        override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+        @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+
+        fun setColor(color: Int) { paint.color = color }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -283,7 +316,7 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ----- ACKNOWLEDGMENTS CARD (Full Credits) -----
+        // ----- ACKNOWLEDGMENTS CARD (完整 Credits) -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -877,7 +910,7 @@ class DetailsActivity : Activity() {
         } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（含动态胶囊背景） ==========
+    // ========== 检查更新（使用 CapsuleDrawable） ==========
     private fun checkForUpdates() {
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
@@ -887,6 +920,16 @@ class DetailsActivity : Activity() {
         updateStatusView.setPadding(0, 0, 0, 0)
         releaseNotesView.background = null
         releaseNotesView.setPadding(0, 0, 0, 0)
+
+        // 重置间距
+        val lpRelease = releaseNotesView.layoutParams as LinearLayout.LayoutParams
+        lpRelease.topMargin = 0
+        lpRelease.bottomMargin = 0
+        releaseNotesView.layoutParams = lpRelease
+
+        val lpAction = updateActionView.layoutParams as LinearLayout.LayoutParams
+        lpAction.topMargin = 0
+        updateActionView.layoutParams = lpAction
 
         Thread {
             try {
@@ -908,7 +951,7 @@ class DetailsActivity : Activity() {
 
                     runOnUiThread {
                         if (comparison > 0) {
-                            // 新版本 – 状态胶囊（固定圆角100dp，因为高度小）
+                            // 新版本 – 状态胶囊（固定圆角100dp）
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
                             updateStatusView.background = GradientDrawable().apply {
                                 setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
@@ -916,34 +959,34 @@ class DetailsActivity : Activity() {
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                            // 更新日志 – 动态圆角
+                            // 更新日志 – 使用自定义 CapsuleDrawable (圆角16dp)
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
-                                // 先设置背景（临时圆角，稍后动态调整）
-                                val drawable = GradientDrawable().apply {
-                                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
-                                    cornerRadius = dpToPx(100f).toFloat() // 临时值
-                                }
-                                releaseNotesView.background = drawable
+                                val capsule = CapsuleDrawable(dpToPx(16f).toFloat())
+                                capsule.setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                releaseNotesView.background = capsule
                                 releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                                 releaseNotesView.visibility = View.VISIBLE
 
-                                // 布局完成后动态调整圆角为高度的一半
-                                releaseNotesView.post {
-                                    val height = releaseNotesView.height
-                                    if (height > 0) {
-                                        (releaseNotesView.background as? GradientDrawable)?.cornerRadius = height / 2f
-                                    }
-                                }
+                                // 设置上下间距 8dp
+                                val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
+                                lp.topMargin = dpToPx(8f)
+                                lp.bottomMargin = dpToPx(8f)
+                                releaseNotesView.layoutParams = lp
                             } else {
                                 releaseNotesView.visibility = View.GONE
                             }
 
+                            // 下载按钮 – 间距 8dp
                             updateActionView.text = "Download"
                             updateActionView.visibility = View.VISIBLE
                             updateActionView.isEnabled = true
+                            val lpAct = updateActionView.layoutParams as LinearLayout.LayoutParams
+                            lpAct.topMargin = dpToPx(8f)
+                            updateActionView.layoutParams = lpAct
+
                             downloadedApkFile = null
                         } else {
                             // 最新版本 – 无背景
@@ -1070,8 +1113,8 @@ class DetailsActivity : Activity() {
         return 0
     }
 
-    private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
-        return object : android.graphics.drawable.Drawable() {
+    private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): Drawable {
+        return object : Drawable() {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 this.color = color
                 style = Paint.Style.STROKE
