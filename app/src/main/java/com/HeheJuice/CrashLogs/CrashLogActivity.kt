@@ -2301,15 +2301,6 @@ class LogAdapter(
         init {
             itemView.isClickable = true
             itemView.isFocusable = true
-            val outValue = android.util.TypedValue()
-            itemView.context.theme.resolveAttribute(
-                android.R.attr.selectableItemBackground,
-                outValue,
-                true
-            )
-            if (outValue.resourceId != 0) {
-                itemView.foreground = ContextCompat.getDrawable(itemView.context, outValue.resourceId)
-            }
 
             appIcon.scaleType = ImageView.ScaleType.CENTER_CROP
             appIcon.clipToOutline = true
