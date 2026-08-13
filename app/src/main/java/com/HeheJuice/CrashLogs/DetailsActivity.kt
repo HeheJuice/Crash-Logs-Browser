@@ -394,7 +394,7 @@ class DetailsActivity : Activity() {
 
         // Credit 2: Mortis
         val mortisName = "Mortis"
-        val mortisDesc = "Some Issues or Bug Fixes"
+        val mortisDesc = "Upstream Contributor"
 
         val rowMortis = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
