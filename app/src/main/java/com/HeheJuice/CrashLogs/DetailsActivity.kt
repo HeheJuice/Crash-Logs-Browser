@@ -3,6 +3,7 @@ package com.HeheJuice.CrashLogs
 import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
+import android.text.style.MetricAffectingSpan
 import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
