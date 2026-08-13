@@ -35,22 +35,34 @@ class DetailsActivity : Activity() {
 
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
-    private lateinit var releaseNotesView: TextView
+   private lateinit var releaseNotesView: TextView
     private lateinit var downloadProgressText: TextView
     private var googleSansFlexTypeface: Typeface? = null
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
-    // ★ 修改：添加 isFakeBoldText = true 使文字加粗
+    // ★ 优化：通过 fontVariationSettings 传递字重和圆角参数
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
-            tp.typeface = typeface
-            tp.isFakeBoldText = true
+            applyCustomTypeface(tp)
         }
+
         override fun updateMeasureState(p: TextPaint) {
-            p.typeface = typeface
-            p.isFakeBoldText = true
+            applyCustomTypeface(p)
+        }
+
+        private fun applyCustomTypeface(paint: TextPaint) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                paint.typeface = Typeface.create(typeface, 800, false)
+                paint.fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                paint.typeface = typeface
+                paint.fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                paint.typeface = typeface
+                paint.isFakeBoldText = true
+            }
         }
     }
 
@@ -1109,7 +1121,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志（标题应用 Google Sans Flex + 粗体） ==========
+    // ========== 格式化发布日志（标题使用 Google Sans Flex + fontVariationSettings） ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
