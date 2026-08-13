@@ -13,10 +13,7 @@ import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import android.text.*
 import android.text.style.AbsoluteSizeSpan
-import android.text.TextPaint
-import android.text.style.CharacterStyle
 import android.text.style.StyleSpan
-import android.text.style.TextPaint
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -41,13 +38,6 @@ class DetailsActivity : Activity() {
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
-
-    // 自定义更粗的字体效果
-    private class FakeBoldSpan : CharacterStyle() {
-        override fun updateDrawState(tp: TextPaint) {
-            tp.isFakeBoldText = true
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -984,7 +974,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志（标题更粗） ==========
+    // ========== 格式化发布日志（使用普通粗体） ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
@@ -996,7 +986,6 @@ class DetailsActivity : Activity() {
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannable.append(span)
                 }
                 trimmed.startsWith("### ") -> {
@@ -1004,7 +993,6 @@ class DetailsActivity : Activity() {
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannable.append(span)
                 }
                 trimmed.startsWith("## ") -> {
@@ -1012,7 +1000,6 @@ class DetailsActivity : Activity() {
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannable.append(span)
                 }
                 trimmed.startsWith("# ") -> {
@@ -1020,7 +1007,6 @@ class DetailsActivity : Activity() {
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannable.append(span)
                 }
                 trimmed.startsWith("- ") -> {
