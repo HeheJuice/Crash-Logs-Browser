@@ -10,6 +10,7 @@ import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
+import android.provider.Settings
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
@@ -34,10 +35,11 @@ class DetailsActivity : Activity() {
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
     private lateinit var releaseNotesView: TextView
-    private lateinit var downloadProgressText: TextView
+    private lateinit var downloadProgressText: TextView  // 仍保留但会隐藏，不再使用
     private var googleSansFlexTypeface: Typeface? = null
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
+    private var downloadedApkFile: File? = null          // 保存已下载的APK文件
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -188,7 +190,7 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(releaseNotesView)
 
-        // Download progress text (percentage only)
+        // Download progress text (percentage only) – 现在我们将隐藏它，使用按钮本身显示进度
         downloadProgressText = TextView(this).apply {
             text = "0%"
             visibility = View.GONE
@@ -224,9 +226,7 @@ class DetailsActivity : Activity() {
             isClickable = true
             isFocusable = true
             visibility = View.GONE
-            setOnClickListener {
-                downloadApk()
-            }
+            // 点击事件将在后面动态绑定
             setOnTouchListener(pressScaleTouchListener)
         }
         updateCard.addView(updateActionView)
@@ -444,7 +444,6 @@ class DetailsActivity : Activity() {
                 }
                 clipToOutline = true
             } else {
-                // Fallback to initial "M" if drawable not found
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(accentColor)
@@ -744,18 +743,40 @@ class DetailsActivity : Activity() {
 
         setContentView(rootFrameLayout)
 
+        // ----- 恢复已下载的APK状态 -----
+        val cachedFile = File(cacheDir, "app-release.apk")
+        if (cachedFile.exists()) {
+            downloadedApkFile = cachedFile
+            updateActionView.text = "Install"
+            updateActionView.isEnabled = true
+            updateActionView.visibility = View.VISIBLE
+            downloadProgressText.visibility = View.GONE
+        }
+
+        // ----- 绑定更新按钮的点击事件（根据状态决定下载或安装） -----
+        updateActionView.setOnClickListener {
+            if (updateActionView.text == "Install" && downloadedApkFile?.exists() == true) {
+                installApk(downloadedApkFile!!)
+            } else {
+                downloadApk()
+            }
+        }
+
+        // 开始检查更新
         val versionName = getVersionName()
         if (versionName.contains("Debug", ignoreCase = true)) {
             updateStatusView.text = getString(R.string.update_disabled_debug)
             updateActionView.visibility = View.GONE
             releaseNotesView.visibility = View.GONE
             downloadProgressText.visibility = View.GONE
+            // 删除缓存的APK（调试版不需要）
+            deleteCachedApk()
         } else {
             checkForUpdates()
         }
     }
 
-    // ========== DOWNLOAD APK ==========
+    // ========== 下载任务 ==========
     private fun downloadApk() {
         downloadTask?.cancel(true)
         downloadTask = DownloadApkTask()
@@ -763,13 +784,12 @@ class DetailsActivity : Activity() {
     }
 
     inner class DownloadApkTask : AsyncTask<Void, Int, File?>() {
-        private var downloadUrl: String? = null
-
         override fun onPreExecute() {
+            // 按钮显示0%，禁用点击
+            updateActionView.text = "0%"
             updateActionView.isEnabled = false
-            updateActionView.text = "Downloading..."
-            downloadProgressText.visibility = View.VISIBLE
-            downloadProgressText.text = "0%"
+            updateActionView.visibility = View.VISIBLE
+            downloadProgressText.visibility = View.GONE  // 隐藏独立的进度文本
         }
 
         override fun doInBackground(vararg params: Void?): File? {
@@ -799,8 +819,6 @@ class DetailsActivity : Activity() {
                 connection.disconnect()
 
                 if (apkUrl == null) return null
-
-                downloadUrl = apkUrl
 
                 val apkConnection = URL(apkUrl).openConnection() as HttpsURLConnection
                 apkConnection.connectTimeout = 10000
@@ -838,58 +856,284 @@ class DetailsActivity : Activity() {
 
         override fun onProgressUpdate(vararg values: Int?) {
             val progress = values[0] ?: 0
-            downloadProgressText.text = "$progress%"
+            // 更新按钮文字为百分比
+            updateActionView.text = "$progress%"
         }
 
         override fun onPostExecute(result: File?) {
-            updateActionView.isEnabled = true
             if (result != null && result.exists()) {
-                updateActionView.text = "Installing..."
-                // Install the APK
-                installApk(result)
+                downloadedApkFile = result
+                updateActionView.text = "Install"
+                updateActionView.isEnabled = true
+                // 点击事件会触发安装
             } else {
                 Toast.makeText(this@DetailsActivity, "Download failed", Toast.LENGTH_SHORT).show()
                 updateActionView.text = "Download"
-                downloadProgressText.visibility = View.GONE
-                downloadTask = null
+                updateActionView.isEnabled = true
+                downloadedApkFile = null
+            }
+            downloadTask = null
+            downloadProgressText.visibility = View.GONE
+        }
+    }
+
+    // ========== 安装APK（修复） ==========
+    private fun installApk(file: File) {
+        // Android 8.0+ 检查是否允许安装未知来源
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!packageManager.canRequestPackageInstalls()) {
+                Toast.makeText(this, "Please allow installation from unknown sources", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                startActivity(intent)
+                return
+            }
+        }
+
+        try {
+            val uri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)   // 关键修复
+            }
+            // 检查是否有应用能处理
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "No app found to install APK", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e("DetailsActivity", "Install failed", e)
+            Toast.makeText(this, "Install error: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // ========== 删除缓存的APK ==========
+    private fun deleteCachedApk() {
+        try {
+            val file = File(cacheDir, "app-release.apk")
+            if (file.exists()) {
+                file.delete()
+                Log.d("DetailsActivity", "Deleted cached APK")
+                if (downloadedApkFile == file) downloadedApkFile = null
+                // 如果按钮显示"Install"，重置为"Download"
+                if (updateActionView.text == "Install") {
+                    updateActionView.text = "Download"
+                    updateActionView.isEnabled = true
+                }
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
+    // ========== 检查更新（添加删除APK逻辑） ==========
+    private fun checkForUpdates() {
+        updateStatusView.text = getString(R.string.update_checking)
+        updateActionView.visibility = View.GONE
+        releaseNotesView.visibility = View.GONE
+        downloadProgressText.visibility = View.GONE
+
+        Thread {
+            try {
+                val url = URL("https://api.github.com/repos/HeheJuice/Crash-Logs-Browser/releases/latest")
+                val connection = url.openConnection() as HttpsURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpsURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(response)
+                    val latestTag = json.getString("tag_name")
+                    val currentVersion = getVersionName()
+
+                    val latestVersion = latestTag.replace(Regex("^[^0-9]*"), "")
+                    val currentVer = currentVersion.replace(Regex("^[^0-9]*"), "")
+
+                    val comparison = compareVersions(latestVersion, currentVer)
+                    runOnUiThread {
+                        if (comparison > 0) {
+                            updateStatusView.text = getString(R.string.update_new_version, latestVersion)
+                            val releaseBody = json.optString("body", "")
+                            if (releaseBody.isNotEmpty()) {
+                                val formatted = formatReleaseNotes(releaseBody)
+                                releaseNotesView.text = formatted
+                                releaseNotesView.visibility = View.VISIBLE
+                            }
+                            // 显示下载按钮，并确保点击事件触发下载
+                            updateActionView.text = "Download"
+                            updateActionView.visibility = View.VISIBLE
+                            updateActionView.isEnabled = true
+                            // 清除可能残留的安装状态
+                            downloadedApkFile = null
+                            // 点击事件已在外部绑定，无需重复设置
+                        } else {
+                            updateStatusView.text = getString(R.string.update_latest, currentVer)
+                            releaseNotesView.visibility = View.GONE
+                            updateActionView.visibility = View.GONE
+                            // ★ 已是最新版本，删除缓存的APK
+                            deleteCachedApk()
+                        }
+                    }
+                } else {
+                    runOnUiThread {
+                        updateStatusView.text = getString(R.string.update_server_error)
+                        releaseNotesView.visibility = View.GONE
+                        updateActionView.visibility = View.GONE
+                    }
+                }
+                connection.disconnect()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread {
+                    updateStatusView.text = getString(R.string.update_connection_error)
+                    releaseNotesView.visibility = View.GONE
+                    updateActionView.visibility = View.GONE
+                }
+            }
+        }.start()
+    }
+
+    // ========== 其他已有方法（保持不变） ==========
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
+    }
+
+    private fun dpToPx(dp: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
+
+    private fun openTelegram(username: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=$username"))
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/$username"))
+                startActivity(intent)
+            } catch (e2: Exception) {
+                // ignore
             }
         }
     }
 
-    private fun installApk(file: File) {
-        val intent = Intent(Intent.ACTION_VIEW)
-        val uri = FileProvider.getUriForFile(
-            this,
-            "${packageName}.fileprovider",
-            file
-        )
-        intent.setDataAndType(uri, "application/vnd.android.package-archive")
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        startActivity(intent)
-        // After installation, reset UI (but user will leave app)
-        downloadProgressText.visibility = View.GONE
-        updateActionView.text = "Download"
-        downloadTask = null
+    private fun getVersionName(): String {
+        return try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
+        } catch (e: Exception) {
+            "1.0.0"
+        }
     }
 
-    // ========== STATUS BAR COLOR ==========
-    private fun setStatusBarColors() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-            window.statusBarColor = statusColor
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val flags = window.decorView.systemUiVisibility
-                if (!isDark) {
-                    window.decorView.systemUiVisibility = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                } else {
-                    window.decorView.systemUiVisibility = flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+    private fun compareVersions(v1: String, v2: String): Int {
+        val clean1 = v1.replace(Regex("[^0-9.]"), "")
+        val clean2 = v2.replace(Regex("[^0-9.]"), "")
+        val parts1 = clean1.split(".").map { it.toIntOrNull() ?: 0 }
+        val parts2 = clean2.split(".").map { it.toIntOrNull() ?: 0 }
+        val maxLen = maxOf(parts1.size, parts2.size)
+        for (i in 0 until maxLen) {
+            val p1 = if (i < parts1.size) parts1[i] else 0
+            val p2 = if (i < parts2.size) parts2[i] else 0
+            if (p1 != p2) return p1 - p2
+        }
+        return 0
+    }
+
+    private fun formatReleaseNotes(body: String): SpannableStringBuilder {
+        val lines = body.split("\n")
+        val spannable = SpannableStringBuilder()
+        for (line in lines) {
+            val trimmed = line.trim()
+            when {
+                trimmed.startsWith("#### ") -> {
+                    val text = trimmed.substring(5)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("### ") -> {
+                    val text = trimmed.substring(4)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("## ") -> {
+                    val text = trimmed.substring(3)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("# ") -> {
+                    val text = trimmed.substring(2)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("- ") -> {
+                    val text = "• " + trimmed.substring(2)
+                    spannable.append(text + "\n")
+                }
+                else -> {
+                    if (trimmed.isNotEmpty()) {
+                        spannable.append(trimmed + "\n")
+                    } else {
+                        spannable.append("\n")
+                    }
                 }
             }
         }
+        return spannable
     }
 
-    // ========== CONFIGURATION CHANGE ==========
+    private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
+        return object : android.graphics.drawable.Drawable() {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.STROKE
+                strokeWidth = dpToPx(2.5f).toFloat()
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+            override fun draw(canvas: Canvas) {
+                val cx = bounds.exactCenterX()
+                val cy = bounds.exactCenterY()
+                val size = dpToPx(6.5f)
+                val path = Path().apply {
+                    moveTo(cx + size * 0.4f, cy - size)
+                    lineTo(cx - size * 0.5f, cy)
+                    lineTo(cx + size * 0.4f, cy + size)
+                }
+                canvas.drawPath(path, paint)
+            }
+            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
+            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
+        }
+    }
+
+    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                v.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(350).start()
+            }
+        }
+        false
+    }
+
+    // ========== 主题切换对话框（保持不变） ==========
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -1008,203 +1252,19 @@ class DetailsActivity : Activity() {
         dialog.show()
     }
 
-    // ========== RELEASE NOTES FORMATTING ==========
-    private fun formatReleaseNotes(body: String): SpannableStringBuilder {
-        val lines = body.split("\n")
-        val spannable = SpannableStringBuilder()
-        for (line in lines) {
-            val trimmed = line.trim()
-            when {
-                trimmed.startsWith("#### ") -> {
-                    val text = trimmed.substring(5)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("### ") -> {
-                    val text = trimmed.substring(4)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("## ") -> {
-                    val text = trimmed.substring(3)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("# ") -> {
-                    val text = trimmed.substring(2)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("- ") -> {
-                    val text = "• " + trimmed.substring(2)
-                    spannable.append(text + "\n")
-                }
-                else -> {
-                    if (trimmed.isNotEmpty()) {
-                        spannable.append(trimmed + "\n")
-                    } else {
-                        spannable.append("\n")
-                    }
-                }
-            }
-        }
-        return spannable
-    }
-
-    // ========== EXISTING METHODS ==========
-    private fun getStatusBarHeight(): Int {
-        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
-        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
-    }
-
-    private fun dpToPx(dp: Float): Int =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
-
-    private fun openTelegram(username: String) {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=$username"))
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/$username"))
-                startActivity(intent)
-            } catch (e2: Exception) {
-                // ignore
-            }
-        }
-    }
-
-    private fun getVersionName(): String {
-        return try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
-        } catch (e: Exception) {
-            "1.0.0"
-        }
-    }
-
-    private fun compareVersions(v1: String, v2: String): Int {
-        val clean1 = v1.replace(Regex("[^0-9.]"), "")
-        val clean2 = v2.replace(Regex("[^0-9.]"), "")
-        val parts1 = clean1.split(".").map { it.toIntOrNull() ?: 0 }
-        val parts2 = clean2.split(".").map { it.toIntOrNull() ?: 0 }
-        val maxLen = maxOf(parts1.size, parts2.size)
-        for (i in 0 until maxLen) {
-            val p1 = if (i < parts1.size) parts1[i] else 0
-            val p2 = if (i < parts2.size) parts2[i] else 0
-            if (p1 != p2) return p1 - p2
-        }
-        return 0
-    }
-
-    private fun checkForUpdates() {
-        updateStatusView.text = getString(R.string.update_checking)
-        updateActionView.visibility = View.GONE
-        releaseNotesView.visibility = View.GONE
-        downloadProgressText.visibility = View.GONE
-
-        Thread {
-            try {
-                val url = URL("https://api.github.com/repos/HeheJuice/Crash-Logs-Browser/releases/latest")
-                val connection = url.openConnection() as HttpsURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-
-                val responseCode = connection.responseCode
-                if (responseCode == HttpsURLConnection.HTTP_OK) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
-                    val latestTag = json.getString("tag_name")
-                    val currentVersion = getVersionName()
-
-                    val latestVersion = latestTag.replace(Regex("^[^0-9]*"), "")
-                    val currentVer = currentVersion.replace(Regex("^[^0-9]*"), "")
-
-                    val comparison = compareVersions(latestVersion, currentVer)
-                    runOnUiThread {
-                        if (comparison > 0) {
-                            updateStatusView.text = getString(R.string.update_new_version, latestVersion)
-                            val releaseBody = json.optString("body", "")
-                            if (releaseBody.isNotEmpty()) {
-                                val formatted = formatReleaseNotes(releaseBody)
-                                releaseNotesView.text = formatted
-                                releaseNotesView.visibility = View.VISIBLE
-                            }
-                            // Show download button
-                            updateActionView.text = "Download"
-                            updateActionView.visibility = View.VISIBLE
-                            updateActionView.isEnabled = true
-                        } else {
-                            updateStatusView.text = getString(R.string.update_latest, currentVer)
-                            releaseNotesView.visibility = View.GONE
-                            updateActionView.visibility = View.GONE
-                            downloadProgressText.visibility = View.GONE
-                        }
-                    }
+    private fun setStatusBarColors() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            window.statusBarColor = statusColor
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val flags = window.decorView.systemUiVisibility
+                if (!isDark) {
+                    window.decorView.systemUiVisibility = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
                 } else {
-                    runOnUiThread {
-                        updateStatusView.text = getString(R.string.update_server_error)
-                        releaseNotesView.visibility = View.GONE
-                        updateActionView.visibility = View.GONE
-                        downloadProgressText.visibility = View.GONE
-                    }
+                    window.decorView.systemUiVisibility = flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
                 }
-                connection.disconnect()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                runOnUiThread {
-                    updateStatusView.text = getString(R.string.update_connection_error)
-                    releaseNotesView.visibility = View.GONE
-                    updateActionView.visibility = View.GONE
-                    downloadProgressText.visibility = View.GONE
-                }
-            }
-        }.start()
-    }
-
-    private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
-        return object : android.graphics.drawable.Drawable() {
-            private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = color
-                style = Paint.Style.STROKE
-                strokeWidth = dpToPx(2.5f).toFloat()
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            override fun draw(canvas: Canvas) {
-                val cx = bounds.exactCenterX()
-                val cy = bounds.exactCenterY()
-                val size = dpToPx(6.5f)
-                val path = Path().apply {
-                    moveTo(cx + size * 0.4f, cy - size)
-                    lineTo(cx - size * 0.5f, cy)
-                    lineTo(cx + size * 0.4f, cy + size)
-                }
-                canvas.drawPath(path, paint)
-            }
-            override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-            override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-            @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-        }
-    }
-
-    private val pressScaleTouchListener = View.OnTouchListener { v, event ->
-        when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                v.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.85f).setDuration(120).start()
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(350).start()
             }
         }
-        false
     }
 }
