@@ -908,25 +908,35 @@ class DetailsActivity : Activity() {
 
                     runOnUiThread {
                         if (comparison > 0) {
-                            // 新版本 – 状态胶囊
+                            // 新版本 – 状态胶囊（固定圆角100dp，因为高度小）
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
                             updateStatusView.background = GradientDrawable().apply {
                                 setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
                                 cornerRadius = dpToPx(100f).toFloat()
                             }
-                            updateStatusView.setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
+                            updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                            // 更新日志 – 同样胶囊
+                            // 更新日志 – 动态圆角
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
-                                releaseNotesView.background = GradientDrawable().apply {
+                                // 先设置背景（临时圆角，稍后动态调整）
+                                val drawable = GradientDrawable().apply {
                                     setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
-                                    cornerRadius = dpToPx(100f).toFloat()
+                                    cornerRadius = dpToPx(100f).toFloat() // 临时值
                                 }
-                                releaseNotesView.setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
+                                releaseNotesView.background = drawable
+                                releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                                 releaseNotesView.visibility = View.VISIBLE
+
+                                // 布局完成后动态调整圆角为高度的一半
+                                releaseNotesView.post {
+                                    val height = releaseNotesView.height
+                                    if (height > 0) {
+                                        (releaseNotesView.background as? GradientDrawable)?.cornerRadius = height / 2f
+                                    }
+                                }
                             } else {
                                 releaseNotesView.visibility = View.GONE
                             }
@@ -974,7 +984,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志（使用普通粗体） ==========
+    // ========== 格式化发布日志（普通粗体） ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
