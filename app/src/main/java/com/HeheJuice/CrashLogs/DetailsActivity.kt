@@ -11,11 +11,11 @@ import android.os.Build
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.SpannableStringBuilder
+import android.text.*
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.CharacterStyle
 import android.text.style.StyleSpan
+import android.text.style.TextPaint
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -35,28 +35,31 @@ class DetailsActivity : Activity() {
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
     private lateinit var releaseNotesView: TextView
-    private lateinit var downloadProgressText: TextView  // 仍保留但会隐藏，不再使用
+    private lateinit var downloadProgressText: TextView
     private var googleSansFlexTypeface: Typeface? = null
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
-    private var downloadedApkFile: File? = null          // 保存已下载的APK文件
+    private var downloadedApkFile: File? = null
+
+    // 自定义更粗的字体效果
+    private class FakeBoldSpan : CharacterStyle() {
+        override fun updateDrawState(tp: TextPaint) {
+            tp.isFakeBoldText = true
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // Load Google Sans Flex from assets folder
         googleSansFlexTypeface = try {
             Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
-        } catch (e: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
 
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // Set status bar colors
         setStatusBarColors()
 
         val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
@@ -68,7 +71,9 @@ class DetailsActivity : Activity() {
         val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
 
         val statusBarHeight = getStatusBarHeight()
-        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+        val dpToPx = { dp: Float ->
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
+        }
 
         val rootFrameLayout = FrameLayout(this).apply { setBackgroundColor(bgColor) }
 
@@ -103,11 +108,8 @@ class DetailsActivity : Activity() {
 
         val backgroundImage = ImageView(this).apply {
             val imageResId = resources.getIdentifier("hehejuicebanner", "drawable", packageName)
-            if (imageResId != 0) {
-                setImageResource(imageResId)
-            } else {
-                setBackgroundColor(accentColor)
-            }
+            if (imageResId != 0) setImageResource(imageResId)
+            else setBackgroundColor(accentColor)
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -126,17 +128,15 @@ class DetailsActivity : Activity() {
         bannerCard.addView(dimOverlay)
 
         val titleText = TextView(this).apply {
-            text = getString(R.string.details_title) // "Crash Logs Browser"
+            text = getString(R.string.details_title)
             textSize = 32f
             setTextColor(Color.WHITE)
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
                 typeface = Typeface.create(googleSansFlexTypeface, 800, false)
                 fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
             } else {
                 typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
             }
-
             gravity = Gravity.CENTER
             translationY = -dpToPx(3f).toFloat()
             layoutParams = FrameLayout.LayoutParams(
@@ -147,7 +147,7 @@ class DetailsActivity : Activity() {
         bannerCard.addView(titleText)
         scrollContent.addView(bannerCard)
 
-        // ----- UPDATE CHECKER CARD -----
+        // ----- Update Checker Card -----
         val updateCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -159,11 +159,10 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(16f)
-            }
+            ).apply { topMargin = dpToPx(16f) }
         }
 
+        // 状态文字 (初始无背景)
         updateStatusView = TextView(this).apply {
             text = getString(R.string.update_checking)
             textSize = 15f
@@ -173,7 +172,7 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(updateStatusView)
 
-        // Release notes TextView – uses Google Sans Flex with rounded style
+        // 更新日志 (初始无背景)
         releaseNotesView = TextView(this).apply {
             visibility = View.GONE
             textSize = 14f
@@ -186,11 +185,9 @@ class DetailsActivity : Activity() {
                     typeface = googleSansFlexTypeface
                 }
             }
-            setPadding(0, dpToPx(8f), 0, dpToPx(8f))
         }
         updateCard.addView(releaseNotesView)
 
-        // Download progress text (percentage only) – 现在我们将隐藏它，使用按钮本身显示进度
         downloadProgressText = TextView(this).apply {
             text = "0%"
             visibility = View.GONE
@@ -208,7 +205,7 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(downloadProgressText)
 
-        // Download button (pill)
+        // 下载按钮
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
@@ -226,13 +223,12 @@ class DetailsActivity : Activity() {
             isClickable = true
             isFocusable = true
             visibility = View.GONE
-            // 点击事件将在后面动态绑定
             setOnTouchListener(pressScaleTouchListener)
         }
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // ===== INFO CARD: Source Code & License BUTTONS (vertical) =====
+        // ----- Info Card (Source & License) -----
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -244,12 +240,9 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(16f)
-            }
+            ).apply { topMargin = dpToPx(16f) }
         }
 
-        // Button: View Source Code
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
@@ -263,18 +256,16 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dpToPx(8f)
-            }
+            ).apply { bottomMargin = dpToPx(8f) }
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser")))
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser")))
             }
             setOnTouchListener(pressScaleTouchListener)
         }
 
-        // Button: View License
         val licenseBtn = TextView(this).apply {
             text = "View License"
             textSize = 15f
@@ -288,22 +279,20 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(8f)
-            }
+            ).apply { topMargin = dpToPx(8f) }
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE")))
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/HeheJuice/Crash-Logs-Browser/blob/main/LICENSE")))
             }
             setOnTouchListener(pressScaleTouchListener)
         }
-
         infoCard.addView(sourceBtn)
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ----- ACKNOWLEDGMENTS CARD (was "Credits") -----
+        // ----- ACKNOWLEDGMENTS CARD (Full Credits) -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -315,9 +304,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(16f)
-            }
+            ).apply { topMargin = dpToPx(16f) }
         }
 
         val creditsTitle = TextView(this).apply {
@@ -329,7 +316,7 @@ class DetailsActivity : Activity() {
         }
         creditsCard.addView(creditsTitle)
 
-        // ----- CREDIT 1: HeheJuice -----
+        // Credit 1: HeheJuice
         val hehejuiceName = "HeheJuice"
         val hehejuiceDesc = getString(R.string.credit_hehejuice_desc)
 
@@ -338,9 +325,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
+            ).apply { topMargin = dpToPx(12f) }
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -415,7 +400,7 @@ class DetailsActivity : Activity() {
         row1.addView(textContainer1)
         creditsCard.addView(row1)
 
-        // ----- CREDIT 2: Mortis (using drawable/mortis) -----
+        // Credit 2: Mortis
         val mortisName = "Mortis"
         val mortisDesc = "Some Issues or Bug Fixes"
 
@@ -424,9 +409,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
+            ).apply { topMargin = dpToPx(12f) }
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -500,7 +483,7 @@ class DetailsActivity : Activity() {
         rowMortis.addView(textContainerMortis)
         creditsCard.addView(rowMortis)
 
-        // ----- CREDIT 3: Material Design -----
+        // Credit 3: Material Design
         val materialName = "Material Design"
         val materialDesc = "XML Vector Android Icon"
 
@@ -509,9 +492,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
+            ).apply { topMargin = dpToPx(12f) }
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -588,7 +569,7 @@ class DetailsActivity : Activity() {
         row2.addView(textContainer2)
         creditsCard.addView(row2)
 
-        // ----- CREDIT 4: Google Sans Flex -----
+        // Credit 4: Google Sans Flex
         val fontCreditName = "Google Sans Flex"
         val fontCreditDesc = "Fonts Used in Some UI"
 
@@ -597,9 +578,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
+            ).apply { topMargin = dpToPx(12f) }
             gravity = Gravity.CENTER_VERTICAL
         }
 
@@ -619,10 +598,7 @@ class DetailsActivity : Activity() {
             setTextColor(Color.WHITE)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(
-                dpToPx(48f),
-                dpToPx(48f)
-            )
+            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
         }
 
         val fontAvatarContainer = FrameLayout(this).apply {
@@ -667,7 +643,7 @@ class DetailsActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ---------- TOP BAR ----------
+        // ----- Top Bar -----
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -713,7 +689,6 @@ class DetailsActivity : Activity() {
             setOnClickListener { finish() }
             setOnTouchListener(pressScaleTouchListener)
         }
-
         topBarLayout.addView(topBarTitle)
         topBarLayout.addView(backBtn)
         rootFrameLayout.addView(topBarLayout)
@@ -729,13 +704,7 @@ class DetailsActivity : Activity() {
             } else {
                 @Suppress("DEPRECATION") insets.systemWindowInsetTop
             }
-            val bottomInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                insets.getInsets(WindowInsets.Type.navigationBars() or WindowInsets.Type.ime()).bottom
-            } else {
-                @Suppress("DEPRECATION") insets.systemWindowInsetBottom
-            }
             val effectiveTop = if (topInset > 0) topInset else statusBarHeight
-
             topBarLayout.setPadding(dpToPx(16f), effectiveTop + dpToPx(12f), dpToPx(16f), dpToPx(12f))
             scrollView.setPadding(dpToPx(16f), effectiveTop + dpToPx(68f), dpToPx(16f), dpToPx(140f))
             insets
@@ -743,7 +712,7 @@ class DetailsActivity : Activity() {
 
         setContentView(rootFrameLayout)
 
-        // ----- 恢复已下载的APK状态 -----
+        // 恢复已下载 APK 状态
         val cachedFile = File(cacheDir, "app-release.apk")
         if (cachedFile.exists()) {
             downloadedApkFile = cachedFile
@@ -753,7 +722,7 @@ class DetailsActivity : Activity() {
             downloadProgressText.visibility = View.GONE
         }
 
-        // ----- 绑定更新按钮的点击事件（根据状态决定下载或安装） -----
+        // 按钮点击逻辑
         updateActionView.setOnClickListener {
             if (updateActionView.text == "Install" && downloadedApkFile?.exists() == true) {
                 installApk(downloadedApkFile!!)
@@ -762,15 +731,17 @@ class DetailsActivity : Activity() {
             }
         }
 
-        // 开始检查更新
         val versionName = getVersionName()
         if (versionName.contains("Debug", ignoreCase = true)) {
             updateStatusView.text = getString(R.string.update_disabled_debug)
             updateActionView.visibility = View.GONE
             releaseNotesView.visibility = View.GONE
+            releaseNotesView.background = null
+            releaseNotesView.setPadding(0, 0, 0, 0)
             downloadProgressText.visibility = View.GONE
-            // 删除缓存的APK（调试版不需要）
             deleteCachedApk()
+            updateStatusView.background = null
+            updateStatusView.setPadding(0, 0, 0, 0)
         } else {
             checkForUpdates()
         }
@@ -785,11 +756,10 @@ class DetailsActivity : Activity() {
 
     inner class DownloadApkTask : AsyncTask<Void, Int, File?>() {
         override fun onPreExecute() {
-            // 按钮显示0%，禁用点击
             updateActionView.text = "0%"
             updateActionView.isEnabled = false
             updateActionView.visibility = View.VISIBLE
-            downloadProgressText.visibility = View.GONE  // 隐藏独立的进度文本
+            downloadProgressText.visibility = View.GONE
         }
 
         override fun doInBackground(vararg params: Void?): File? {
@@ -799,10 +769,7 @@ class DetailsActivity : Activity() {
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
-
-                if (connection.responseCode != HttpsURLConnection.HTTP_OK) {
-                    return null
-                }
+                if (connection.responseCode != HttpsURLConnection.HTTP_OK) return null
 
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(response)
@@ -817,7 +784,6 @@ class DetailsActivity : Activity() {
                     }
                 }
                 connection.disconnect()
-
                 if (apkUrl == null) return null
 
                 val apkConnection = URL(apkUrl).openConnection() as HttpsURLConnection
@@ -834,7 +800,6 @@ class DetailsActivity : Activity() {
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 var totalBytesRead = 0
-
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     outputStream.write(buffer, 0, bytesRead)
                     totalBytesRead += bytesRead
@@ -846,7 +811,6 @@ class DetailsActivity : Activity() {
                 outputStream.close()
                 inputStream.close()
                 apkConnection.disconnect()
-
                 return outputFile
             } catch (e: Exception) {
                 Log.e("DetailsActivity", "Download failed", e)
@@ -856,7 +820,6 @@ class DetailsActivity : Activity() {
 
         override fun onProgressUpdate(vararg values: Int?) {
             val progress = values[0] ?: 0
-            // 更新按钮文字为百分比
             updateActionView.text = "$progress%"
         }
 
@@ -865,7 +828,6 @@ class DetailsActivity : Activity() {
                 downloadedApkFile = result
                 updateActionView.text = "Install"
                 updateActionView.isEnabled = true
-                // 点击事件会触发安装
             } else {
                 Toast.makeText(this@DetailsActivity, "Download failed", Toast.LENGTH_SHORT).show()
                 updateActionView.text = "Download"
@@ -877,18 +839,15 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 安装APK（修复） ==========
+    // ========== 安装 APK ==========
     private fun installApk(file: File) {
-        // Android 8.0+ 检查是否允许安装未知来源
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!packageManager.canRequestPackageInstalls()) {
                 Toast.makeText(this, "Please allow installation from unknown sources", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                startActivity(intent)
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
                 return
             }
         }
-
         try {
             val uri = FileProvider.getUriForFile(
                 this,
@@ -898,9 +857,8 @@ class DetailsActivity : Activity() {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)   // 关键修复
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            // 检查是否有应用能处理
             if (intent.resolveActivity(packageManager) != null) {
                 startActivity(intent)
             } else {
@@ -912,7 +870,7 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 删除缓存的APK ==========
+    // ========== 删除缓存 APK ==========
     private fun deleteCachedApk() {
         try {
             val file = File(cacheDir, "app-release.apk")
@@ -920,23 +878,24 @@ class DetailsActivity : Activity() {
                 file.delete()
                 Log.d("DetailsActivity", "Deleted cached APK")
                 if (downloadedApkFile == file) downloadedApkFile = null
-                // 如果按钮显示"Install"，重置为"Download"
                 if (updateActionView.text == "Install") {
                     updateActionView.text = "Download"
                     updateActionView.isEnabled = true
                 }
             }
-        } catch (e: Exception) {
-            // ignore
-        }
+        } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（添加删除APK逻辑） ==========
+    // ========== 检查更新（含动态胶囊背景） ==========
     private fun checkForUpdates() {
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
         releaseNotesView.visibility = View.GONE
         downloadProgressText.visibility = View.GONE
+        updateStatusView.background = null
+        updateStatusView.setPadding(0, 0, 0, 0)
+        releaseNotesView.background = null
+        releaseNotesView.setPadding(0, 0, 0, 0)
 
         Thread {
             try {
@@ -945,7 +904,6 @@ class DetailsActivity : Activity() {
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
-
                 val responseCode = connection.responseCode
                 if (responseCode == HttpsURLConnection.HTTP_OK) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
@@ -955,36 +913,57 @@ class DetailsActivity : Activity() {
 
                     val latestVersion = latestTag.replace(Regex("^[^0-9]*"), "")
                     val currentVer = currentVersion.replace(Regex("^[^0-9]*"), "")
-
                     val comparison = compareVersions(latestVersion, currentVer)
+
                     runOnUiThread {
                         if (comparison > 0) {
+                            // 新版本 – 状态胶囊
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
+                            updateStatusView.background = GradientDrawable().apply {
+                                setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                cornerRadius = dpToPx(100f).toFloat()
+                            }
+                            updateStatusView.setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
+
+                            // 更新日志 – 同样胶囊
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
+                                releaseNotesView.background = GradientDrawable().apply {
+                                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                    cornerRadius = dpToPx(100f).toFloat()
+                                }
+                                releaseNotesView.setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
                                 releaseNotesView.visibility = View.VISIBLE
+                            } else {
+                                releaseNotesView.visibility = View.GONE
                             }
-                            // 显示下载按钮，并确保点击事件触发下载
+
                             updateActionView.text = "Download"
                             updateActionView.visibility = View.VISIBLE
                             updateActionView.isEnabled = true
-                            // 清除可能残留的安装状态
                             downloadedApkFile = null
-                            // 点击事件已在外部绑定，无需重复设置
                         } else {
+                            // 最新版本 – 无背景
                             updateStatusView.text = getString(R.string.update_latest, currentVer)
+                            updateStatusView.background = null
+                            updateStatusView.setPadding(0, 0, 0, 0)
                             releaseNotesView.visibility = View.GONE
+                            releaseNotesView.background = null
+                            releaseNotesView.setPadding(0, 0, 0, 0)
                             updateActionView.visibility = View.GONE
-                            // ★ 已是最新版本，删除缓存的APK
                             deleteCachedApk()
                         }
                     }
                 } else {
                     runOnUiThread {
                         updateStatusView.text = getString(R.string.update_server_error)
+                        updateStatusView.background = null
+                        updateStatusView.setPadding(0, 0, 0, 0)
                         releaseNotesView.visibility = View.GONE
+                        releaseNotesView.background = null
+                        releaseNotesView.setPadding(0, 0, 0, 0)
                         updateActionView.visibility = View.GONE
                     }
                 }
@@ -993,14 +972,69 @@ class DetailsActivity : Activity() {
                 e.printStackTrace()
                 runOnUiThread {
                     updateStatusView.text = getString(R.string.update_connection_error)
+                    updateStatusView.background = null
+                    updateStatusView.setPadding(0, 0, 0, 0)
                     releaseNotesView.visibility = View.GONE
+                    releaseNotesView.background = null
+                    releaseNotesView.setPadding(0, 0, 0, 0)
                     updateActionView.visibility = View.GONE
                 }
             }
         }.start()
     }
 
-    // ========== 其他已有方法（保持不变） ==========
+    // ========== 格式化发布日志（标题更粗） ==========
+    private fun formatReleaseNotes(body: String): SpannableStringBuilder {
+        val lines = body.split("\n")
+        val spannable = SpannableStringBuilder()
+        for (line in lines) {
+            val trimmed = line.trim()
+            when {
+                trimmed.startsWith("#### ") -> {
+                    val text = trimmed.substring(5)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("### ") -> {
+                    val text = trimmed.substring(4)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("## ") -> {
+                    val text = trimmed.substring(3)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("# ") -> {
+                    val text = trimmed.substring(2)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(FakeBoldSpan(), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("- ") -> {
+                    spannable.append("• " + trimmed.substring(2) + "\n")
+                }
+                else -> {
+                    if (trimmed.isNotEmpty()) spannable.append(trimmed + "\n")
+                    else spannable.append("\n")
+                }
+            }
+        }
+        return spannable
+    }
+
+    // ========== 辅助方法 ==========
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
@@ -1011,24 +1045,18 @@ class DetailsActivity : Activity() {
 
     private fun openTelegram(username: String) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=$username"))
-            startActivity(intent)
-        } catch (e: Exception) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?domain=$username")))
+        } catch (_: Exception) {
             try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/$username"))
-                startActivity(intent)
-            } catch (e2: Exception) {
-                // ignore
-            }
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/$username")))
+            } catch (_: Exception) { }
         }
     }
 
     private fun getVersionName(): String {
         return try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
-        } catch (e: Exception) {
-            "1.0.0"
-        }
+        } catch (_: Exception) { "1.0.0" }
     }
 
     private fun compareVersions(v1: String, v2: String): Int {
@@ -1043,56 +1071,6 @@ class DetailsActivity : Activity() {
             if (p1 != p2) return p1 - p2
         }
         return 0
-    }
-
-    private fun formatReleaseNotes(body: String): SpannableStringBuilder {
-        val lines = body.split("\n")
-        val spannable = SpannableStringBuilder()
-        for (line in lines) {
-            val trimmed = line.trim()
-            when {
-                trimmed.startsWith("#### ") -> {
-                    val text = trimmed.substring(5)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("### ") -> {
-                    val text = trimmed.substring(4)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("## ") -> {
-                    val text = trimmed.substring(3)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("# ") -> {
-                    val text = trimmed.substring(2)
-                    val span = SpannableString(text + "\n")
-                    span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    spannable.append(span)
-                }
-                trimmed.startsWith("- ") -> {
-                    val text = "• " + trimmed.substring(2)
-                    spannable.append(text + "\n")
-                }
-                else -> {
-                    if (trimmed.isNotEmpty()) {
-                        spannable.append(trimmed + "\n")
-                    } else {
-                        spannable.append("\n")
-                    }
-                }
-            }
-        }
-        return spannable
     }
 
     private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
@@ -1133,7 +1111,6 @@ class DetailsActivity : Activity() {
         false
     }
 
-    // ========== 主题切换对话框（保持不变） ==========
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -1155,7 +1132,9 @@ class DetailsActivity : Activity() {
         val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
         val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
 
-        val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+        val dpToPx = { dp: Float ->
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
+        }
 
         val cardLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1234,9 +1213,7 @@ class DetailsActivity : Activity() {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-            }
+            setOnClickListener { dialog.dismiss() }
             setOnTouchListener(pressScaleTouchListener)
         }
         btnLayout.addView(laterBtn)
