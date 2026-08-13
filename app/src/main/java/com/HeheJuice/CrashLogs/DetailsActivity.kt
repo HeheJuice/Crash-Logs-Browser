@@ -40,38 +40,6 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
-    // 自定义 Drawable – 顶部和底部为半圆，中间矩形
-    private class CapsuleDrawable(private val cornerRadius: Float) : Drawable() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var path = Path()
-
-        override fun draw(canvas: Canvas) {
-            val bounds = bounds
-            val width = bounds.width().toFloat()
-            val height = bounds.height().toFloat()
-            val radius = cornerRadius.coerceAtMost(height / 2f)
-
-            path.reset()
-            path.moveTo(0f, radius)
-            path.arcTo(0f, 0f, radius * 2, radius * 2, -180f, -180f, false)
-            path.lineTo(width - radius, 0f)
-            path.arcTo(width - radius * 2, 0f, width, radius * 2, 0f, 180f, false)
-            path.lineTo(width, height - radius)
-            path.arcTo(width - radius * 2, height - radius * 2, width, height, 0f, 180f, false)
-            path.lineTo(radius, height)
-            path.arcTo(0f, height - radius * 2, radius * 2, height, 180f, 180f, false)
-            path.close()
-
-            canvas.drawPath(path, paint)
-        }
-
-        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-        override fun setColorFilter(cf: ColorFilter?) { paint.colorFilter = cf }
-        @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.TRANSLUCENT
-
-        fun setColor(color: Int) { paint.color = color }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
@@ -910,7 +878,7 @@ class DetailsActivity : Activity() {
         } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（使用 CapsuleDrawable） ==========
+    // ========== 检查更新（使用 GradientDrawable 固定圆角 20dp） ==========
     private fun checkForUpdates() {
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
@@ -959,14 +927,16 @@ class DetailsActivity : Activity() {
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                            // 更新日志 – 使用自定义 CapsuleDrawable (圆角16dp)
+                            // 更新日志 – 使用 GradientDrawable 固定圆角 20dp（稳定且视觉清晰）
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
-                                val capsule = CapsuleDrawable(dpToPx(16f).toFloat())
-                                capsule.setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
-                                releaseNotesView.background = capsule
+                                val bg = GradientDrawable().apply {
+                                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                    cornerRadius = dpToPx(20f).toFloat()
+                                }
+                                releaseNotesView.background = bg
                                 releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                                 releaseNotesView.visibility = View.VISIBLE
 
