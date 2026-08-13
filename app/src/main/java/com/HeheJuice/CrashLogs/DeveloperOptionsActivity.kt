@@ -116,7 +116,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // ----- 卡片（更紧凑的内边距） -----
+        // ----- 卡片（极致紧凑，无描述） -----
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -124,8 +124,8 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // 上下内边距 16dp，左右 20dp
-            setPadding(dpToPx(20f), dpToPx(16f), dpToPx(20f), dpToPx(16f))
+            // 上下内边距 8dp，左右 20dp
+            setPadding(dpToPx(20f), dpToPx(8f), dpToPx(20f), dpToPx(8f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -161,7 +161,7 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
-        // ---- 轨道颜色 ----
+        // 轨道颜色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -172,10 +172,10 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // ---- 拇指颜色（白色） ----
+        // 拇指颜色（白色）
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // ---- 对勾/叉号图标颜色（开启 = accentColor，关闭 = 灰色） ----
+        // 图标颜色（开启 = accentColor，关闭 = 灰色）
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -186,7 +186,6 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
-        // ---- 监听变化 ----
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
@@ -205,18 +204,7 @@ class DeveloperOptionsActivity : Activity() {
 
         card.addView(row)
 
-        // ----- 描述文字（间距 4dp，更紧凑） -----
-        val desc = TextView(this).apply {
-            text = "When enabled, the app will show version 9.9 with dummy release notes."
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(4f), 0, 0)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        card.addView(desc)
+        // ★ 描述文字已完全移除 ★
 
         contentLayout.addView(card)
 
