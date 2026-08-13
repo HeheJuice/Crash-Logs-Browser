@@ -9,6 +9,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.style.AbsoluteSizeSpan
+import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -23,6 +28,7 @@ class DetailsActivity : Activity() {
 
     private lateinit var updateStatusView: TextView
     private lateinit var updateActionView: TextView
+    private lateinit var releaseNotesView: TextView
     private var googleSansFlexTypeface: Typeface? = null
     private var isDark: Boolean = false
 
@@ -157,6 +163,23 @@ class DetailsActivity : Activity() {
             gravity = Gravity.CENTER
         }
         updateCard.addView(updateStatusView)
+
+        // Release notes TextView – uses Google Sans Flex with rounded style
+        releaseNotesView = TextView(this).apply {
+            visibility = View.GONE
+            textSize = 14f
+            setTextColor(secondaryTextColor)
+            if (googleSansFlexTypeface != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    typeface = Typeface.create(googleSansFlexTypeface, 400, false)
+                    fontVariationSettings = "'ROND' 100, 'opsz' 14"
+                } else {
+                    typeface = googleSansFlexTypeface
+                }
+            }
+            setPadding(0, dpToPx(8f), 0, dpToPx(8f))
+        }
+        updateCard.addView(releaseNotesView)
 
         updateActionView = TextView(this).apply {
             text = ""
@@ -605,18 +628,18 @@ class DetailsActivity : Activity() {
         if (versionName.contains("Debug", ignoreCase = true)) {
             updateStatusView.text = getString(R.string.update_disabled_debug)
             updateActionView.visibility = View.GONE
+            releaseNotesView.visibility = View.GONE
         } else {
             checkForUpdates()
         }
     }
 
-    // ========== STATUS BAR COLOR (Fix issue 2) ==========
+    // ========== STATUS BAR COLOR ==========
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
             val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
             window.statusBarColor = statusColor
-            // For light status bar icons on light theme (Android 6.0+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
@@ -628,7 +651,7 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== CONFIGURATION CHANGE (dark/light mode) ==========
+    // ========== CONFIGURATION CHANGE ==========
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         val newDark = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -704,7 +727,6 @@ class DetailsActivity : Activity() {
             isFocusable = true
             setOnClickListener {
                 dialog.dismiss()
-                // Restart activity
                 val intent = intent
                 finish()
                 startActivity(intent)
@@ -748,7 +770,58 @@ class DetailsActivity : Activity() {
         dialog.show()
     }
 
-    // ========== EXISTING METHODS (unchanged) ==========
+    // ========== RELEASE NOTES FORMATTING ==========
+    private fun formatReleaseNotes(body: String): SpannableStringBuilder {
+        val lines = body.split("\n")
+        val spannable = SpannableStringBuilder()
+        for (line in lines) {
+            val trimmed = line.trim()
+            when {
+                trimmed.startsWith("#### ") -> {
+                    val text = trimmed.substring(5)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("### ") -> {
+                    val text = trimmed.substring(4)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("## ") -> {
+                    val text = trimmed.substring(3)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("# ") -> {
+                    val text = trimmed.substring(2)
+                    val span = SpannableString(text + "\n")
+                    span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    spannable.append(span)
+                }
+                trimmed.startsWith("- ") -> {
+                    val text = "• " + trimmed.substring(2)
+                    spannable.append(text + "\n")
+                }
+                else -> {
+                    if (trimmed.isNotEmpty()) {
+                        spannable.append(trimmed + "\n")
+                    } else {
+                        spannable.append("\n")
+                    }
+                }
+            }
+        }
+        return spannable
+    }
+
+    // ========== EXISTING METHODS ==========
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
@@ -796,6 +869,7 @@ class DetailsActivity : Activity() {
     private fun checkForUpdates() {
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
+        releaseNotesView.visibility = View.GONE
 
         Thread {
             try {
@@ -819,15 +893,26 @@ class DetailsActivity : Activity() {
                     runOnUiThread {
                         if (comparison > 0) {
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
+                            // Fetch release body and format it
+                            val releaseBody = json.optString("body", "")
+                            if (releaseBody.isNotEmpty()) {
+                                val formatted = formatReleaseNotes(releaseBody)
+                                releaseNotesView.text = formatted
+                                releaseNotesView.visibility = View.VISIBLE
+                            }
                             updateActionView.text = getString(R.string.update_download)
                             updateActionView.visibility = View.VISIBLE
                         } else {
                             updateStatusView.text = getString(R.string.update_latest, currentVer)
+                            releaseNotesView.visibility = View.GONE
+                            updateActionView.visibility = View.GONE
                         }
                     }
                 } else {
                     runOnUiThread {
                         updateStatusView.text = getString(R.string.update_server_error)
+                        releaseNotesView.visibility = View.GONE
+                        updateActionView.visibility = View.GONE
                     }
                 }
                 connection.disconnect()
@@ -835,6 +920,8 @@ class DetailsActivity : Activity() {
                 e.printStackTrace()
                 runOnUiThread {
                     updateStatusView.text = getString(R.string.update_connection_error)
+                    releaseNotesView.visibility = View.GONE
+                    updateActionView.visibility = View.GONE
                 }
             }
         }.start()
