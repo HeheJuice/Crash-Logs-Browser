@@ -116,7 +116,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // ----- 卡片（极致紧凑，无描述） -----
+        // 卡片
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -124,7 +124,6 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            // 上下内边距 8dp，左右 20dp
             setPadding(dpToPx(20f), dpToPx(8f), dpToPx(20f), dpToPx(8f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -132,7 +131,6 @@ class DeveloperOptionsActivity : Activity() {
             )
         }
 
-        // 标题 + 开关行
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -142,15 +140,16 @@ class DeveloperOptionsActivity : Activity() {
             )
         }
 
+        // ★ 修改：文字改为 "Test Update Receiver"
         val label = TextView(this).apply {
-            text = "Force Fake Update (v9.9)"
+            text = "Test Update Receiver"
             textSize = 17f
             setTextColor(primaryTextColor)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row.addView(label)
 
-        // ===== MaterialSwitch =====
+        // MaterialSwitch
         val themedContext = ContextThemeWrapper(
             this,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
@@ -161,7 +160,6 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
-        // 轨道颜色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -172,10 +170,8 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // 拇指颜色（白色）
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // 图标颜色（开启 = accentColor，关闭 = 灰色）
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -203,9 +199,6 @@ class DeveloperOptionsActivity : Activity() {
         ))
 
         card.addView(row)
-
-        // ★ 描述文字已完全移除 ★
-
         contentLayout.addView(card)
 
         val spacer = View(this).apply {

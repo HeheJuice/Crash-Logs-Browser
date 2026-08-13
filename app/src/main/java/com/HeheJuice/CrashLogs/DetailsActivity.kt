@@ -41,6 +41,16 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
+    // 自定义 TypefaceSpan，用于应用 Google Sans Flex
+    private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
+        override fun updateDrawState(tp: TextPaint) {
+            tp.typeface = typeface
+        }
+        override fun updateMeasureState(p: TextPaint) {
+            p.typeface = typeface
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
@@ -282,7 +292,7 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ----- ACKNOWLEDGMENTS CARD (完整 Credits) -----
+        // ----- ACKNOWLEDGMENTS CARD -----
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -297,7 +307,6 @@ class DetailsActivity : Activity() {
             ).apply { topMargin = dpToPx(16f) }
         }
 
-        // ★ 修改：creditsTitle 应用 Google Sans Flex Bold Round
         val creditsTitle = TextView(this).apply {
             text = "Acknowledgments"
             textSize = 20f
@@ -374,7 +383,6 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // ★ 修改：nameView1 应用 Google Sans Flex Bold Round
         val nameView1 = TextView(this).apply {
             text = hehejuiceName
             textSize = 17f
@@ -388,7 +396,6 @@ class DetailsActivity : Activity() {
             isClickable = true
             isFocusable = true
 
-            // 点击打开 Telegram
             setOnClickListener {
                 openTelegram("HeheJuice")
                 animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).withEndAction {
@@ -396,7 +403,6 @@ class DetailsActivity : Activity() {
                 }.start()
             }
 
-            // 长按计时器
             var handler: android.os.Handler? = null
             var runnable: Runnable? = null
 
@@ -504,7 +510,6 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // ★ 修改：nameViewMortis 应用 Google Sans Flex Bold Round
         val nameViewMortis = TextView(this).apply {
             text = mortisName
             textSize = 17f
@@ -594,7 +599,6 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // ★ 修改：nameView2 应用 Google Sans Flex Bold Round
         val nameView2 = TextView(this).apply {
             text = materialName
             textSize = 17f
@@ -670,7 +674,6 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        // ★ 修改：nameView3 应用 Google Sans Flex Bold Round
         val nameView3 = TextView(this).apply {
             text = fontCreditName
             textSize = 17f
@@ -714,10 +717,15 @@ class DetailsActivity : Activity() {
         }
 
         val topBarTitle = TextView(this).apply {
-            text = getString(R.string.details_topbar_title)
+            text = "Details"
             textSize = 16f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(backBtnBgColor)
@@ -1098,7 +1106,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志 ==========
+    // ========== 格式化发布日志（标题使用 Google Sans Flex Bold Round） ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
@@ -1109,28 +1117,44 @@ class DetailsActivity : Activity() {
                     val text = trimmed.substring(5)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("### ") -> {
                     val text = trimmed.substring(4)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("## ") -> {
                     val text = trimmed.substring(3)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("# ") -> {
                     val text = trimmed.substring(2)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("- ") -> {
