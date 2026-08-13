@@ -11,6 +11,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -96,7 +97,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         topBar.addView(titleText)
 
-        // 返回按钮（保持不变）
+        // 返回按钮
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
             background = GradientDrawable().apply {
@@ -150,9 +151,15 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== 从 XML 加载 MaterialSwitch（已修复 textOn/textOff） =====
-        val switch = LayoutInflater.from(this)
+        // ===== 使用 ContextThemeWrapper 强制应用 Material 3 主题 =====
+        val themedContext = ContextThemeWrapper(
+            this,
+            com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
+        )
+
+        val switch = LayoutInflater.from(themedContext)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
+
         switch.isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
 
         // 设置轨道颜色（开启时与下载按钮一致）
@@ -181,7 +188,6 @@ class DeveloperOptionsActivity : Activity() {
             switch.trackTintList = ColorStateList(trackStates, trackColors)
         }
 
-        // 添加开关到行布局，设置适当的布局参数
         row.addView(switch, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT

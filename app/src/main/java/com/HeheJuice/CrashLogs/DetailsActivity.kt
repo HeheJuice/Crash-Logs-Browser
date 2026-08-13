@@ -440,7 +440,7 @@ class DetailsActivity : Activity() {
 
         // Credit 2: Mortis
         val mortisName = "Mortis"
-        val mortisDesc = "Some Issues or Bug Fixes"
+        val mortisDesc = "Upstream Contributor"
 
         val rowMortis = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -940,7 +940,7 @@ class DetailsActivity : Activity() {
                 }
                 updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                val fakeBody = "## Update\n- Tester"
+                val fakeBody = "## UpdateTest\n- Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 val formatted = formatReleaseNotes(fakeBody)
                 releaseNotesView.text = formatted
                 val bg = GradientDrawable().apply {
