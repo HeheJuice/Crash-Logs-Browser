@@ -31,10 +31,11 @@ class DeveloperOptionsActivity : Activity() {
     private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
+    private var accentColor: Int = 0
     private var trackOnColor: Int = 0
     private var trackOffColor: Int = 0
-    private var thumbColor: Int = 0
-    private var iconColor: Int = 0
+    private var thumbOnColor: Int = 0
+    private var thumbOffColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -51,6 +52,7 @@ class DeveloperOptionsActivity : Activity() {
         setStatusBarColors()
 
         // 获取颜色
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
@@ -61,22 +63,19 @@ class DeveloperOptionsActivity : Activity() {
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
 
-        // ★ 深色模式精确匹配系统设置
+        // ★ 开关颜色（匹配系统设置）
         if (isDark) {
-            // 开启轨道：使用深色（接近黑色）
-            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
-            // 对勾使用与轨道相同的颜色
-            iconColor = trackOnColor
-            // 拇指比轨道更深（使用 Surface 即黑色）
-            thumbColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
-            // 关闭轨道使用稍亮的灰色（但也要深色）
-            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        } else {
-            // 浅色模式：保持原有逻辑
-            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+            // 深色模式：开启轨道使用 Primary 亮色，拇指使用 OnPrimary（深色），对勾使用 Primary
+            trackOnColor = accentColor
             trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
-            thumbColor = Color.WHITE
-            iconColor = Color.WHITE
+            thumbOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+            thumbOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutline)
+        } else {
+            // 浅色模式：保持原样
+            trackOnColor = accentColor
+            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
+            thumbOnColor = Color.WHITE
+            thumbOffColor = Color.WHITE
         }
 
         val dpToPx = { dp: Float ->
@@ -182,7 +181,7 @@ class DeveloperOptionsActivity : Activity() {
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        // 轨道颜色
+        // 1. 轨道颜色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -190,15 +189,23 @@ class DeveloperOptionsActivity : Activity() {
         val trackColors = intArrayOf(trackOnColor, trackOffColor)
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // 拇指颜色
-        switch.thumbTintList = ColorStateList.valueOf(thumbColor)
+        // 2. 拇指颜色（开启/关闭不同颜色）
+        val thumbStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val thumbColors = intArrayOf(thumbOnColor, thumbOffColor)
+        switch.thumbTintList = ColorStateList(thumbStates, thumbColors)
 
-        // 对勾图标颜色（开启时与轨道同色，关闭时灰色）
+        // 3. 对勾图标颜色
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
-        val iconColors = intArrayOf(iconColor, secondaryTextColor)
+        val iconColors = intArrayOf(
+            accentColor,  // 开启时与轨道同色
+            secondaryTextColor
+        )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
         // 读取保存的状态并设置
