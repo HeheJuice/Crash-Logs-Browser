@@ -64,6 +64,7 @@ class CrashLogActivity : Activity() {
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
 
+    // 颜色变量（与 DeveloperOptionsActivity 一致）
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
@@ -145,7 +146,7 @@ class CrashLogActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+            val statusColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
@@ -758,7 +759,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun setupUI() {
-        val rootBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        val rootBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
 
         rootFrameLayout = FrameLayout(this).apply {
             setBackgroundColor(rootBgColor)
@@ -791,6 +792,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
+        // 过滤 Pill
         filterPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -1026,6 +1028,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
+        // ★ 应用 Google Sans Flex Bold Round
         val appNameTitle = TextView(this).apply {
             text = "Crash Logs Browser"
             textSize = 22f
@@ -1060,6 +1063,7 @@ class CrashLogActivity : Activity() {
         }
         appInfoCard.addView(descriptionText)
 
+        // Check for Updates 按钮（使用 accentColor + onPrimaryColor）
         val updatePill = TextView(this).apply {
             text = "Check for Updates"
             textSize = 13f
@@ -1086,6 +1090,7 @@ class CrashLogActivity : Activity() {
 
         infoLayout.addView(appInfoCard)
 
+        // Statistics Card
         val statsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1509,7 +1514,6 @@ class CrashLogActivity : Activity() {
         filterCrashBtn.setTextColor(if (p in 0.25f..0.75f) primaryTextColor else secondaryTextColor)
         filterAnrBtn.setTextColor(if (p > 0.75f) primaryTextColor else secondaryTextColor)
     }
-
     private fun animateFilterPillTo(targetProgress: Float, onEnd: () -> Unit) {
         val currentX = filterSlidingView.translationX
         val x0 = filterAllBtn.left.toFloat()
@@ -1980,8 +1984,9 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
+        // 与 DeveloperOptionsActivity 完全一致的颜色逻辑
         cardBgColor = if (isDark) {
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
@@ -1993,7 +1998,7 @@ class CrashLogActivity : Activity() {
         secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         inputBgColor = if (isDark) {
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
