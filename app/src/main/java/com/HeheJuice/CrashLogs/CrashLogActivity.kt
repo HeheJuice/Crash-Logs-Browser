@@ -1170,93 +1170,98 @@ class CrashLogActivity : Activity() {
 
         statsCard.addView(buttonRow)
         infoLayout.addView(statsCard)
+// ===== 独立的开关卡片 =====
+val autoRefreshCard = LinearLayout(this).apply {
+    orientation = LinearLayout.VERTICAL
+    background = GradientDrawable().apply {
+        setColor(cardBgColor)
+        cornerRadius = dpToPx(28f).toFloat()
+    }
+    // 降低上下内边距，使卡片高度更紧凑
+    setPadding(dpToPx(20f), dpToPx(12f), dpToPx(20f), dpToPx(12f))
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    ).apply {
+        bottomMargin = dpToPx(16f)
+    }
+}
 
-        // ===== 独立的开关卡片 =====
-        val autoRefreshCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(cardBgColor)
-                cornerRadius = dpToPx(28f).toFloat()
-            }
-            setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dpToPx(16f)
-            }
-        }
+val autoRefreshRow = LinearLayout(this).apply {
+    orientation = LinearLayout.HORIZONTAL
+    gravity = Gravity.CENTER_VERTICAL
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+}
+val autoRefreshLabel = TextView(this).apply {
+    text = "Auto-refresh every 5s"
+    textSize = 15f
+    setTextColor(primaryTextColor)
+    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+}
+autoRefreshRow.addView(autoRefreshLabel)
 
-        val autoRefreshRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        val autoRefreshLabel = TextView(this).apply {
-            text = "Auto-refresh every 5s"
-            textSize = 15f
-            setTextColor(primaryTextColor)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        autoRefreshRow.addView(autoRefreshLabel)
+// ★ 使用与 DeveloperOptions 完全相同的 inflate 方式
+val switch = LayoutInflater.from(this).inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        autoRefreshSwitch = MaterialSwitch(this).apply {
-            // 轨道颜色
-            val trackStates = arrayOf(
-                intArrayOf(android.R.attr.state_checked),
-                intArrayOf()
-            )
-            val trackColors = intArrayOf(trackOnColor, trackOffColor)
-            this.trackTintList = ColorStateList(trackStates, trackColors)
+// 轨道颜色
+val trackStates = arrayOf(
+    intArrayOf(android.R.attr.state_checked),
+    intArrayOf()
+)
+val trackColors = intArrayOf(trackOnColor, trackOffColor)
+switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-            // 拇指颜色
-            val thumbStates = arrayOf(
-                intArrayOf(android.R.attr.state_checked),
-                intArrayOf()
-            )
-            val thumbColors = intArrayOf(thumbOnColor, thumbOffColor)
-            this.thumbTintList = ColorStateList(thumbStates, thumbColors)
+// 拇指颜色
+val thumbStates = arrayOf(
+    intArrayOf(android.R.attr.state_checked),
+    intArrayOf()
+)
+val thumbColors = intArrayOf(thumbOnColor, thumbOffColor)
+switch.thumbTintList = ColorStateList(thumbStates, thumbColors)
 
-            // 对勾/叉号图标颜色
-            val iconStates = arrayOf(
-                intArrayOf(android.R.attr.state_checked),
-                intArrayOf()
-            )
-            val iconColors = intArrayOf(accentColor, trackOffColor)
-            this.thumbIconTintList = ColorStateList(iconStates, iconColors)
+// 对勾/叉号图标颜色
+val iconStates = arrayOf(
+    intArrayOf(android.R.attr.state_checked),
+    intArrayOf()
+)
+val iconColors = intArrayOf(accentColor, trackOffColor)
+switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
-            // 默认关闭
-            val prefs = getSharedPreferences("auto_refresh_prefs", Context.MODE_PRIVATE)
-            val saved = prefs.getBoolean("auto_refresh_enabled", false)
-            this.isChecked = saved
+// 默认关闭
+val prefs = getSharedPreferences("auto_refresh_prefs", Context.MODE_PRIVATE)
+val saved = prefs.getBoolean("auto_refresh_enabled", false)
+switch.isChecked = saved
 
-            this.setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("auto_refresh_enabled", isChecked).apply()
-                if (isChecked) {
-                    startAutoRefresh()
-                } else {
-                    stopAutoRefresh()
-                }
-                // 重新应用颜色
-                this.trackTintList = ColorStateList(trackStates, trackColors)
-                this.thumbIconTintList = ColorStateList(iconStates, iconColors)
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        autoRefreshRow.addView(autoRefreshSwitch)
-        autoRefreshCard.addView(autoRefreshRow)
+switch.setOnCheckedChangeListener { _, isChecked ->
+    prefs.edit().putBoolean("auto_refresh_enabled", isChecked).apply()
+    if (isChecked) {
+        startAutoRefresh()
+    } else {
+        stopAutoRefresh()
+    }
+    // 重新应用颜色（确保状态切换后颜色不变）
+    switch.trackTintList = ColorStateList(trackStates, trackColors)
+    switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
+}
+switch.layoutParams = LinearLayout.LayoutParams(
+    LinearLayout.LayoutParams.WRAP_CONTENT,
+    LinearLayout.LayoutParams.WRAP_CONTENT
+)
+autoRefreshRow.addView(switch)
+autoRefreshCard.addView(autoRefreshRow)
 
-        infoLayout.addView(autoRefreshCard)
+infoLayout.addView(autoRefreshCard)
 
-        if (autoRefreshSwitch?.isChecked == true) {
-            startAutoRefresh()
-        }
+// 保存引用
+autoRefreshSwitch = switch
+
+if (autoRefreshSwitch?.isChecked == true) {
+    startAutoRefresh()
+}
+// ====================================
         // ============================
 
         scrollContent.addView(logsLayout)
