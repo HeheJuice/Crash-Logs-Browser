@@ -73,6 +73,7 @@ class CrashLogActivity : Activity() {
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
     private var secondaryBtnColor: Int = 0
+    private var activePillBgColor: Int = 0
     private var redBtnColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
@@ -292,7 +293,6 @@ class CrashLogActivity : Activity() {
         val secondaryText = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
         val accent = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
         val red = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
-        val inputBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
 
         val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
 
@@ -809,7 +809,7 @@ class CrashLogActivity : Activity() {
         }
 
         val filterActiveBg = GradientDrawable().apply {
-            setColor(secondaryBtnColor)
+            setColor(activePillBgColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         filterSlidingView = View(this).apply {
@@ -1282,7 +1282,7 @@ class CrashLogActivity : Activity() {
         }
 
         val activeTabBg = GradientDrawable().apply {
-            setColor(secondaryBtnColor)
+            setColor(activePillBgColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         slidingPillView = View(this).apply {
@@ -1984,7 +1984,6 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // 与 DeveloperOptionsActivity 完全一致的颜色逻辑
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
@@ -1996,6 +1995,13 @@ class CrashLogActivity : Activity() {
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        
+        activePillBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHighest)
+        } else {
+            secondaryBtnColor
+        }
+
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         inputBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
