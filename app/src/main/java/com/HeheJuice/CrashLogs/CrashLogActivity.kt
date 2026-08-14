@@ -67,7 +67,7 @@ class CrashLogActivity : Activity() {
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
 
-    // 颜色变量（与您的原始代码完全一致）
+    // 颜色变量（保持不变）
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
@@ -76,14 +76,14 @@ class CrashLogActivity : Activity() {
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
     private var secondaryBtnColor: Int = 0
-    private var activePillBgColor: Int = 0      // 保持您原有的滑块颜色定义
+    private var activePillBgColor: Int = 0
     private var redBtnColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
     private var isDark: Boolean = false
     private var googleSansFlexTypeface: Typeface? = null
 
-    // 新增：开关颜色（与 DeveloperOptions 一致）
+    // 开关颜色
     private var trackOnColor: Int = 0
     private var trackOffColor: Int = 0
     private var thumbOnColor: Int = 0
@@ -125,9 +125,9 @@ class CrashLogActivity : Activity() {
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
 
-    // 新增：自动刷新相关
+    // 自动刷新相关（修复编译错误）
     private var autoRefreshSwitch: MaterialSwitch? = null
-    private var autoRefreshHandler: Handler? = null
+    private val autoRefreshHandler = Handler(Looper.getMainLooper())  // 改为非空
     private var autoRefreshRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -1584,30 +1584,27 @@ class CrashLogActivity : Activity() {
         super.onDestroy()
     }
 
-    // ---------- 自动刷新控制 ----------
+    // ---------- 自动刷新控制（修复编译错误） ----------
     private fun startAutoRefresh() {
-    stopAutoRefresh()
-    autoRefreshHandler = Handler(Looper.getMainLooper())
-    autoRefreshRunnable = object : Runnable {
-        override fun run() {
-            if (currentTab == TAB_LOGS && autoRefreshSwitch?.isChecked == true) {
-                loadLogsAsync {}
-            }
-            if (autoRefreshSwitch?.isChecked == true) {
-                autoRefreshHandler?.postDelayed(this, 5000L)
+        stopAutoRefresh()
+        autoRefreshRunnable = object : Runnable {
+            override fun run() {
+                if (currentTab == TAB_LOGS && autoRefreshSwitch?.isChecked == true) {
+                    loadLogsAsync {}
+                }
+                if (autoRefreshSwitch?.isChecked == true) {
+                    autoRefreshHandler.postDelayed(this, 5000L)
+                }
             }
         }
+        autoRefreshRunnable?.let { autoRefreshHandler.postDelayed(it, 5000L) }
     }
-    // 修复：使用安全调用避免类型不匹配
-    autoRefreshRunnable?.let { autoRefreshHandler?.postDelayed(it, 5000L) }
-}
 
     private fun stopAutoRefresh() {
-        autoRefreshHandler?.removeCallbacks(autoRefreshRunnable)
-        autoRefreshHandler = null
+        autoRefreshRunnable?.let { autoRefreshHandler.removeCallbacks(it) }
         autoRefreshRunnable = null
     }
-    // ---------------------------------
+    // ---------------------------------------------
 
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
@@ -2098,7 +2095,6 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // 您的原始颜色初始化
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
