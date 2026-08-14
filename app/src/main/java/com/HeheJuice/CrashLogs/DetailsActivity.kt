@@ -25,6 +25,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.FileProvider
+import com.google.android.material.color.DynamicColors
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -41,20 +42,15 @@ class DetailsActivity : Activity() {
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
-
-    // ★ 动态主色（Monet）
     private var accentColor: Int = 0
 
-    // 自定义 TypefaceSpan
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
             applyCustomTypeface(tp)
         }
-
         override fun updateMeasureState(p: TextPaint) {
             applyCustomTypeface(p)
         }
-
         private fun applyCustomTypeface(paint: TextPaint) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 paint.typeface = Typeface.create(typeface, 800, false)
@@ -70,6 +66,9 @@ class DetailsActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // ★ 1. 应用 Monet 动态颜色
+        DynamicColors.applyToActivityIfAvailable(this)
+
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
@@ -81,7 +80,7 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // ★ 获取 Monet 动态主色
+        // ★ 2. 获取 Monet 动态主色
         accentColor = MonetColorHelper.getColor(
             this,
             com.google.android.material.R.attr.colorPrimary
@@ -135,7 +134,7 @@ class DetailsActivity : Activity() {
         val backgroundImage = ImageView(this).apply {
             val imageResId = resources.getIdentifier("hehejuicebanner", "drawable", packageName)
             if (imageResId != 0) setImageResource(imageResId)
-            else setBackgroundColor(accentColor) // ★ 使用动态主色
+            else setBackgroundColor(accentColor)
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -216,7 +215,7 @@ class DetailsActivity : Activity() {
             text = "0%"
             visibility = View.GONE
             textSize = 14f
-            setTextColor(accentColor) // ★ 使用动态主色
+            setTextColor(accentColor)
             if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
@@ -229,14 +228,13 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(downloadProgressText)
 
-        // 下载按钮
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor) // ★ 使用动态主色
+                setColor(accentColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -273,7 +271,7 @@ class DetailsActivity : Activity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor) // ★ 使用动态主色
+                setColor(accentColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -296,7 +294,7 @@ class DetailsActivity : Activity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor) // ★ 使用动态主色
+                setColor(accentColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -374,7 +372,7 @@ class DetailsActivity : Activity() {
             } else {
                 val drawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(accentColor) // ★ 使用动态主色
+                    setColor(accentColor)
                 }
                 background = drawable
                 setImageDrawable(null)
@@ -502,7 +500,7 @@ class DetailsActivity : Activity() {
             } else {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(accentColor) // ★ 使用动态主色
+                    setColor(accentColor)
                 }
                 setImageDrawable(null)
             }
@@ -590,7 +588,7 @@ class DetailsActivity : Activity() {
             } else {
                 val drawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(accentColor) // ★ 使用动态主色
+                    setColor(accentColor)
                 }
                 background = drawable
                 setImageDrawable(null)
@@ -671,7 +669,7 @@ class DetailsActivity : Activity() {
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(accentColor) // ★ 使用动态主色
+                setColor(accentColor)
             }
         }
 
@@ -1130,7 +1128,7 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志（标题使用 Google Sans Flex + fontVariationSettings） ==========
+    // ========== 格式化发布日志 ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()

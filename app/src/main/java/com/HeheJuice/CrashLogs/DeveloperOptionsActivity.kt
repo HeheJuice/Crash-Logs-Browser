@@ -17,16 +17,20 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.widget.*
+import com.google.android.material.color.DynamicColors
 import com.google.android.material.materialswitch.MaterialSwitch
 
 class DeveloperOptionsActivity : Activity() {
 
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
-    private var accentColor: Int = 0      // Monet 动态主色
+    private var accentColor: Int = 0
     private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // ★ 应用 Monet 动态颜色
+        DynamicColors.applyToActivityIfAvailable(this)
+
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
@@ -153,7 +157,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch（Monet 动态颜色） =====
+        // ===== MaterialSwitch =====
         val themedContext = ContextThemeWrapper(
             this,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
@@ -162,7 +166,6 @@ class DeveloperOptionsActivity : Activity() {
         val switch = LayoutInflater.from(themedContext)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        // ★ 轨道颜色：开启时使用 Monet 主色，关闭时使用灰色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -175,7 +178,6 @@ class DeveloperOptionsActivity : Activity() {
 
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
-        // ★ 图标颜色：开启时使用 Monet 主色，关闭时使用灰色
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -186,7 +188,6 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
-        // ★ 先读取保存的状态，再设置监听器，避免初始化时误触
         val savedState = sharedPrefs.getBoolean("fake_update_enabled", false)
         switch.isChecked = savedState
 
@@ -197,7 +198,6 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
-            // 刷新颜色（确保状态变化后颜色更新）
             switch.trackTintList = ColorStateList(trackStates, trackColors)
             switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
