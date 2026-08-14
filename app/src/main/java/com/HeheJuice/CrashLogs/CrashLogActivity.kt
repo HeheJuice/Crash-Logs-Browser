@@ -10,7 +10,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
@@ -41,6 +43,7 @@ import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.R as MaterialR
+import com.google.android.material.materialswitch.MaterialSwitch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -64,7 +67,7 @@ class CrashLogActivity : Activity() {
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
 
-    // 颜色变量（与 DeveloperOptionsActivity 一致）
+    // 颜色变量（与您的原始代码完全一致）
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
@@ -73,12 +76,18 @@ class CrashLogActivity : Activity() {
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
     private var secondaryBtnColor: Int = 0
-    private var activePillBgColor: Int = 0
+    private var activePillBgColor: Int = 0      // 保持您原有的滑块颜色定义
     private var redBtnColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
     private var isDark: Boolean = false
     private var googleSansFlexTypeface: Typeface? = null
+
+    // 新增：开关颜色（与 DeveloperOptions 一致）
+    private var trackOnColor: Int = 0
+    private var trackOffColor: Int = 0
+    private var thumbOnColor: Int = 0
+    private var thumbOffColor: Int = 0
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var logAdapter: LogAdapter
@@ -115,6 +124,11 @@ class CrashLogActivity : Activity() {
 
     private lateinit var rootFrameLayout: FrameLayout
     private lateinit var scrollView: NestedScrollView
+
+    // 新增：自动刷新相关
+    private var autoRefreshSwitch: MaterialSwitch? = null
+    private var autoRefreshHandler: Handler? = null
+    private var autoRefreshRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -809,7 +823,7 @@ class CrashLogActivity : Activity() {
         }
 
         val filterActiveBg = GradientDrawable().apply {
-            setColor(activePillBgColor)
+            setColor(activePillBgColor)   // 保持您原有的颜色定义
             cornerRadius = dpToPx(100f).toFloat()
         }
         filterSlidingView = View(this).apply {
@@ -1028,7 +1042,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // ★ 应用 Google Sans Flex Bold Round
+        // 应用 Google Sans Flex Bold Round
         val appNameTitle = TextView(this).apply {
             text = "Crash Logs Browser"
             textSize = 22f
@@ -1063,7 +1077,7 @@ class CrashLogActivity : Activity() {
         }
         appInfoCard.addView(descriptionText)
 
-        // Check for Updates 按钮（使用 accentColor + onPrimaryColor）
+        // Check for Updates 按钮
         val updatePill = TextView(this).apply {
             text = "Check for Updates"
             textSize = 13f
@@ -1156,6 +1170,80 @@ class CrashLogActivity : Activity() {
         buttonRow.addView(clearCacheBtn)
 
         statsCard.addView(buttonRow)
+
+        // ===== 新增：自动刷新开关行 =====
+        val autoRefreshRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(16f)
+            }
+        }
+        val autoRefreshLabel = TextView(this).apply {
+            text = "Auto-refresh every 5s"
+            textSize = 15f
+            setTextColor(primaryTextColor)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        autoRefreshRow.addView(autoRefreshLabel)
+
+        autoRefreshSwitch = MaterialSwitch(this).apply {
+            // 轨道颜色
+            val trackStates = arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            )
+            val trackColors = intArrayOf(trackOnColor, trackOffColor)
+            this.trackTintList = ColorStateList(trackStates, trackColors)
+
+            // 拇指颜色
+            val thumbStates = arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            )
+            val thumbColors = intArrayOf(thumbOnColor, thumbOffColor)
+            this.thumbTintList = ColorStateList(thumbStates, thumbColors)
+
+            // 对勾/叉号图标颜色
+            val iconStates = arrayOf(
+                intArrayOf(android.R.attr.state_checked),
+                intArrayOf()
+            )
+            val iconColors = intArrayOf(accentColor, trackOffColor)
+            this.thumbIconTintList = ColorStateList(iconStates, iconColors)
+
+            // 读取保存的状态，默认关闭
+            val prefs = getSharedPreferences("auto_refresh_prefs", Context.MODE_PRIVATE)
+            val saved = prefs.getBoolean("auto_refresh_enabled", false)
+            this.isChecked = saved
+
+            this.setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("auto_refresh_enabled", isChecked).apply()
+                if (isChecked) {
+                    startAutoRefresh()
+                } else {
+                    stopAutoRefresh()
+                }
+                // 重新应用颜色（确保颜色不变）
+                this.trackTintList = ColorStateList(trackStates, trackColors)
+                this.thumbIconTintList = ColorStateList(iconStates, iconColors)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        autoRefreshRow.addView(autoRefreshSwitch)
+        statsCard.addView(autoRefreshRow)
+
+        // 如果开关已打开，启动自动刷新（从保存状态恢复）
+        if (autoRefreshSwitch?.isChecked == true) {
+            startAutoRefresh()
+        }
+        // ============================
 
         infoLayout.addView(statsCard)
 
@@ -1282,7 +1370,7 @@ class CrashLogActivity : Activity() {
         }
 
         val activeTabBg = GradientDrawable().apply {
-            setColor(activePillBgColor)
+            setColor(activePillBgColor)   // 保持您原有的颜色
             cornerRadius = dpToPx(100f).toFloat()
         }
         slidingPillView = View(this).apply {
@@ -1492,8 +1580,35 @@ class CrashLogActivity : Activity() {
 
     override fun onDestroy() {
         cooldownTimer?.cancel()
+        stopAutoRefresh()
         super.onDestroy()
     }
+
+    // ---------- 自动刷新控制 ----------
+    private fun startAutoRefresh() {
+        stopAutoRefresh()
+        autoRefreshHandler = Handler(Looper.getMainLooper())
+        autoRefreshRunnable = object : Runnable {
+            override fun run() {
+                // 只在 Logs 标签页且开关开启时刷新
+                if (currentTab == TAB_LOGS && autoRefreshSwitch?.isChecked == true) {
+                    loadLogsAsync {}
+                }
+                // 继续调度
+                if (autoRefreshSwitch?.isChecked == true) {
+                    autoRefreshHandler?.postDelayed(this, 5000L)
+                }
+            }
+        }
+        autoRefreshHandler?.postDelayed(autoRefreshRunnable, 5000L)
+    }
+
+    private fun stopAutoRefresh() {
+        autoRefreshHandler?.removeCallbacks(autoRefreshRunnable)
+        autoRefreshHandler = null
+        autoRefreshRunnable = null
+    }
+    // ---------------------------------
 
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
@@ -1984,6 +2099,7 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
+        // 您的原始颜色初始化
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
@@ -1995,7 +2111,8 @@ class CrashLogActivity : Activity() {
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        
+
+        // 保持您的 activePillBgColor 逻辑不变
         activePillBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHighest)
         } else {
@@ -2009,6 +2126,20 @@ class CrashLogActivity : Activity() {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
         redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
+
+        // 新增：开关颜色（与 DeveloperOptions 一致）
+        trackOnColor = accentColor
+        trackOffColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        }
+        thumbOnColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        } else {
+            Color.WHITE
+        }
+        thumbOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutline)
     }
 
     private fun createCardBackground(): GradientDrawable {
@@ -2322,6 +2453,7 @@ class LogAdapter(
             val cleanPackage = log.appName.substringBefore(":")
             appNameText.text = cleanPackage
 
+            // ★ 移除边框：不再调用 setStroke
             val cardDrawable = GradientDrawable().apply {
                 setColor(cardBg)
                 cornerRadius = TypedValue.applyDimension(
