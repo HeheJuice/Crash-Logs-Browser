@@ -1626,24 +1626,113 @@ if (autoRefreshSwitch?.isChecked == true) {
     }
 
 private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPreferences) {
-    val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-    builder.setTitle("Note")
-    builder.setMessage(
-        "Auto Refresh REQUIRED a device that can handle, enable on a weak device is UNSTABLE\n\n" +
-        "Facing bugs after enable? Disable this option and press \"Clear Cache\""
-    )
-    builder.setPositiveButton("Enable") { _, _ ->
-        // 用户确认启用
-        isConfirmingAutoRefresh = true
-        switch.isChecked = true
-        prefs.edit().putBoolean("auto_refresh_enabled", true).apply()
-        startAutoRefresh()
+    val dialog = Dialog(this)
+    dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    dialog.setCancelable(false)
+
+    val dpToPx = { dp: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+
+    // 卡片背景（与权限菜单一致）
+    val cardLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(cardBgColor)
+            cornerRadius = dpToPx(28f).toFloat()
+            setStroke(dpToPx(1f), cardBorderColor)
+        }
+        setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
     }
-    builder.setNegativeButton("Leave") { dialog, _ ->
-        dialog.dismiss()
+
+    // 标题
+    val titleTv = TextView(this).apply {
+        text = "Note"
+        textSize = 22f
+        setTextColor(primaryTextColor)
+        setTypeface(null, Typeface.BOLD)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(8f))
     }
-    builder.setCancelable(false)
-    builder.show()
+    cardLayout.addView(titleTv)
+
+    // 描述文字
+    val messageTv = TextView(this).apply {
+        text = "Auto Refresh REQUIRED a device that can handle, enable on a weak device is UNSTABLE\n\n" +
+                "Facing bugs after enable? Disable this option and press \"Clear Cache\""
+        textSize = 15f
+        setTextColor(secondaryTextColor)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(16f))
+    }
+    cardLayout.addView(messageTv)
+
+    // 按钮行
+    val btnRow = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dpToPx(54f)
+        )
+    }
+
+    // Leave 按钮（左）
+    val leaveBtn = TextView(this).apply {
+        text = "Leave"
+        textSize = 15f
+        setTextColor(primaryTextColor)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(secondaryBtnColor)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            marginEnd = dpToPx(6f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnRow.addView(leaveBtn)
+
+    // Enable 按钮（右）
+    val enableBtn = TextView(this).apply {
+        text = "Enable"
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(accentColor)
+            cornerRadius = dpToPx(100f).toFloat()
+        }
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            marginStart = dpToPx(6f)
+        }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            dialog.dismiss()
+            // 用户确认启用
+            isConfirmingAutoRefresh = true
+            switch.isChecked = true
+            prefs.edit().putBoolean("auto_refresh_enabled", true).apply()
+            startAutoRefresh()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    btnRow.addView(enableBtn)
+
+    cardLayout.addView(btnRow)
+
+    dialog.setContentView(cardLayout)
+
+    dialog.window?.apply {
+        setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    dialog.show()
 }
 
     private fun updateFilterPillPosition(progress: Float) {
