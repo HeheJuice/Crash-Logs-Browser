@@ -25,10 +25,9 @@ class DeveloperOptionsActivity : Activity() {
     private var isDark: Boolean = false
     private var googleSansFlexTypeface: Typeface? = null
 
-    // 颜色变量（与 DetailsActivity 一致）
+    // 颜色变量（与系统设置一致）
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
-    private var cardBorderColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
@@ -48,15 +47,19 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
-        // 获取 Monet 颜色（与 DetailsActivity 相同逻辑）
+        // ★ 获取颜色（匹配系统设置）
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
-        bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        
+        // 背景：使用 colorSurfaceContainer（比 colorSurface 更亮）
+        bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        
+        // 卡片：深色模式使用 colorSurfaceContainerHigh，浅色模式使用 colorSurfaceContainerLowest
         cardBgColor = if (isDark) {
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
-        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
@@ -129,13 +132,12 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // 卡片（无边框，与 DetailsActivity 一致）
+        // 卡片（无边框）
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(8f), dpToPx(20f), dpToPx(8f))
             layoutParams = LinearLayout.LayoutParams(
@@ -161,23 +163,25 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // MaterialSwitch
+        // MaterialSwitch（颜色匹配系统设置）
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        // 准备颜色状态
+        // ★ 轨道颜色：开启时使用 colorPrimary，关闭时使用 colorSurfaceVariant（更暗）
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
         val trackColors = intArrayOf(
-            accentColor,
-            if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
+            accentColor,  // 开启时：colorPrimary（深色模式下是亮色）
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)  // 关闭时：更暗
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
+        // ★ 拇指：始终白色（与系统设置一致）
         switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
 
+        // ★ 对勾图标颜色：开启时使用 accentColor，关闭时使用 secondaryTextColor
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -188,11 +192,11 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
-        // ★ 关键修复：先读取保存的状态并设置（监听器尚未设置，不会触发保存）
+        // 读取保存的状态并设置
         val savedState = sharedPrefs.getBoolean("fake_update_enabled", false)
         switch.isChecked = savedState
 
-        // ★ 再设置监听器（用户手动操作才会触发）
+        // 设置监听器
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
@@ -275,7 +279,9 @@ class DeveloperOptionsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            window.statusBarColor = bgColor
+            // 状态栏与背景颜色一致（使用更亮的颜色）
+            val statusColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+            window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
