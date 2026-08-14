@@ -1968,7 +1968,6 @@ if (autoRefreshSwitch?.isChecked == true) {
         }
         return "Unknown Process"
     }
-
 private fun loadDropBoxLogs() {
     try {
         val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
@@ -1982,14 +1981,15 @@ private fun loadDropBoxLogs() {
         )
         var entry = dropBox.getNextEntry(null, 0)
         while (entry != null) {
+            val current = entry  // 转换为非空局部变量
             try {
-                val tag = entry.tag
+                val tag = current.tag
                 if (tags.contains(tag)) {
-                    val text = entry.getText(65536) ?: ""
-                    // ★ 新增过滤：跳过内容过短（小于 3 行或字符数少于 50）
+                    val text = current.getText(65536) ?: ""
+                    // ★ 过滤过短条目
                     if (text.lines().size < 3 || text.length < 50) {
-                        entry.close()
-                        entry = dropBox.getNextEntry(null, entry.timeMillis)
+                        entry = dropBox.getNextEntry(null, current.timeMillis)
+                        current.close()
                         continue
                     }
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
@@ -1999,15 +1999,15 @@ private fun loadDropBoxLogs() {
                     }
                     if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
                         val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
-                            .format(Date(entry.timeMillis))
+                            .format(Date(current.timeMillis))
                         allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Skipping corrupt DropBox entry", e)
             }
-            val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
-            entry.close()
+            val nextEntry = dropBox.getNextEntry(null, current.timeMillis)
+            current.close()
             entry = nextEntry
         }
     } catch (e: Exception) {
