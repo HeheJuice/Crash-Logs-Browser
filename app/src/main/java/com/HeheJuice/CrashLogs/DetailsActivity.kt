@@ -684,7 +684,7 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
-            val imageResId = resources.getIdentifier("GoogleSansFlexImage", "drawable", packageName)
+            val imageResId = resources.getIdentifier("googlesansfleximage", "drawable", packageName)
             if (imageResId != 0) {
                 setImageResource(imageResId)
                 scaleType = ImageView.ScaleType.CENTER_CROP
@@ -703,7 +703,7 @@ class DetailsActivity : Activity() {
             }
         }
         // 如果图片不存在，需要添加初始字母
-        if (resources.getIdentifier("GoogleSansFlexImage", "drawable", packageName) == 0) {
+        if (resources.getIdentifier("googlesansfleximage", "drawable", packageName) == 0) {
             val initialTv = TextView(this).apply {
                 text = "G"
                 textSize = 24f
