@@ -23,14 +23,14 @@ class DeveloperOptionsActivity : Activity() {
 
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
+    private var accentColor: Int = 0
+    private var googleSansFlexTypeface: Typeface? = null
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
-    private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
+    private var backBtnBgColor: Int = 0
     private var secondaryTextColor: Int = 0
-    private var accentColor: Int = 0
-    private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -46,14 +46,13 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
-        // ★ 获取所有 M3 动态颜色
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
         cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
-        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
-        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
 
         val dpToPx = { dp: Float ->
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
@@ -72,7 +71,7 @@ class DeveloperOptionsActivity : Activity() {
             setPadding(dpToPx(20f), getStatusBarHeight() + dpToPx(16f), dpToPx(20f), dpToPx(20f))
         }
 
-        // 顶部标题栏
+        // Top Bar
         val topBar = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -123,7 +122,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // 卡片
+        // Card
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -155,7 +154,7 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch（使用 Activity 上下文，已继承 M3 主题） =====
+        // MaterialSwitch
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
@@ -165,7 +164,7 @@ class DeveloperOptionsActivity : Activity() {
         )
         val trackColors = intArrayOf(
             accentColor,
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
+            if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
@@ -216,7 +215,6 @@ class DeveloperOptionsActivity : Activity() {
         setContentView(rootFrame)
     }
 
-    // ========== 辅助方法 ==========
     private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
         return object : android.graphics.drawable.Drawable() {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -266,8 +264,7 @@ class DeveloperOptionsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = bgColor
-            window.statusBarColor = statusColor
+            window.statusBarColor = bgColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {

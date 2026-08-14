@@ -64,7 +64,6 @@ class CrashLogActivity : Activity() {
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
 
-    // ★ M3 动态颜色
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
@@ -146,7 +145,7 @@ class CrashLogActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = cardBgColor
+            val statusColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
@@ -527,7 +526,7 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ===== ADB SECTION =====
+        // ADB SECTION
         val adbShellLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -763,7 +762,7 @@ class CrashLogActivity : Activity() {
     }
 
     private fun setupUI() {
-        val rootBgColor = cardBgColor
+        val rootBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
 
         rootFrameLayout = FrameLayout(this).apply {
             setBackgroundColor(rootBgColor)
@@ -787,7 +786,7 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // ========== LOGS TAB ==========
+        // LOGS TAB
         logsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -1007,7 +1006,7 @@ class CrashLogActivity : Activity() {
         recyclerView.adapter = logAdapter
         logsLayout.addView(recyclerView)
 
-        // ========== INFO TAB ==========
+        // INFO TAB
         infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
@@ -1159,7 +1158,7 @@ class CrashLogActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ========== TOP BAR ==========
+        // TOP BAR
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -1250,7 +1249,7 @@ class CrashLogActivity : Activity() {
         topBarLayout.addView(topBarRefreshContainer)
         rootFrameLayout.addView(topBarLayout)
 
-        // ========== BOTTOM BAR ==========
+        // BOTTOM BAR
         val bottomBarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1350,7 +1349,7 @@ class CrashLogActivity : Activity() {
         bottomBarLayout.addView(tabPillContainer)
         rootFrameLayout.addView(bottomBarLayout)
 
-        // ====== BOTTOM PILL SWITCH ======
+        // BOTTOM PILL SWITCH
         val switchTab: (Int) -> Unit = { tab ->
             if (currentTab != tab) {
                 currentTab = tab
@@ -1981,17 +1980,16 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // ★ 使用 Material 3 动态颜色
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
     }
 
     private fun createCardBackground(): GradientDrawable {
@@ -2148,7 +2146,7 @@ class CrashLogActivity : Activity() {
     }
 }
 
-// ========== DATA CLASSES ==========
+// ========== DATA CLASS & ADAPTER ==========
 data class LogEntry(
     val timestamp: String,
     val appName: String,
@@ -2156,7 +2154,6 @@ data class LogEntry(
     val details: String = ""
 )
 
-// ========== LOG ADAPTER ==========
 class LogAdapter(
     private var logs: List<LogEntry>,
     private val context: Context,

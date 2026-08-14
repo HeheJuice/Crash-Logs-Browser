@@ -43,7 +43,6 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
-    // M3 动态颜色
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
@@ -86,7 +85,6 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // 获取 M3 动态颜色
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
@@ -120,7 +118,7 @@ class DetailsActivity : Activity() {
             )
         }
 
-        // ----- Banner Card -----
+        // Banner Card
         val bannerCard = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
@@ -175,7 +173,7 @@ class DetailsActivity : Activity() {
         bannerCard.addView(titleText)
         scrollContent.addView(bannerCard)
 
-        // ----- Update Checker Card -----
+        // Update Checker Card
         val updateCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -253,7 +251,7 @@ class DetailsActivity : Activity() {
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // ----- Info Card (Source & License) -----
+        // Info Card (Source & License)
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -317,7 +315,7 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ----- ACKNOWLEDGMENTS CARD -----
+        // ACKNOWLEDGMENTS CARD
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -732,7 +730,7 @@ class DetailsActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ----- Top Bar -----
+        // Top Bar
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,

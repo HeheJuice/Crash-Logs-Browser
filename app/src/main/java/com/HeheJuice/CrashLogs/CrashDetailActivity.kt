@@ -53,7 +53,6 @@ class CrashDetailActivity : Activity() {
         initColors()
         setStatusBarColors()
 
-        // Get data
         type = intent.getStringExtra("type") ?: "Crash"
         appName = intent.getStringExtra("appName") ?: "Unknown"
         timestamp = intent.getStringExtra("timestamp") ?: "Unknown"
@@ -73,7 +72,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Header – back | title | open | save | copy
+        // Header
         val headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -83,7 +82,6 @@ class CrashDetailActivity : Activity() {
             )
         }
 
-        // Back button
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -102,7 +100,6 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(backBtn)
 
-        // Title
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -116,7 +113,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // ----- OPEN APP BUTTON -----
+        // Open button
         val openDrawable = ContextCompat.getDrawable(this, R.drawable.open_in_new_24px)
         val openBtn: View
         if (openDrawable != null) {
@@ -184,7 +181,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(openBtn)
 
-        // ----- SAVE AS TXT BUTTON -----
+        // Save button
         val saveDrawable = ContextCompat.getDrawable(this, R.drawable.attach_file_24px)
         val saveBtn: View
         if (saveDrawable != null) {
@@ -230,7 +227,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(saveBtn)
 
-        // ----- COPY BUTTON -----
+        // Copy button
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -329,7 +326,6 @@ class CrashDetailActivity : Activity() {
         setContentView(rootLayout)
     }
 
-    // ========== SAVE LOG TO FILE ==========
     private fun saveLogToFile() {
         val timeClean = timestamp.replace("/", "-").replace(":", "-")
         val filename = "${appName}-${timeClean}-${type}.txt"
@@ -366,7 +362,6 @@ class CrashDetailActivity : Activity() {
         }
     }
 
-    // ========== EXISTING METHODS ==========
     private fun copyToClipboard(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Crash Log", text)
@@ -428,12 +423,10 @@ class CrashDetailActivity : Activity() {
         false
     }
 
-    // ========== STATUS BAR & THEME ==========
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = cardBgColor
-            window.statusBarColor = statusColor
+            window.statusBarColor = cardBgColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
@@ -545,9 +538,7 @@ class CrashDetailActivity : Activity() {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-            }
+            setOnClickListener { dialog.dismiss() }
             setOnTouchListener(pressScaleTouchListener)
         }
         btnLayout.addView(laterBtn)
@@ -567,7 +558,6 @@ class CrashDetailActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // ★ 使用 Material 3 动态颜色
         cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
@@ -575,7 +565,7 @@ class CrashDetailActivity : Activity() {
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
     }
 
     private fun getStatusBarHeight(): Int {
