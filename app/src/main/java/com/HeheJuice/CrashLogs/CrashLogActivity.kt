@@ -1980,44 +1980,40 @@ private fun loadDropBoxLogs() {
             "data_app_anr",
             "SYSTEM_TOMBSTONE"
         )
-        // 收集所有匹配的条目
-        val entries = mutableListOf<android.os.DropBoxManager.Entry>()
         var entry = dropBox.getNextEntry(null, 0)
         while (entry != null) {
-            if (tags.contains(entry.tag)) {
-                entries.add(entry)
-            }
-            val next = dropBox.getNextEntry(null, entry.timeMillis)
-            entry.close()
-            entry = next
-        }
-        // 按时间降序排序（最新的在前）
-        entries.sortByDescending { it.timeMillis }
-        // 只取最近的 20 条（避免过多）
-        entries.take(20).forEach { e ->
             try {
-                val text = e.getText(65536) ?: ""
-                val type = if (e.tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
-                var pkg = extractPackageName(text.lines())
-                if (pkg == "Unknown Process") {
-                    pkg = e.tag
+                val tag = entry.tag
+                if (tags.contains(tag)) {
+                    val text = entry.getText(65536) ?: ""
+                    // ★ 新增过滤：跳过内容过短（小于 3 行或字符数少于 50）
+                    if (text.lines().size < 3 || text.length < 50) {
+                        entry.close()
+                        entry = dropBox.getNextEntry(null, entry.timeMillis)
+                        continue
+                    }
+                    val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
+                    var pkg = extractPackageName(text.lines())
+                    if (pkg == "Unknown Process") {
+                        pkg = tag
+                    }
+                    if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
+                        val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
+                            .format(Date(entry.timeMillis))
+                        allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
+                    }
                 }
-                if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
-                    val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
-                        .format(Date(e.timeMillis))
-                    allLogs.add(0, LogEntry(timeStr, pkg, type, "[${e.tag}]\n$text"))
-                }
-            } catch (ex: Exception) {
-                Log.e(TAG, "Skipping corrupt DropBox entry", ex)
-            } finally {
-                e.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Skipping corrupt DropBox entry", e)
             }
+            val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
+            entry.close()
+            entry = nextEntry
         }
     } catch (e: Exception) {
         Log.e(TAG, "Failed to read DropBoxManager", e)
     }
 }
-
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
