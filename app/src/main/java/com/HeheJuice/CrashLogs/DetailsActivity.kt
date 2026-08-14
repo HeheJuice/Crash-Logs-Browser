@@ -45,17 +45,14 @@ class DetailsActivity : Activity() {
 
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
-    private var cardBorderColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
-    private var onPrimaryColor: Int = 0
-
-    // Monet dynamic color tokens for Light Tonal Buttons & Chips
     private var buttonBgColor: Int = 0
     private var buttonTextColor: Int = 0
-    private var chipBgColor: Int = 0
+    private var badgeBgColor: Int = 0
+    private var logBgColor: Int = 0
 
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
@@ -90,24 +87,30 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
+        // 获取 Monet 颜色
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
-        onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         
-        // Background Monet surface
+        // 背景：深色模式使用 colorSurface（接近黑色），浅色模式使用 colorSurface（正常）
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
         
-        // Cards set to lowest surface container (Pure White in Light Theme)
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
-        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        // 卡片背景：深色模式使用 colorSurfaceContainer（比背景亮），浅色模式使用 colorSurfaceContainerLowest（白色）
+        cardBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
         
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
 
-        // Light Monet Button & Badge colors
+        // 按钮颜色（使用 PrimaryContainer，浅色模式浅蓝，深色模式深蓝）
         buttonBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimaryContainer)
         buttonTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimaryContainer)
-        chipBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+
+        // 状态徽章背景（SecondaryContainer）和日志背景（SurfaceContainerHigh）
+        badgeBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSecondaryContainer)
+        logBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
 
         setStatusBarColors()
 
@@ -138,7 +141,7 @@ class DetailsActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(0, Color.TRANSPARENT)
+                // 无边框
             }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(
@@ -188,13 +191,13 @@ class DetailsActivity : Activity() {
         bannerCard.addView(titleText)
         scrollContent.addView(bannerCard)
 
-        // Update Checker Card
+        // Update Checker Card（无边框）
         val updateCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
+                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -266,13 +269,13 @@ class DetailsActivity : Activity() {
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // Info Card (Source & License)
+        // Info Card (Source & License) 无边框
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
+                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
@@ -330,13 +333,13 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ACKNOWLEDGMENTS CARD
+        // ACKNOWLEDGMENTS CARD 无边框
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
+                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -992,14 +995,11 @@ class DetailsActivity : Activity() {
         val prefs = getSharedPreferences("developer_prefs", MODE_PRIVATE)
         val fakeEnabled = prefs.getBoolean("fake_update_enabled", false)
 
-        val badgeBg = MonetColorHelper.getColor(this, MaterialR.attr.colorSecondaryContainer)
-        val logBg = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-
         if (fakeEnabled) {
             runOnUiThread {
                 updateStatusView.text = getString(R.string.update_new_version, "9.9")
                 updateStatusView.background = GradientDrawable().apply {
-                    setColor(badgeBg)
+                    setColor(badgeBgColor)
                     cornerRadius = dpToPx(100f).toFloat()
                 }
                 updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -1008,7 +1008,7 @@ class DetailsActivity : Activity() {
                 val formatted = formatReleaseNotes(fakeBody)
                 releaseNotesView.text = formatted
                 val bg = GradientDrawable().apply {
-                    setColor(logBg)
+                    setColor(logBgColor)
                     cornerRadius = dpToPx(20f).toFloat()
                 }
                 releaseNotesView.background = bg
@@ -1071,7 +1071,7 @@ class DetailsActivity : Activity() {
                         if (comparison > 0) {
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
                             updateStatusView.background = GradientDrawable().apply {
-                                setColor(badgeBg)
+                                setColor(badgeBgColor)
                                 cornerRadius = dpToPx(100f).toFloat()
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -1081,7 +1081,7 @@ class DetailsActivity : Activity() {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
                                 val bg = GradientDrawable().apply {
-                                    setColor(logBg)
+                                    setColor(logBgColor)
                                     cornerRadius = dpToPx(20f).toFloat()
                                 }
                                 releaseNotesView.background = bg
@@ -1289,6 +1289,7 @@ class DetailsActivity : Activity() {
     }
 
     private fun showRestartDialog() {
+        // 完整实现（保持不变）
         val dialog = android.app.Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
