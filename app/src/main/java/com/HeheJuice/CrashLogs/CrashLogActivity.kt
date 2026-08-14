@@ -1855,10 +1855,10 @@ if (autoRefreshSwitch?.isChecked == true) {
         allLogs.clear()
 
         val logcatCmd = if (hasRoot()) {
-            "su -c logcat -b crash -b main -b system -d -v time -t 5000"
-        } else {
-            "logcat -b crash -b main -b system -d -v time -t 5000"
-        }
+    "su -c logcat -b crash -b main -b system -d -v time -t 10000"
+} else {
+    "logcat -b crash -b main -b system -d -v time -t 10000"
+}
 
         if (checkReadLogsPermission() || hasRoot()) {
             try {
@@ -1926,18 +1926,21 @@ if (autoRefreshSwitch?.isChecked == true) {
     }
 
     private fun isRealCrashLine(line: String): Boolean {
-        if (line.length < 10) return false
-        return line.contains("FATAL EXCEPTION") ||
-                line.contains("ANR in") ||
-                line.contains("SIGABRT") ||
-                line.contains("SIGSEGV") ||
-                line.contains("Native crash") ||
-                line.contains("signal 11") ||
-                line.contains("signal 6") ||
-                (line.contains("Abort message") && line.contains("FATAL")) ||
-                (line.contains("backtrace:") && line.contains("pid:")) ||
-                (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal")))
-    }
+    if (line.length < 10) return false
+    return line.contains("FATAL EXCEPTION") ||
+            line.contains("ANR in") ||
+            line.contains("SIGABRT") ||
+            line.contains("SIGSEGV") ||
+            line.contains("Native crash") ||
+            line.contains("signal 11") ||
+            line.contains("signal 6") ||
+            (line.contains("Abort message") && line.contains("FATAL")) ||
+            (line.contains("backtrace:") && line.contains("pid:")) ||
+            (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal"))) ||
+            line.contains("RemoteServiceException") ||
+            line.contains("shell-induced crash") ||
+            line.contains("CrashedByAdbException")
+}
 
     private fun extractTimestamp(line: String): String {
         val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
@@ -1966,45 +1969,54 @@ if (autoRefreshSwitch?.isChecked == true) {
         return "Unknown Process"
     }
 
-    private fun loadDropBoxLogs() {
-        try {
-            val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
-            val tags = setOf(
-                "system_app_native_crash",
-                "system_app_crash",
-                "data_app_crash",
-                "system_app_anr",
-                "data_app_anr",
-                "SYSTEM_TOMBSTONE"
-            )
-            var entry = dropBox.getNextEntry(null, 0)
-            while (entry != null) {
-                try {
-                    val tag = entry.tag
-                    if (tags.contains(tag)) {
-                        val text = entry.getText(65536) ?: ""
-                        val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
-                        var pkg = extractPackageName(text.lines())
-                        if (pkg == "Unknown Process") {
-                            pkg = tag
-                        }
-                        if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
-                            val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
-                                .format(Date(entry.timeMillis))
-                            allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Skipping corrupt DropBox entry", e)
-                }
-                val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
-                entry.close()
-                entry = nextEntry
+private fun loadDropBoxLogs() {
+    try {
+        val dropBox = getSystemService(Context.DROPBOX_SERVICE) as? android.os.DropBoxManager ?: return
+        val tags = setOf(
+            "system_app_native_crash",
+            "system_app_crash",
+            "data_app_crash",
+            "system_app_anr",
+            "data_app_anr",
+            "SYSTEM_TOMBSTONE"
+        )
+        // 收集所有匹配的条目
+        val entries = mutableListOf<android.os.DropBoxManager.Entry>()
+        var entry = dropBox.getNextEntry(null, 0)
+        while (entry != null) {
+            if (tags.contains(entry.tag)) {
+                entries.add(entry)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read DropBoxManager", e)
+            val next = dropBox.getNextEntry(null, entry.timeMillis)
+            entry.close()
+            entry = next
         }
+        // 按时间降序排序（最新的在前）
+        entries.sortByDescending { it.timeMillis }
+        // 只取最近的 20 条（避免过多）
+        entries.take(20).forEach { e ->
+            try {
+                val text = e.getText(65536) ?: ""
+                val type = if (e.tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
+                var pkg = extractPackageName(text.lines())
+                if (pkg == "Unknown Process") {
+                    pkg = e.tag
+                }
+                if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
+                    val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
+                        .format(Date(e.timeMillis))
+                    allLogs.add(0, LogEntry(timeStr, pkg, type, "[${e.tag}]\n$text"))
+                }
+            } catch (ex: Exception) {
+                Log.e(TAG, "Skipping corrupt DropBox entry", ex)
+            } finally {
+                e.close()
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to read DropBoxManager", e)
     }
+}
 
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
