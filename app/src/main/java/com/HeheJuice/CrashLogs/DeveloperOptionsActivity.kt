@@ -25,13 +25,16 @@ class DeveloperOptionsActivity : Activity() {
     private var isDark: Boolean = false
     private var googleSansFlexTypeface: Typeface? = null
 
-    // 颜色变量（与系统设置一致）
+    // 颜色变量
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
+    private var trackOnColor: Int = 0    // 开启轨道颜色
+    private var trackOffColor: Int = 0   // 关闭轨道颜色
+    private var thumbColor: Int = 0      // 拇指颜色
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -47,22 +50,31 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
-        // ★ 获取颜色（匹配系统设置）
+        // 获取颜色
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
-        
-        // 背景：使用 colorSurfaceContainer（比 colorSurface 更亮）
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
-        
-        // 卡片：深色模式使用 colorSurfaceContainerHigh，浅色模式使用 colorSurfaceContainerLowest
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
-        
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+
+        // ★ 深色模式下开关颜色逻辑
+        if (isDark) {
+            // 深色模式：开启轨道使用 PrimaryContainer（深色），关闭轨道使用 SurfaceVariant（灰色）
+            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimaryContainer)
+            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
+            // 拇指使用 OnPrimaryContainer（比 PrimaryContainer 更暗）
+            thumbColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimaryContainer)
+        } else {
+            // 浅色模式：开启轨道使用 Primary（亮色），关闭轨道使用 SurfaceVariant（灰色）
+            trackOnColor = accentColor
+            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
+            thumbColor = Color.WHITE  // 浅色模式拇指为白色
+        }
 
         val dpToPx = { dp: Float ->
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
@@ -132,7 +144,7 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // 卡片（无边框）
+        // 卡片
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -163,25 +175,25 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // MaterialSwitch（颜色匹配系统设置）
+        // MaterialSwitch
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        // ★ 轨道颜色：开启时使用 colorPrimary，关闭时使用 colorSurfaceVariant（更暗）
+        // ★ 轨道颜色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
         val trackColors = intArrayOf(
-            accentColor,  // 开启时：colorPrimary（深色模式下是亮色）
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)  // 关闭时：更暗
+            trackOnColor,   // 开启时：深色模式使用 PrimaryContainer，浅色模式使用 Primary
+            trackOffColor   // 关闭时：灰色
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // ★ 拇指：始终白色（与系统设置一致）
-        switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+        // ★ 拇指颜色（深色模式使用 OnPrimaryContainer，比轨道更深；浅色模式白色）
+        switch.thumbTintList = ColorStateList.valueOf(thumbColor)
 
-        // ★ 对勾图标颜色：开启时使用 accentColor，关闭时使用 secondaryTextColor
+        // 对勾图标颜色（开启时使用 accentColor，关闭时使用 secondaryTextColor）
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -279,7 +291,6 @@ class DeveloperOptionsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            // 状态栏与背景颜色一致（使用更亮的颜色）
             val statusColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
