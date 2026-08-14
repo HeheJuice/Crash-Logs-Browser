@@ -3,7 +3,6 @@ package com.HeheJuice.CrashLogs
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,17 +14,15 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.DocumentsContract
-import android.provider.DocumentsContract.Document
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.ContextCompat
+import com.google.android.material.R as MaterialR
 import java.io.OutputStreamWriter
 
 class CrashDetailActivity : Activity() {
@@ -33,6 +30,7 @@ class CrashDetailActivity : Activity() {
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
+    private var onPrimaryColor: Int = 0
     private var inputBgColor: Int = 0
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
@@ -186,7 +184,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(openBtn)
 
-        // ----- SAVE AS TXT BUTTON (NEW) -----
+        // ----- SAVE AS TXT BUTTON -----
         val saveDrawable = ContextCompat.getDrawable(this, R.drawable.attach_file_24px)
         val saveBtn: View
         if (saveDrawable != null) {
@@ -333,7 +331,6 @@ class CrashDetailActivity : Activity() {
 
     // ========== SAVE LOG TO FILE ==========
     private fun saveLogToFile() {
-        // Create filename: PackageName-Time-Crash/ANR.txt
         val timeClean = timestamp.replace("/", "-").replace(":", "-")
         val filename = "${appName}-${timeClean}-${type}.txt"
 
@@ -341,7 +338,6 @@ class CrashDetailActivity : Activity() {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "text/plain"
             putExtra(Intent.EXTRA_TITLE, filename)
-            // Optionally set initial directory (not supported in all devices)
         }
         startActivityForResult(intent, REQUEST_CODE_SAVE_FILE)
     }
@@ -436,7 +432,7 @@ class CrashDetailActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            val statusColor = cardBgColor
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
@@ -570,13 +566,16 @@ class CrashDetailActivity : Activity() {
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
-        cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
-        backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
-        inputBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+
+        // ★ 使用 Material 3 动态颜色
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
+        secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+        onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
     }
 
     private fun getStatusBarHeight(): Int {

@@ -25,7 +25,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.FileProvider
-import com.google.android.material.color.DynamicColors
+import com.google.android.material.R as MaterialR
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -42,7 +42,16 @@ class DetailsActivity : Activity() {
     private var isDark: Boolean = false
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
+
+    // M3 动态颜色
+    private var bgColor: Int = 0
+    private var cardBgColor: Int = 0
+    private var cardBorderColor: Int = 0
+    private var backBtnBgColor: Int = 0
+    private var primaryTextColor: Int = 0
+    private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
+    private var onPrimaryColor: Int = 0
 
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
@@ -66,8 +75,6 @@ class DetailsActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        DynamicColors.applyToActivityIfAvailable(this)
-
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
@@ -79,19 +86,17 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        accentColor = MonetColorHelper.getColor(
-            this,
-            com.google.android.material.R.attr.colorPrimary
-        )
+        // 获取 M3 动态颜色
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+        onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
+        secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
 
         setStatusBarColors()
-
-        val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-        val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
 
         val statusBarHeight = getStatusBarHeight()
         val dpToPx = { dp: Float ->
@@ -229,7 +234,7 @@ class DetailsActivity : Activity() {
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -266,7 +271,7 @@ class DetailsActivity : Activity() {
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -289,7 +294,7 @@ class DetailsActivity : Activity() {
         val licenseBtn = TextView(this).apply {
             text = "View License"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -801,7 +806,6 @@ class DetailsActivity : Activity() {
 
         setContentView(rootFrameLayout)
 
-        // 恢复已下载 APK 状态
         val cachedFile = File(cacheDir, "app-release.apk")
         if (cachedFile.exists()) {
             downloadedApkFile = cachedFile
@@ -835,7 +839,6 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 下载任务 ==========
     private fun downloadApk() {
         downloadTask?.cancel(true)
         downloadTask = DownloadApkTask()
@@ -927,7 +930,6 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 安装 APK ==========
     private fun installApk(file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!packageManager.canRequestPackageInstalls()) {
@@ -958,7 +960,6 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 删除缓存 APK ==========
     private fun deleteCachedApk() {
         try {
             val file = File(cacheDir, "app-release.apk")
@@ -974,7 +975,6 @@ class DetailsActivity : Activity() {
         } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（含模拟更新开关） ==========
     private fun checkForUpdates() {
         val prefs = getSharedPreferences("developer_prefs", MODE_PRIVATE)
         val fakeEnabled = prefs.getBoolean("fake_update_enabled", false)
@@ -1126,7 +1126,6 @@ class DetailsActivity : Activity() {
         }.start()
     }
 
-    // ========== 格式化发布日志 ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
@@ -1189,7 +1188,6 @@ class DetailsActivity : Activity() {
         return spannable
     }
 
-    // ========== 辅助方法 ==========
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
@@ -1387,8 +1385,7 @@ class DetailsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-            window.statusBarColor = statusColor
+            window.statusBarColor = bgColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {

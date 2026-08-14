@@ -24,8 +24,6 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.util.LruCache
 import android.util.TypedValue
@@ -42,6 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.R as MaterialR
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -61,14 +60,15 @@ class CrashLogActivity : Activity() {
         private const val FILTER_CRASH = 1
         private const val FILTER_ANR = 2
 
-        // ========== SIGNATURE CHECK ==========
         private const val EXPECTED_SIGNATURE_HASH = "cd04972b4d1edd5a2a6e11e0a4fa6119cc3da1b49a59c922b165fbe844a7c36b"
         private const val OFFICIAL_SOURCE_URL = "https://github.com/HeheJuice/Crash-Logs-Browser/releases"
     }
 
+    // ★ M3 动态颜色
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
+    private var onPrimaryColor: Int = 0
     private var inputBgColor: Int = 0
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
@@ -77,7 +77,7 @@ class CrashLogActivity : Activity() {
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
     private var isDark: Boolean = false
-    private var googleSansFlexTypeface: Typeface? = null   // ★ 新增
+    private var googleSansFlexTypeface: Typeface? = null
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var logAdapter: LogAdapter
@@ -87,16 +87,13 @@ class CrashLogActivity : Activity() {
     private lateinit var logsLayout: LinearLayout
     private lateinit var infoLayout: LinearLayout
 
-    // Empty state
     private lateinit var emptyStateText: TextView
 
-    // Bottom bar
     private lateinit var slidingPillView: View
     private lateinit var logsPillBtn: TextView
     private lateinit var infoPillBtn: TextView
     private var currentTab = TAB_LOGS
 
-    // Filter pill (inside scroll)
     private lateinit var filterPillContainer: FrameLayout
     private lateinit var filterSlidingView: View
     private lateinit var filterAllBtn: TextView
@@ -104,15 +101,12 @@ class CrashLogActivity : Activity() {
     private lateinit var filterAnrBtn: TextView
     private var currentFilterTab = FILTER_ALL
 
-    // Loading text view
     private lateinit var loadingText: TextView
 
-    // Refresh cooldown
     private var cooldownTimer: CountDownTimer? = null
     private var isCooldown = false
     private var remainingSeconds = 0
 
-    // UI references
     private lateinit var refreshButton: TextView
     private lateinit var topBarRefreshContainer: FrameLayout
     private lateinit var topBarRefreshIcon: ImageView
@@ -126,7 +120,6 @@ class CrashLogActivity : Activity() {
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
-        // Signature check
         if (!checkSignature()) {
             showTamperedDialog()
             return
@@ -134,7 +127,6 @@ class CrashLogActivity : Activity() {
 
         initColors()
 
-        // ★ 新增：加载 Google Sans Flex 字体
         googleSansFlexTypeface = try {
             Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
         } catch (_: Exception) { null }
@@ -151,11 +143,10 @@ class CrashLogActivity : Activity() {
         loadLogsAsync {}
     }
 
-    // ========== STATUS BAR ==========
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            val statusColor = cardBgColor
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
@@ -259,7 +250,6 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== SIGNATURE CHECK ==========
     private fun checkSignature(): Boolean {
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -290,7 +280,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== TAMPERED DIALOG ==========
     private fun showTamperedDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -428,7 +417,6 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== PERMISSION DIALOG (FULL ADB CODE RESTORED) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -474,7 +462,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(subTv)
 
-        // Permission status list
         val permissions = listOf(
             "READ_LOGS" to "Read system logs",
             "READ_DROPBOX_DATA" to "Access crash data",
@@ -540,9 +527,7 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ===== ADB SECTION (FULL) =====
-
-        // Block 1: Enter ADB shell
+        // ===== ADB SECTION =====
         val adbShellLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -608,7 +593,6 @@ class CrashLogActivity : Activity() {
         adbShellLayout.addView(shellCommand)
         cardLayout.addView(adbShellLayout)
 
-        // Block 2: Run these commands inside ADB shell
         val adbCommandsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -705,7 +689,6 @@ class CrashLogActivity : Activity() {
 
         cardLayout.addView(adbCommandsLayout)
 
-        // ---- Grant with Root ----
         val rootGrantBtn = createAnimatedButton(
             "Grant with Root (Auto)",
             Color.WHITE,
@@ -719,7 +702,6 @@ class CrashLogActivity : Activity() {
         }
         cardLayout.addView(rootGrantBtn)
 
-        // ---- Button row: Exit App & Check Again ----
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -780,9 +762,8 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== UI SETUP ==========
     private fun setupUI() {
-        val rootBgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+        val rootBgColor = cardBgColor
 
         rootFrameLayout = FrameLayout(this).apply {
             setBackgroundColor(rootBgColor)
@@ -815,7 +796,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // ---- FILTER PILL ----
         filterPillContainer = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -974,7 +954,6 @@ class CrashLogActivity : Activity() {
 
         logsLayout.addView(filterPillContainer)
 
-        // ---- Loading Text ----
         loadingText = TextView(this).apply {
             text = "Loading Full Logs (Might Take 5 to 10 Seconds the first time)"
             textSize = 18f
@@ -992,7 +971,6 @@ class CrashLogActivity : Activity() {
         }
         logsLayout.addView(loadingText)
 
-        // ---- Empty State ----
         emptyStateText = TextView(this).apply {
             text = "No logs found.\nTry refresh?"
             textSize = 18f
@@ -1007,7 +985,6 @@ class CrashLogActivity : Activity() {
         }
         logsLayout.addView(emptyStateText)
 
-        // ---- RECYCLER VIEW ----
         recyclerView = RecyclerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1040,7 +1017,6 @@ class CrashLogActivity : Activity() {
             )
         }
 
-        // ---- App Info Card ----
         val appInfoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = createCardBackground()
@@ -1053,7 +1029,6 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // ★ 修改：应用 Google Sans Flex Bold Round
         val appNameTitle = TextView(this).apply {
             text = "Crash Logs Browser"
             textSize = 22f
@@ -1091,7 +1066,7 @@ class CrashLogActivity : Activity() {
         val updatePill = TextView(this).apply {
             text = "Check for Updates"
             textSize = 13f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
@@ -1114,7 +1089,6 @@ class CrashLogActivity : Activity() {
 
         infoLayout.addView(appInfoCard)
 
-        // ---- Statistics Card ----
         val statsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = createCardBackground()
@@ -1148,7 +1122,6 @@ class CrashLogActivity : Activity() {
         statsRow.addView(createStatCard("ANR", "0", accentColor, false))
         statsCard.addView(statsRow)
 
-        // ---- Button row: Refresh Logs & Clear Cache ----
         val buttonRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -1159,7 +1132,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        refreshButton = createAnimatedButton("Refresh Logs", Color.WHITE, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
+        refreshButton = createAnimatedButton("Refresh Logs", onPrimaryColor, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
@@ -1193,7 +1166,7 @@ class CrashLogActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
             setBackgroundColor(rootBgColor)
-            elevation = 0f // Remove shadow
+            elevation = 0f
             setPadding(dpToPx(16f), statusBarHeight + dpToPx(8f), dpToPx(16f), dpToPx(8f))
         }
 
@@ -1444,13 +1417,11 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        // ========== SCROLL LISTENER ==========
         scrollView.setOnScrollChangeListener(NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
             val alpha = (scrollY / dpToPx(40f).toFloat()).coerceIn(0f, 1f)
             topBarTitle.alpha = alpha
         })
 
-        // ========== WINDOW INSETS ==========
         rootFrameLayout.setOnApplyWindowInsetsListener { _, insets ->
             val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 insets.getInsets(WindowInsets.Type.statusBars()).top
@@ -1473,7 +1444,6 @@ class CrashLogActivity : Activity() {
         setContentView(rootFrameLayout)
     }
 
-    // ========== REFRESH WITH COOLDOWN ==========
     private fun performRefresh() {
         if (isCooldown) return
 
@@ -1521,7 +1491,6 @@ class CrashLogActivity : Activity() {
         super.onDestroy()
     }
 
-    // ========== FILTER PILL FUNCTIONS ==========
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = filterAllBtn.left.toFloat()
@@ -1571,7 +1540,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== APPLY FILTERS ==========
     private fun applyFilters() {
         val result = when (currentFilterTab) {
             FILTER_CRASH -> allLogs.filter { it.type == "Crash" }
@@ -1593,7 +1561,6 @@ class CrashLogActivity : Activity() {
         recyclerView.translationY = 0f
     }
 
-    // ========== BOTTOM PILL FUNCTIONS ==========
     private fun updatePillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = logsPillBtn.left.toFloat()
@@ -1645,7 +1612,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== CACHING ==========
     private fun getCacheFile(): File {
         return File(filesDir, "crash_logs_cache.json")
     }
@@ -1704,7 +1670,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== LOG PARSING ==========
     private fun loadLogsAsync(onComplete: () -> Unit) {
         val cachedLogs = loadLogsFromCache()
         if (cachedLogs != null) {
@@ -1911,7 +1876,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== PERMISSION CHECKS ==========
     private fun checkAllPermissions(): Boolean {
         return checkReadLogsPermission() && checkDropBoxPermission() && checkUsageStatsPermission()
     }
@@ -1965,7 +1929,6 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== ROOT PERMISSION GRANT ==========
     private fun grantPermissionsWithRoot() {
         Toast.makeText(this, "Requesting root permissions...", Toast.LENGTH_SHORT).show()
         Thread {
@@ -2014,19 +1977,21 @@ class CrashLogActivity : Activity() {
         }
     }
 
-    // ========== UI HELPERS ==========
     private fun initColors() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
-        cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
-        secondaryBtnColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
+
+        // ★ 使用 Material 3 动态颜色
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
+        secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+        onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
-        backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
-        inputBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F2F2F7")
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
     }
 
     private fun createCardBackground(): GradientDrawable {

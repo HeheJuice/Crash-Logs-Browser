@@ -11,25 +11,28 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
-import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.widget.*
-import com.google.android.material.color.DynamicColors
+import com.google.android.material.R as MaterialR
 import com.google.android.material.materialswitch.MaterialSwitch
 
 class DeveloperOptionsActivity : Activity() {
 
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
+    private var bgColor: Int = 0
+    private var cardBgColor: Int = 0
+    private var cardBorderColor: Int = 0
+    private var backBtnBgColor: Int = 0
+    private var primaryTextColor: Int = 0
+    private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
     private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        DynamicColors.applyToActivityIfAvailable(this)
-
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
@@ -43,17 +46,14 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
-        accentColor = MonetColorHelper.getColor(
-            this,
-            com.google.android.material.R.attr.colorPrimary
-        )
-
-        val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-        val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
+        // ★ 获取所有 M3 动态颜色
+        bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
+        secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
 
         val dpToPx = { dp: Float ->
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
@@ -155,13 +155,8 @@ class DeveloperOptionsActivity : Activity() {
         }
         row.addView(label)
 
-        // ===== MaterialSwitch =====
-        val themedContext = ContextThemeWrapper(
-            this,
-            com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
-        )
-
-        val switch = LayoutInflater.from(themedContext)
+        // ===== MaterialSwitch（使用 Activity 上下文，已继承 M3 主题） =====
+        val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
         val trackStates = arrayOf(
@@ -170,7 +165,7 @@ class DeveloperOptionsActivity : Activity() {
         )
         val trackColors = intArrayOf(
             accentColor,
-            if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
         )
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
@@ -182,7 +177,7 @@ class DeveloperOptionsActivity : Activity() {
         )
         val iconColors = intArrayOf(
             accentColor,
-            if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+            MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
@@ -271,7 +266,7 @@ class DeveloperOptionsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
+            val statusColor = bgColor
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
