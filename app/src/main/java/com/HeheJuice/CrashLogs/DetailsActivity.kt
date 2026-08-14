@@ -43,6 +43,7 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
+    // 颜色变量
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
     private var backBtnBgColor: Int = 0
@@ -87,28 +88,18 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // 获取 Monet 颜色
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
-        
-        // 背景：深色模式使用 colorSurface（接近黑色），浅色模式使用 colorSurface（正常）
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
-        
-        // 卡片背景：深色模式使用 colorSurfaceContainer（比背景亮），浅色模式使用 colorSurfaceContainerLowest（白色）
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
-        
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
-
-        // 按钮颜色（使用 PrimaryContainer，浅色模式浅蓝，深色模式深蓝）
         buttonBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimaryContainer)
         buttonTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimaryContainer)
-
-        // 状态徽章背景（SecondaryContainer）和日志背景（SurfaceContainerHigh）
         badgeBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSecondaryContainer)
         logBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
 
@@ -141,7 +132,6 @@ class DetailsActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
                 cornerRadius = dpToPx(28f).toFloat()
-                // 无边框
             }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(
@@ -191,13 +181,12 @@ class DetailsActivity : Activity() {
         bannerCard.addView(titleText)
         scrollContent.addView(bannerCard)
 
-        // Update Checker Card（无边框）
+        // Update Checker Card
         val updateCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -206,6 +195,7 @@ class DetailsActivity : Activity() {
             ).apply { topMargin = dpToPx(16f) }
         }
 
+        // 状态文字
         updateStatusView = TextView(this).apply {
             text = getString(R.string.update_checking)
             textSize = 15f
@@ -215,6 +205,7 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(updateStatusView)
 
+        // 更新日志 (初始隐藏，间距统一为 8dp)
         releaseNotesView = TextView(this).apply {
             visibility = View.GONE
             textSize = 14f
@@ -227,9 +218,17 @@ class DetailsActivity : Activity() {
                     typeface = googleSansFlexTypeface
                 }
             }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 0
+                bottomMargin = 0
+            }
         }
         updateCard.addView(releaseNotesView)
 
+        // 下载进度 (隐藏)
         downloadProgressText = TextView(this).apply {
             text = "0%"
             visibility = View.GONE
@@ -247,6 +246,7 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(downloadProgressText)
 
+        // 下载按钮
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
@@ -260,7 +260,10 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                topMargin = 0
+                bottomMargin = 0
+            }
             isClickable = true
             isFocusable = true
             visibility = View.GONE
@@ -269,13 +272,12 @@ class DetailsActivity : Activity() {
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // Info Card (Source & License) 无边框
+        // Info Card
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
@@ -333,13 +335,12 @@ class DetailsActivity : Activity() {
         infoCard.addView(licenseBtn)
         scrollContent.addView(infoCard)
 
-        // ACKNOWLEDGMENTS CARD 无边框
+        // ACKNOWLEDGMENTS CARD
         val creditsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -822,6 +823,7 @@ class DetailsActivity : Activity() {
 
         setContentView(rootFrameLayout)
 
+        // 恢复已下载 APK 状态
         val cachedFile = File(cacheDir, "app-release.apk")
         if (cachedFile.exists()) {
             downloadedApkFile = cachedFile
@@ -1014,6 +1016,7 @@ class DetailsActivity : Activity() {
                 releaseNotesView.background = bg
                 releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                 releaseNotesView.visibility = View.VISIBLE
+                // 设置统一间距 8dp
                 val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
                 lp.topMargin = dpToPx(8f)
                 lp.bottomMargin = dpToPx(8f)
@@ -1087,7 +1090,7 @@ class DetailsActivity : Activity() {
                                 releaseNotesView.background = bg
                                 releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                                 releaseNotesView.visibility = View.VISIBLE
-
+                                // 设置统一间距 8dp
                                 val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
                                 lp.topMargin = dpToPx(8f)
                                 lp.bottomMargin = dpToPx(8f)
@@ -1289,7 +1292,6 @@ class DetailsActivity : Activity() {
     }
 
     private fun showRestartDialog() {
-        // 完整实现（保持不变）
         val dialog = android.app.Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 

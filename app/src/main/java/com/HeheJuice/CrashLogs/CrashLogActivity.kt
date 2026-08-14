@@ -425,7 +425,6 @@ class CrashLogActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
         }
@@ -474,7 +473,6 @@ class CrashLogActivity : Activity() {
                 background = GradientDrawable().apply {
                     setColor(inputBgColor)
                     cornerRadius = dpToPx(12f).toFloat()
-                    setStroke(dpToPx(1f), cardBorderColor)
                 }
                 setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                 layoutParams = LinearLayout.LayoutParams(
@@ -533,7 +531,6 @@ class CrashLogActivity : Activity() {
                 setColor(redBtnColor)
                 setAlpha(30)
                 cornerRadius = dpToPx(12f).toFloat()
-                setStroke(dpToPx(1f), redBtnColor)
             }
             setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
             layoutParams = LinearLayout.LayoutParams(
@@ -598,7 +595,6 @@ class CrashLogActivity : Activity() {
                 setColor(redBtnColor)
                 setAlpha(30)
                 cornerRadius = dpToPx(12f).toFloat()
-                setStroke(dpToPx(1f), redBtnColor)
             }
             setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
             layoutParams = LinearLayout.LayoutParams(
@@ -800,7 +796,6 @@ class CrashLogActivity : Activity() {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(100f).toFloat()
                 setColor(cardBgColor)
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
             layoutParams = LinearLayout.LayoutParams(
@@ -1018,7 +1013,10 @@ class CrashLogActivity : Activity() {
 
         val appInfoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = createCardBackground()
+            background = GradientDrawable().apply {
+                setColor(cardBgColor)
+                cornerRadius = dpToPx(28f).toFloat()
+            }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1090,7 +1088,10 @@ class CrashLogActivity : Activity() {
 
         val statsCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = createCardBackground()
+            background = GradientDrawable().apply {
+                setColor(cardBgColor)
+                cornerRadius = dpToPx(28f).toFloat()
+            }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1267,7 +1268,6 @@ class CrashLogActivity : Activity() {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dpToPx(100f).toFloat()
                 setColor(cardBgColor)
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(4f), dpToPx(4f), dpToPx(4f), dpToPx(4f))
             layoutParams = LinearLayout.LayoutParams(
@@ -1980,7 +1980,11 @@ class CrashLogActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+        cardBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
@@ -1988,7 +1992,11 @@ class CrashLogActivity : Activity() {
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         secondaryBtnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        inputBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
         redBtnColor = if (isDark) Color.parseColor("#FF453A") else Color.parseColor("#FF3B30")
     }
 
@@ -1996,7 +2004,6 @@ class CrashLogActivity : Activity() {
         return GradientDrawable().apply {
             setColor(cardBgColor)
             cornerRadius = dpToPx(28f).toFloat()
-            setStroke(dpToPx(1f), cardBorderColor)
         }
     }
 
@@ -2007,7 +2014,6 @@ class CrashLogActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(inputBgColor)
                 cornerRadius = dpToPx(16f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(16f), dpToPx(16f), dpToPx(16f), dpToPx(16f))
             layoutParams = LinearLayout.LayoutParams(

@@ -23,14 +23,16 @@ class DeveloperOptionsActivity : Activity() {
 
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
-    private var accentColor: Int = 0
     private var googleSansFlexTypeface: Typeface? = null
+
+    // 颜色变量（与 DetailsActivity 一致）
     private var bgColor: Int = 0
     private var cardBgColor: Int = 0
     private var cardBorderColor: Int = 0
-    private var primaryTextColor: Int = 0
     private var backBtnBgColor: Int = 0
+    private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
+    private var accentColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -46,13 +48,18 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
+        // 获取 Monet 颜色（与 DetailsActivity 相同逻辑）
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        cardBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
-        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
 
         val dpToPx = { dp: Float ->
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
@@ -71,7 +78,7 @@ class DeveloperOptionsActivity : Activity() {
             setPadding(dpToPx(20f), getStatusBarHeight() + dpToPx(16f), dpToPx(20f), dpToPx(20f))
         }
 
-        // Top Bar
+        // 顶部标题栏
         val topBar = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -122,13 +129,13 @@ class DeveloperOptionsActivity : Activity() {
 
         contentLayout.addView(topBar)
 
-        // Card
+        // 卡片（无边框，与 DetailsActivity 一致）
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
+                // 无边框
             }
             setPadding(dpToPx(20f), dpToPx(8f), dpToPx(20f), dpToPx(8f))
             layoutParams = LinearLayout.LayoutParams(
@@ -158,6 +165,7 @@ class DeveloperOptionsActivity : Activity() {
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
+        // 准备颜色状态
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
@@ -180,9 +188,11 @@ class DeveloperOptionsActivity : Activity() {
         )
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
+        // ★ 关键修复：先读取保存的状态并设置（监听器尚未设置，不会触发保存）
         val savedState = sharedPrefs.getBoolean("fake_update_enabled", false)
         switch.isChecked = savedState
 
+        // ★ 再设置监听器（用户手动操作才会触发）
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
@@ -190,6 +200,7 @@ class DeveloperOptionsActivity : Activity() {
                 if (isChecked) "Fake update enabled" else "Fake update disabled",
                 Toast.LENGTH_SHORT
             ).show()
+            // 刷新颜色
             switch.trackTintList = ColorStateList(trackStates, trackColors)
             switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }

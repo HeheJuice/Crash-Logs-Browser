@@ -64,6 +64,7 @@ class CrashDetailActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
+                // 无边框
             }
             setPadding(dpToPx(20f), statusBarHeight + dpToPx(12f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
@@ -310,7 +311,7 @@ class CrashDetailActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(inputBgColor)
                 cornerRadius = dpToPx(8f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
+                // 无边框
             }
             movementMethod = ScrollingMovementMethod.getInstance()
             maxLines = Int.MAX_VALUE
@@ -426,7 +427,12 @@ class CrashDetailActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            window.statusBarColor = cardBgColor
+            val statusColor = if (isDark) {
+                MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+            } else {
+                MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+            }
+            window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
@@ -558,14 +564,22 @@ class CrashDetailActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+        cardBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
-        inputBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+        inputBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
     }
 
     private fun getStatusBarHeight(): Int {
