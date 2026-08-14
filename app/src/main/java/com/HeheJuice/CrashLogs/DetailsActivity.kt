@@ -52,6 +52,11 @@ class DetailsActivity : Activity() {
     private var accentColor: Int = 0
     private var onPrimaryColor: Int = 0
 
+    // Monet dynamic color tokens for Light Tonal Buttons & Chips
+    private var buttonBgColor: Int = 0
+    private var buttonTextColor: Int = 0
+    private var chipBgColor: Int = 0
+
     private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
         override fun updateDrawState(tp: TextPaint) {
             applyCustomTypeface(tp)
@@ -87,12 +92,22 @@ class DetailsActivity : Activity() {
 
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        
+        // Background Monet surface
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
-        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        
+        // Cards set to lowest surface container (Pure White in Light Theme)
+        cardBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        
         backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+
+        // Light Monet Button & Badge colors
+        buttonBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimaryContainer)
+        buttonTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimaryContainer)
+        chipBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
 
         setStatusBarColors()
 
@@ -232,10 +247,10 @@ class DetailsActivity : Activity() {
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(buttonTextColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(buttonBgColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -269,10 +284,10 @@ class DetailsActivity : Activity() {
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(buttonTextColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(buttonBgColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -292,10 +307,10 @@ class DetailsActivity : Activity() {
         val licenseBtn = TextView(this).apply {
             text = "View License"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(buttonTextColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(buttonBgColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -977,11 +992,14 @@ class DetailsActivity : Activity() {
         val prefs = getSharedPreferences("developer_prefs", MODE_PRIVATE)
         val fakeEnabled = prefs.getBoolean("fake_update_enabled", false)
 
+        val badgeBg = MonetColorHelper.getColor(this, MaterialR.attr.colorSecondaryContainer)
+        val logBg = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+
         if (fakeEnabled) {
             runOnUiThread {
                 updateStatusView.text = getString(R.string.update_new_version, "9.9")
                 updateStatusView.background = GradientDrawable().apply {
-                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                    setColor(badgeBg)
                     cornerRadius = dpToPx(100f).toFloat()
                 }
                 updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -990,7 +1008,7 @@ class DetailsActivity : Activity() {
                 val formatted = formatReleaseNotes(fakeBody)
                 releaseNotesView.text = formatted
                 val bg = GradientDrawable().apply {
-                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                    setColor(logBg)
                     cornerRadius = dpToPx(20f).toFloat()
                 }
                 releaseNotesView.background = bg
@@ -1053,7 +1071,7 @@ class DetailsActivity : Activity() {
                         if (comparison > 0) {
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
                             updateStatusView.background = GradientDrawable().apply {
-                                setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                setColor(badgeBg)
                                 cornerRadius = dpToPx(100f).toFloat()
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -1063,7 +1081,7 @@ class DetailsActivity : Activity() {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
                                 val bg = GradientDrawable().apply {
-                                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                    setColor(logBg)
                                     cornerRadius = dpToPx(20f).toFloat()
                                 }
                                 releaseNotesView.background = bg
