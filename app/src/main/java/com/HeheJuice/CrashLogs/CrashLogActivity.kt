@@ -2,6 +2,7 @@ package com.HeheJuice.CrashLogs
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import androidx.appcompat.app.AlertDialog
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AppOpsManager
@@ -129,6 +130,7 @@ class CrashLogActivity : Activity() {
     private var autoRefreshSwitch: MaterialSwitch? = null
     private val autoRefreshHandler = Handler(Looper.getMainLooper())
     private var autoRefreshRunnable: Runnable? = null
+    private var isConfirmingAutoRefresh = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -1177,7 +1179,6 @@ val autoRefreshCard = LinearLayout(this).apply {
         setColor(cardBgColor)
         cornerRadius = dpToPx(28f).toFloat()
     }
-    // 降低上下内边距，使卡片高度更紧凑
     setPadding(dpToPx(20f), dpToPx(12f), dpToPx(20f), dpToPx(12f))
     layoutParams = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1203,7 +1204,7 @@ val autoRefreshLabel = TextView(this).apply {
 }
 autoRefreshRow.addView(autoRefreshLabel)
 
-// ★ 使用与 DeveloperOptions 完全相同的 inflate 方式
+// ★ 使用 inflate 方式加载 MaterialSwitch（与 DeveloperOptions 一致）
 val switch = LayoutInflater.from(this).inflate(R.layout.switch_material, null) as MaterialSwitch
 
 // 轨道颜色
@@ -1230,21 +1231,26 @@ val iconStates = arrayOf(
 val iconColors = intArrayOf(accentColor, trackOffColor)
 switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
-// 默认关闭
+// 读取保存的状态，默认关闭
 val prefs = getSharedPreferences("auto_refresh_prefs", Context.MODE_PRIVATE)
 val saved = prefs.getBoolean("auto_refresh_enabled", false)
 switch.isChecked = saved
 
 switch.setOnCheckedChangeListener { _, isChecked ->
-    prefs.edit().putBoolean("auto_refresh_enabled", isChecked).apply()
     if (isChecked) {
-        startAutoRefresh()
+        // 如果是确认过程中触发的，直接放行
+        if (isConfirmingAutoRefresh) {
+            isConfirmingAutoRefresh = false
+            return@setOnCheckedChangeListener
+        }
+        // 用户尝试开启，取消勾选并弹窗
+        switch.isChecked = false
+        showAutoRefreshConfirmDialog(switch, prefs)
     } else {
+        // 用户主动关闭
+        prefs.edit().putBoolean("auto_refresh_enabled", false).apply()
         stopAutoRefresh()
     }
-    // 重新应用颜色（确保状态切换后颜色不变）
-    switch.trackTintList = ColorStateList(trackStates, trackColors)
-    switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 }
 switch.layoutParams = LinearLayout.LayoutParams(
     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -1262,8 +1268,6 @@ if (autoRefreshSwitch?.isChecked == true) {
     startAutoRefresh()
 }
 // ====================================
-        // ============================
-
         scrollContent.addView(logsLayout)
         scrollContent.addView(infoLayout)
         scrollView.addView(scrollContent)
@@ -1620,6 +1624,27 @@ if (autoRefreshSwitch?.isChecked == true) {
         autoRefreshRunnable?.let { autoRefreshHandler.removeCallbacks(it) }
         autoRefreshRunnable = null
     }
+
+private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPreferences) {
+    val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+    builder.setTitle("Note")
+    builder.setMessage(
+        "Auto Refresh REQUIRED a device that can handle, enable on a weak device is UNSTABLE\n\n" +
+        "Facing bugs after enable? Disable this option and press \"Clear Cache\""
+    )
+    builder.setPositiveButton("Enable") { _, _ ->
+        // 用户确认启用
+        isConfirmingAutoRefresh = true
+        switch.isChecked = true
+        prefs.edit().putBoolean("auto_refresh_enabled", true).apply()
+        startAutoRefresh()
+    }
+    builder.setNegativeButton("Leave") { dialog, _ ->
+        dialog.dismiss()
+    }
+    builder.setCancelable(false)
+    builder.show()
+}
 
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
