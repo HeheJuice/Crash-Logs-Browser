@@ -809,7 +809,7 @@ class CrashLogActivity : Activity() {
         }
 
         val filterActiveBg = GradientDrawable().apply {
-            setColor(accentColor)
+            setColor(secondaryBtnColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         filterSlidingView = View(this).apply {
@@ -1282,7 +1282,7 @@ class CrashLogActivity : Activity() {
         }
 
         val activeTabBg = GradientDrawable().apply {
-            setColor(accentColor)
+            setColor(secondaryBtnColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         slidingPillView = View(this).apply {
