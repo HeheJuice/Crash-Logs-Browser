@@ -1850,60 +1850,49 @@ if (autoRefreshSwitch?.isChecked == true) {
             }
         }
     }
-
-    private fun loadLogs() {
+private fun loadLogs() {
     allLogs.clear()
 
-    // 尝试多个缓冲区，若第一轮未抓到任何崩溃，则用 -b all 回退
-    val buffers = listOf(
-        "-b crash -b main -b system",
-        "-b all"
-    )
+    val logcatCmd = if (hasRoot()) {
+        "su -c logcat -b crash -b main -b system -d -v time -t 5000"
+    } else {
+        "logcat -b crash -b main -b system -d -v time -t 5000"
+    }
 
-    for (bufferOption in buffers) {
-        val logcatCmd = if (hasRoot()) {
-            "su -c logcat $bufferOption -d -v time -t 10000"
-        } else {
-            "logcat $bufferOption -d -v time -t 10000"
-        }
+    if (checkReadLogsPermission() || hasRoot()) {
+        try {
+            val process = Runtime.getRuntime().exec(logcatCmd)
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val lines = reader.readLines()
+            process.waitFor()
 
-        if (checkReadLogsPermission() || hasRoot()) {
-            try {
-                val process = Runtime.getRuntime().exec(logcatCmd)
-                val reader = BufferedReader(InputStreamReader(process.inputStream))
-                val lines = reader.readLines()
-                process.waitFor()
-
-                var i = 0
-                while (i < lines.size) {
-                    val line = lines[i]
-                    if (isRealCrashLine(line)) {
-                        val block = mutableListOf<String>()
-                        block.add(line)
-                        val timestamp = extractTimestamp(line)
-                        val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
-                        i++
-                        while (i < lines.size) {
-                            val nextLine = lines[i]
-                            if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*")) && isRealCrashLine(nextLine)) {
-                                break
-                            }
-                            block.add(nextLine)
-                            i++
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i]
+                if (isRealCrashLine(line)) {
+                    val block = mutableListOf<String>()
+                    block.add(line)
+                    val timestamp = extractTimestamp(line)
+                    val type = if (line.contains("ANR") || line.contains("ANR in")) "ANR" else "Crash"
+                    i++
+                    while (i < lines.size) {
+                        val nextLine = lines[i]
+                        if (nextLine.matches(Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}.*")) && isRealCrashLine(nextLine)) {
+                            break
                         }
-                        var appName = extractPackageName(block)
-                        if (appName != "System Process" && appName != "com.android.system") {
-                            allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
-                        }
-                    } else {
+                        block.add(nextLine)
                         i++
                     }
+                    var appName = extractPackageName(block)
+                    if (appName != "System Process" && appName != "com.android.system") {
+                        allLogs.add(LogEntry(timestamp, appName, type, block.joinToString("\n")))
+                    }
+                } else {
+                    i++
                 }
-                // 如果抓到了日志，跳出循环，不再尝试回退
-                if (allLogs.isNotEmpty()) break
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to read logcat with $bufferOption", e)
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read logcat", e)
         }
     }
 
@@ -1946,14 +1935,8 @@ if (autoRefreshSwitch?.isChecked == true) {
             line.contains("signal 6") ||
             (line.contains("Abort message") && line.contains("FATAL")) ||
             (line.contains("backtrace:") && line.contains("pid:")) ||
-            (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal"))) ||
-            line.contains("RemoteServiceException") ||
-            line.contains("shell-induced crash") ||
-            line.contains("CrashedByAdbException") ||
-            (line.contains("AndroidRuntime") && (line.contains("Exception") || line.contains("FATAL"))) ||
-            (line.contains("E/") && line.contains("AndroidRuntime"))
+            (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal")))
 }
-
     private fun extractTimestamp(line: String): String {
         val pattern = Regex("\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")
         val match = pattern.find(line)
@@ -1993,17 +1976,10 @@ private fun loadDropBoxLogs() {
         )
         var entry = dropBox.getNextEntry(null, 0)
         while (entry != null) {
-            val current = entry  // 转换为非空局部变量
             try {
-                val tag = current.tag
+                val tag = entry.tag
                 if (tags.contains(tag)) {
-                    val text = current.getText(65536) ?: ""
-                    // ★ 过滤过短条目
-                    if (text.lines().size < 3 || text.length < 50) {
-                        entry = dropBox.getNextEntry(null, current.timeMillis)
-                        current.close()
-                        continue
-                    }
+                    val text = entry.getText(65536) ?: ""
                     val type = if (tag.contains("anr", ignoreCase = true)) "ANR" else "Crash"
                     var pkg = extractPackageName(text.lines())
                     if (pkg == "Unknown Process") {
@@ -2011,15 +1987,15 @@ private fun loadDropBoxLogs() {
                     }
                     if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
                         val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
-                            .format(Date(current.timeMillis))
+                            .format(Date(entry.timeMillis))
                         allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Skipping corrupt DropBox entry", e)
             }
-            val nextEntry = dropBox.getNextEntry(null, current.timeMillis)
-            current.close()
+            val nextEntry = dropBox.getNextEntry(null, entry.timeMillis)
+            entry.close()
             entry = nextEntry
         }
     } catch (e: Exception) {
