@@ -1586,22 +1586,21 @@ class CrashLogActivity : Activity() {
 
     // ---------- 自动刷新控制 ----------
     private fun startAutoRefresh() {
-        stopAutoRefresh()
-        autoRefreshHandler = Handler(Looper.getMainLooper())
-        autoRefreshRunnable = object : Runnable {
-            override fun run() {
-                // 只在 Logs 标签页且开关开启时刷新
-                if (currentTab == TAB_LOGS && autoRefreshSwitch?.isChecked == true) {
-                    loadLogsAsync {}
-                }
-                // 继续调度
-                if (autoRefreshSwitch?.isChecked == true) {
-                    autoRefreshHandler?.postDelayed(this, 5000L)
-                }
+    stopAutoRefresh()
+    autoRefreshHandler = Handler(Looper.getMainLooper())
+    autoRefreshRunnable = object : Runnable {
+        override fun run() {
+            if (currentTab == TAB_LOGS && autoRefreshSwitch?.isChecked == true) {
+                loadLogsAsync {}
+            }
+            if (autoRefreshSwitch?.isChecked == true) {
+                autoRefreshHandler?.postDelayed(this, 5000L)
             }
         }
-        autoRefreshHandler?.postDelayed(autoRefreshRunnable, 5000L)
     }
+    // 修复：使用安全调用避免类型不匹配
+    autoRefreshRunnable?.let { autoRefreshHandler?.postDelayed(it, 5000L) }
+}
 
     private fun stopAutoRefresh() {
         autoRefreshHandler?.removeCallbacks(autoRefreshRunnable)
