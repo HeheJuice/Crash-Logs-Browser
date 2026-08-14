@@ -28,7 +28,6 @@ class DeveloperOptionsActivity : Activity() {
     private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // ★ 应用 Monet 动态颜色
         DynamicColors.applyToActivityIfAvailable(this)
 
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -44,7 +43,6 @@ class DeveloperOptionsActivity : Activity() {
 
         setStatusBarColors()
 
-        // ★ 获取 Monet 动态主色
         accentColor = MonetColorHelper.getColor(
             this,
             com.google.android.material.R.attr.colorPrimary

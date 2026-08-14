@@ -66,7 +66,6 @@ class DetailsActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // ★ 1. 应用 Monet 动态颜色
         DynamicColors.applyToActivityIfAvailable(this)
 
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -80,7 +79,6 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        // ★ 2. 获取 Monet 动态主色
         accentColor = MonetColorHelper.getColor(
             this,
             com.google.android.material.R.attr.colorPrimary
