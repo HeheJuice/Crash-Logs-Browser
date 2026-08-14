@@ -1852,13 +1852,20 @@ if (autoRefreshSwitch?.isChecked == true) {
     }
 
     private fun loadLogs() {
-        allLogs.clear()
+    allLogs.clear()
 
+    // 尝试多个缓冲区，若第一轮未抓到任何崩溃，则用 -b all 回退
+    val buffers = listOf(
+        "-b crash -b main -b system",
+        "-b all"
+    )
+
+    for (bufferOption in buffers) {
         val logcatCmd = if (hasRoot()) {
-    "su -c logcat -b crash -b main -b system -d -v time -t 10000"
-} else {
-    "logcat -b crash -b main -b system -d -v time -t 10000"
-}
+            "su -c logcat $bufferOption -d -v time -t 10000"
+        } else {
+            "logcat $bufferOption -d -v time -t 10000"
+        }
 
         if (checkReadLogsPermission() || hasRoot()) {
             try {
@@ -1892,15 +1899,18 @@ if (autoRefreshSwitch?.isChecked == true) {
                         i++
                     }
                 }
+                // 如果抓到了日志，跳出循环，不再尝试回退
+                if (allLogs.isNotEmpty()) break
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to read logcat", e)
+                Log.e(TAG, "Failed to read logcat with $bufferOption", e)
             }
         }
-
-        if (checkDropBoxPermission()) {
-            loadDropBoxLogs()
-        }
     }
+
+    if (checkDropBoxPermission()) {
+        loadDropBoxLogs()
+    }
+}
 
     private fun hasRoot(): Boolean {
         val suPaths = arrayOf(
@@ -1939,7 +1949,9 @@ if (autoRefreshSwitch?.isChecked == true) {
             (line.contains("Process:") && line.contains(" crashed") && (line.contains("pid:") || line.contains("signal"))) ||
             line.contains("RemoteServiceException") ||
             line.contains("shell-induced crash") ||
-            line.contains("CrashedByAdbException")
+            line.contains("CrashedByAdbException") ||
+            (line.contains("AndroidRuntime") && (line.contains("Exception") || line.contains("FATAL"))) ||
+            (line.contains("E/") && line.contains("AndroidRuntime"))
 }
 
     private fun extractTimestamp(line: String): String {
