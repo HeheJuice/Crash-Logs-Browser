@@ -27,13 +27,13 @@ import java.io.OutputStreamWriter
 
 class CrashDetailActivity : Activity() {
 
+    // 颜色变量（与 DeveloperOptionsActivity 一致）
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
     private var accentColor: Int = 0
     private var onPrimaryColor: Int = 0
     private var inputBgColor: Int = 0
     private var cardBgColor: Int = 0
-    private var cardBorderColor: Int = 0
     private var backBtnBgColor: Int = 0
     private var isDark: Boolean = false
 
@@ -83,6 +83,7 @@ class CrashDetailActivity : Activity() {
             )
         }
 
+        // 返回按钮
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable())
             background = GradientDrawable().apply {
@@ -101,6 +102,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(backBtn)
 
+        // 标题
         val titleTv = TextView(this).apply {
             text = "$type Details"
             textSize = 22f
@@ -114,7 +116,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(titleTv)
 
-        // Open button
+        // Open 按钮
         val openDrawable = ContextCompat.getDrawable(this, R.drawable.open_in_new_24px)
         val openBtn: View
         if (openDrawable != null) {
@@ -151,12 +153,12 @@ class CrashDetailActivity : Activity() {
             openBtn = TextView(this).apply {
                 text = "Open"
                 textSize = 14f
-                setTextColor(primaryTextColor)
+                setTextColor(onPrimaryColor)  // 使用动态颜色
                 setTypeface(null, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(backBtnBgColor)
+                    setColor(accentColor)
                 }
                 setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
                 isClickable = true
@@ -182,7 +184,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(openBtn)
 
-        // Save button
+        // Save 按钮
         val saveDrawable = ContextCompat.getDrawable(this, R.drawable.attach_file_24px)
         val saveBtn: View
         if (saveDrawable != null) {
@@ -208,12 +210,12 @@ class CrashDetailActivity : Activity() {
             saveBtn = TextView(this).apply {
                 text = "Save"
                 textSize = 14f
-                setTextColor(primaryTextColor)
+                setTextColor(onPrimaryColor)  // 使用动态颜色
                 setTypeface(null, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(backBtnBgColor)
+                    setColor(accentColor)
                 }
                 setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
                 isClickable = true
@@ -228,7 +230,7 @@ class CrashDetailActivity : Activity() {
         }
         headerLayout.addView(saveBtn)
 
-        // Copy button
+        // Copy 按钮
         val copyDrawable = ContextCompat.getDrawable(this, R.drawable.content_copy_24px)
         val copyBtn: View
         if (copyDrawable != null) {
@@ -253,12 +255,12 @@ class CrashDetailActivity : Activity() {
             copyBtn = TextView(this).apply {
                 text = "Copy"
                 textSize = 14f
-                setTextColor(primaryTextColor)
+                setTextColor(onPrimaryColor)  // 使用动态颜色
                 setTypeface(null, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(backBtnBgColor)
+                    setColor(accentColor)
                 }
                 setPadding(dpToPx(12f), dpToPx(8f), dpToPx(12f), dpToPx(8f))
                 isClickable = true
@@ -427,10 +429,11 @@ class CrashDetailActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            // 状态栏使用与背景相同的颜色（colorSurfaceContainer）
             val statusColor = if (isDark) {
-                MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+                MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
             } else {
-                MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+                MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
             }
             window.statusBarColor = statusColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -564,19 +567,20 @@ class CrashDetailActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
+        // 与 DeveloperOptionsActivity 完全一致的颜色逻辑
+        val bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         cardBgColor = if (isDark) {
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
-        cardBorderColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOutlineVariant)
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
         accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
-        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         inputBgColor = if (isDark) {
-            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLow)
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         } else {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
         }
