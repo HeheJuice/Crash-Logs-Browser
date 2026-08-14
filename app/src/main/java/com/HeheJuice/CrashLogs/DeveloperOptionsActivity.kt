@@ -31,10 +31,10 @@ class DeveloperOptionsActivity : Activity() {
     private var backBtnBgColor: Int = 0
     private var primaryTextColor: Int = 0
     private var secondaryTextColor: Int = 0
-    private var accentColor: Int = 0
-    private var trackOnColor: Int = 0    // 开启轨道颜色
-    private var trackOffColor: Int = 0   // 关闭轨道颜色
-    private var thumbColor: Int = 0      // 拇指颜色
+    private var trackOnColor: Int = 0
+    private var trackOffColor: Int = 0
+    private var thumbColor: Int = 0
+    private var iconColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -51,7 +51,6 @@ class DeveloperOptionsActivity : Activity() {
         setStatusBarColors()
 
         // 获取颜色
-        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
         bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
         cardBgColor = if (isDark) {
             MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
@@ -62,18 +61,22 @@ class DeveloperOptionsActivity : Activity() {
         primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
         secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
 
-        // ★ 深色模式下开关颜色逻辑
+        // ★ 深色模式精确匹配系统设置
         if (isDark) {
-            // 深色模式：开启轨道使用 PrimaryContainer（深色），关闭轨道使用 SurfaceVariant（灰色）
-            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimaryContainer)
-            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
-            // 拇指使用 OnPrimaryContainer（比 PrimaryContainer 更暗）
-            thumbColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimaryContainer)
+            // 开启轨道：使用深色（接近黑色）
+            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
+            // 对勾使用与轨道相同的颜色
+            iconColor = trackOnColor
+            // 拇指比轨道更深（使用 Surface 即黑色）
+            thumbColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurface)
+            // 关闭轨道使用稍亮的灰色（但也要深色）
+            trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
         } else {
-            // 浅色模式：开启轨道使用 Primary（亮色），关闭轨道使用 SurfaceVariant（灰色）
-            trackOnColor = accentColor
+            // 浅色模式：保持原有逻辑
+            trackOnColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
             trackOffColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceVariant)
-            thumbColor = Color.WHITE  // 浅色模式拇指为白色
+            thumbColor = Color.WHITE
+            iconColor = Color.WHITE
         }
 
         val dpToPx = { dp: Float ->
@@ -179,36 +182,30 @@ class DeveloperOptionsActivity : Activity() {
         val switch = LayoutInflater.from(this)
             .inflate(R.layout.switch_material, null) as MaterialSwitch
 
-        // ★ 轨道颜色
+        // 轨道颜色
         val trackStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
-        val trackColors = intArrayOf(
-            trackOnColor,   // 开启时：深色模式使用 PrimaryContainer，浅色模式使用 Primary
-            trackOffColor   // 关闭时：灰色
-        )
+        val trackColors = intArrayOf(trackOnColor, trackOffColor)
         switch.trackTintList = ColorStateList(trackStates, trackColors)
 
-        // ★ 拇指颜色（深色模式使用 OnPrimaryContainer，比轨道更深；浅色模式白色）
+        // 拇指颜色
         switch.thumbTintList = ColorStateList.valueOf(thumbColor)
 
-        // 对勾图标颜色（开启时使用 accentColor，关闭时使用 secondaryTextColor）
+        // 对勾图标颜色（开启时与轨道同色，关闭时灰色）
         val iconStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
             intArrayOf()
         )
-        val iconColors = intArrayOf(
-            accentColor,
-            MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
-        )
+        val iconColors = intArrayOf(iconColor, secondaryTextColor)
         switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
 
         // 读取保存的状态并设置
         val savedState = sharedPrefs.getBoolean("fake_update_enabled", false)
         switch.isChecked = savedState
 
-        // 设置监听器
+        // 监听器
         switch.setOnCheckedChangeListener { _, isChecked ->
             sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
             Toast.makeText(
