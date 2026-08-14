@@ -2,42 +2,55 @@ package com.HeheJuice.CrashLogs
 
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowInsets
 import android.widget.*
-import androidx.core.content.ContextCompat
+import com.google.android.material.materialswitch.MaterialSwitch
 
 class DeveloperOptionsActivity : Activity() {
 
     private lateinit var sharedPrefs: SharedPreferences
     private var isDark: Boolean = false
+    private var accentColor: Int = 0      // Monet 动态主色
+    private var googleSansFlexTypeface: Typeface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
         actionBar?.hide()
 
+        googleSansFlexTypeface = try {
+            Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
+        } catch (_: Exception) { null }
+
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
         setStatusBarColors()
+
+        // ★ 获取 Monet 动态主色
+        accentColor = MonetColorHelper.getColor(
+            this,
+            com.google.android.material.R.attr.colorPrimary
+        )
 
         val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
         val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
         val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
         val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
         val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
         val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
 
         val dpToPx = { dp: Float ->
@@ -46,10 +59,8 @@ class DeveloperOptionsActivity : Activity() {
 
         sharedPrefs = getSharedPreferences("developer_prefs", Context.MODE_PRIVATE)
 
-        // 根布局
         val rootFrame = FrameLayout(this).apply { setBackgroundColor(bgColor) }
 
-        // 主内容垂直布局
         val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
@@ -59,7 +70,7 @@ class DeveloperOptionsActivity : Activity() {
             setPadding(dpToPx(20f), getStatusBarHeight() + dpToPx(16f), dpToPx(20f), dpToPx(20f))
         }
 
-        // 顶部标题栏（与 DetailsActivity 类似）
+        // 顶部标题栏
         val topBar = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -72,7 +83,14 @@ class DeveloperOptionsActivity : Activity() {
             text = "Developer Options"
             textSize = 20f
             setTextColor(primaryTextColor)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
+
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -82,7 +100,6 @@ class DeveloperOptionsActivity : Activity() {
         }
         topBar.addView(titleText)
 
-        // 返回按钮（类似 DetailsActivity 的 backBtn）
         val backBtn = ImageView(this).apply {
             setImageDrawable(createArrowBackDrawable(primaryTextColor, dpToPx))
             background = GradientDrawable().apply {
@@ -98,14 +115,13 @@ class DeveloperOptionsActivity : Activity() {
                 Gravity.START or Gravity.CENTER_VERTICAL
             )
             setOnClickListener { finish() }
-            // 缩放效果
             setOnTouchListener(pressScaleTouchListener)
         }
         topBar.addView(backBtn)
 
         contentLayout.addView(topBar)
 
-        // ----- 模拟更新开关卡片 -----
+        // 卡片
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -113,14 +129,13 @@ class DeveloperOptionsActivity : Activity() {
                 cornerRadius = dpToPx(28f).toFloat()
                 setStroke(dpToPx(1f), cardBorderColor)
             }
-            setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
+            setPadding(dpToPx(20f), dpToPx(8f), dpToPx(20f), dpToPx(8f))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // 开关行
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -131,43 +146,70 @@ class DeveloperOptionsActivity : Activity() {
         }
 
         val label = TextView(this).apply {
-            text = "Force Fake Update (v9.9)"
+            text = "Test Update Receiver"
             textSize = 17f
             setTextColor(primaryTextColor)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                // 使用 Google Sans Flex 如果有的话
-            }
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         row.addView(label)
 
-        val switch = Switch(this).apply {
-            isChecked = sharedPrefs.getBoolean("fake_update_enabled", false)
-            setTextColor(primaryTextColor)
-            setOnCheckedChangeListener { _, isChecked ->
-                sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
-                Toast.makeText(
-                    this@DeveloperOptionsActivity,
-                    if (isChecked) "Fake update enabled" else "Fake update disabled",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+        // ===== MaterialSwitch（Monet 动态颜色） =====
+        val themedContext = ContextThemeWrapper(
+            this,
+            com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar
+        )
+
+        val switch = LayoutInflater.from(themedContext)
+            .inflate(R.layout.switch_material, null) as MaterialSwitch
+
+        // ★ 轨道颜色：开启时使用 Monet 主色，关闭时使用灰色
+        val trackStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val trackColors = intArrayOf(
+            accentColor,
+            if (isDark) Color.parseColor("#494A4D") else Color.parseColor("#CCCCCC")
+        )
+        switch.trackTintList = ColorStateList(trackStates, trackColors)
+
+        switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+
+        // ★ 图标颜色：开启时使用 Monet 主色，关闭时使用灰色
+        val iconStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf()
+        )
+        val iconColors = intArrayOf(
+            accentColor,
+            if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
+        )
+        switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
+
+        // ★ 先读取保存的状态，再设置监听器，避免初始化时误触
+        val savedState = sharedPrefs.getBoolean("fake_update_enabled", false)
+        switch.isChecked = savedState
+
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPrefs.edit().putBoolean("fake_update_enabled", isChecked).apply()
+            Toast.makeText(
+                this@DeveloperOptionsActivity,
+                if (isChecked) "Fake update enabled" else "Fake update disabled",
+                Toast.LENGTH_SHORT
+            ).show()
+            // 刷新颜色（确保状态变化后颜色更新）
+            switch.trackTintList = ColorStateList(trackStates, trackColors)
+            switch.thumbIconTintList = ColorStateList(iconStates, iconColors)
         }
-        row.addView(switch)
+
+        row.addView(switch, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
         card.addView(row)
-
-        // 说明文字
-        val desc = TextView(this).apply {
-            text = "When enabled, the app will show version 9.9 with dummy release notes."
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(8f), 0, 0)
-        }
-        card.addView(desc)
-
         contentLayout.addView(card)
 
-        // ----- 底部留白 -----
         val spacer = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -181,7 +223,7 @@ class DeveloperOptionsActivity : Activity() {
         setContentView(rootFrame)
     }
 
-    // 辅助：绘制返回箭头（与 DetailsActivity 相同）
+    // ========== 辅助方法 ==========
     private fun createArrowBackDrawable(color: Int, dpToPx: (Float) -> Int): android.graphics.drawable.Drawable {
         return object : android.graphics.drawable.Drawable() {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -208,7 +250,6 @@ class DeveloperOptionsActivity : Activity() {
         }
     }
 
-    // 缩放触摸监听（与 DetailsActivity 一致）
     private val pressScaleTouchListener = View.OnTouchListener { v, event ->
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {

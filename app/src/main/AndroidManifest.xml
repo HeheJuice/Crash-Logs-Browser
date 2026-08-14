@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.HeheJuice.CrashLogs">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_LOGS" />
     <uses-permission android:name="android.permission.READ_DROPBOX_DATA" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
         tools:ignore="ProtectedPermissions" />
+    <!-- NEW: Required for app icon lookup on Android 11+ -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" 
         tools:ignore="QueryAllPackagesPermission" />
 
@@ -34,28 +35,25 @@
             android:exported="false"
             android:theme="@android:style/Theme.DeviceDefault.DayNight"
             android:screenOrientation="portrait" />
-
-        <activity
-            android:name=".DetailsActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.DeviceDefault.DayNight"
-            android:screenOrientation="portrait" />
-
-        <!-- 新增 DeveloperOptionsActivity -->
-        <activity
-            android:name=".DeveloperOptionsActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.DeviceDefault.DayNight"
-            android:screenOrientation="portrait" />
-
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+<activity
+    android:name=".DetailsActivity"
+    android:exported="false"
+    android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+    android:screenOrientation="portrait" />
+    <activity
+    android:name=".DeveloperOptionsActivity"
+    android:exported="false"
+    android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+    android:screenOrientation="portrait" />
+    <provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.fileprovider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+</provider>
     </application>
+
 </manifest>

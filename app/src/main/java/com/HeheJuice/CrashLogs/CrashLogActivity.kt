@@ -77,6 +77,7 @@ class CrashLogActivity : Activity() {
     private var backBtnBgColor: Int = 0
     private var buttonHeightPx: Int = 0
     private var isDark: Boolean = false
+    private var googleSansFlexTypeface: Typeface? = null   // ★ 新增
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var logAdapter: LogAdapter
@@ -132,6 +133,12 @@ class CrashLogActivity : Activity() {
         }
 
         initColors()
+
+        // ★ 新增：加载 Google Sans Flex 字体
+        googleSansFlexTypeface = try {
+            Typeface.createFromAsset(assets, "GoogleSansFlex.ttf")
+        } catch (_: Exception) { null }
+
         setStatusBarColors()
         buttonHeightPx = dpToPx(54f)
 
@@ -421,7 +428,7 @@ class CrashLogActivity : Activity() {
         dialog.show()
     }
 
-    // ========== PERMISSION DIALOG (UPDATED WITH TWO ADB SECTIONS) ==========
+    // ========== PERMISSION DIALOG (FULL ADB CODE RESTORED) ==========
     private fun showPermissionDialog() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -533,7 +540,7 @@ class CrashLogActivity : Activity() {
             cardLayout.addView(permLayout)
         }
 
-        // ===== ADB SECTION (UPDATED) =====
+        // ===== ADB SECTION (FULL) =====
 
         // Block 1: Enter ADB shell
         val adbShellLayout = LinearLayout(this).apply {
@@ -1027,7 +1034,7 @@ class CrashLogActivity : Activity() {
         infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
+            layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
@@ -1046,11 +1053,17 @@ class CrashLogActivity : Activity() {
             }
         }
 
+        // ★ 修改：应用 Google Sans Flex Bold Round
         val appNameTitle = TextView(this).apply {
             text = "Crash Logs Browser"
             textSize = 22f
             setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
         }
         appInfoCard.addView(appNameTitle)
 
