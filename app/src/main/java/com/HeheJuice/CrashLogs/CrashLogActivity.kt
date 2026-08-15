@@ -434,345 +434,349 @@ class CrashLogActivity : Activity() {
     }
 
     private fun showPermissionDialog() {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val dialog = Dialog(this)
+    dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
-        val cardLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(cardBgColor)
-                cornerRadius = dpToPx(28f).toFloat()
-            }
-            setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
+    // ★ 动态计算暗色模式
+    val isDarkMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    val cardLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(cardBgColor)
+            cornerRadius = dpToPx(28f).toFloat()
         }
-
-        val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
-            setTint(primaryTextColor)
-        }
-        val iconIv = ImageView(this).apply {
-            setImageDrawable(lockDrawable)
-            layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
-                gravity = Gravity.CENTER
-                bottomMargin = dpToPx(8f)
-            }
-        }
-        cardLayout.addView(iconIv)
-
-        val titleTv = TextView(this).apply {
-            text = "Permissions Required"
-            textSize = 22f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dpToPx(4f))
-        }
-        cardLayout.addView(titleTv)
-
-        val subTv = TextView(this).apply {
-            text = "This app needs the following permissions to read crash logs"
-            textSize = 14f
-            setTextColor(secondaryTextColor)
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dpToPx(16f))
-        }
-        cardLayout.addView(subTv)
-
-        val permissions = listOf(
-            "READ_LOGS" to "Read system logs",
-            "READ_DROPBOX_DATA" to "Access crash data",
-            "PACKAGE_USAGE_STATS" to "App usage statistics"
-        )
-
-        for ((perm, desc) in permissions) {
-            val permLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                background = GradientDrawable().apply {
-                    setColor(inputBgColor)
-                    cornerRadius = dpToPx(12f).toFloat()
-                }
-                setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    bottomMargin = dpToPx(8f)
-                }
-            }
-
-            val granted = isPermissionGranted(perm)
-            val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
-            val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
-                setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
-            }
-            val statusIv = ImageView(this).apply {
-                setImageDrawable(statusDrawable)
-                layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
-                    marginEnd = dpToPx(12f)
-                }
-            }
-            permLayout.addView(statusIv)
-
-            val textLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1f
-                )
-            }
-
-            val permName = TextView(this).apply {
-                text = perm
-                textSize = 14f
-                setTextColor(primaryTextColor)
-                setTypeface(null, Typeface.BOLD)
-            }
-            textLayout.addView(permName)
-
-            val permDesc = TextView(this).apply {
-                text = desc
-                textSize = 12f
-                setTextColor(secondaryTextColor)
-            }
-            textLayout.addView(permDesc)
-
-            permLayout.addView(textLayout)
-            cardLayout.addView(permLayout)
-        }
-
-        // ADB SECTION
-        val adbShellLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(redBtnColor)
-                setAlpha(30)
-                cornerRadius = dpToPx(12f).toFloat()
-            }
-            setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(12f)
-                bottomMargin = dpToPx(8f)
-            }
-        }
-
-        val shellHeader = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val shellTitle = TextView(this).apply {
-            text = "Enter ADB shell"
-            textSize = 14f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        shellHeader.addView(shellTitle)
-
-        val copyShellIcon = ImageView(this).apply {
-            setImageResource(R.drawable.content_copy_24px)
-            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
-            isClickable = true
-            isFocusable = true
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f))
-            setOnClickListener {
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("ADB Shell Command", "adb shell")
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(this@CrashLogActivity, "ADB shell command copied", Toast.LENGTH_SHORT).show()
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        shellHeader.addView(copyShellIcon)
-
-        adbShellLayout.addView(shellHeader)
-
-        val shellCommand = TextView(this).apply {
-            text = "adb shell"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-            setPadding(0, dpToPx(4f), 0, 0)
-        }
-        adbShellLayout.addView(shellCommand)
-        cardLayout.addView(adbShellLayout)
-
-        val adbCommandsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(redBtnColor)
-                setAlpha(30)
-                cornerRadius = dpToPx(12f).toFloat()
-            }
-            setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dpToPx(8f)
-                bottomMargin = dpToPx(12f)
-            }
-        }
-
-        val commandsHeader = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val commandsTitle = TextView(this).apply {
-            text = "Run these commands inside ADB shell"
-            textSize = 14f
-            setTextColor(primaryTextColor)
-            setTypeface(null, Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        commandsHeader.addView(commandsTitle)
-
-        val copyCommandsIcon = ImageView(this).apply {
-            setImageResource(R.drawable.content_copy_24px)
-            setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
-            isClickable = true
-            isFocusable = true
-            setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f))
-            setOnClickListener {
-                val commands = listOf(
-                    "pm grant ${packageName} android.permission.READ_LOGS",
-                    "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
-                    "appops set ${packageName} GET_USAGE_STATS allow"
-                )
-                val textToCopy = commands.joinToString("\n")
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("ADB Commands", textToCopy)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(this@CrashLogActivity, "ADB commands copied", Toast.LENGTH_SHORT).show()
-            }
-            setOnTouchListener(pressScaleTouchListener)
-        }
-        commandsHeader.addView(copyCommandsIcon)
-
-        adbCommandsLayout.addView(commandsHeader)
-
-        val adbCommand1 = TextView(this).apply {
-            text = "pm grant ${packageName} android.permission.READ_LOGS"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-            setPadding(0, dpToPx(4f), 0, 0)
-        }
-        adbCommandsLayout.addView(adbCommand1)
-
-        val adbCommand2 = TextView(this).apply {
-            text = "pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-        }
-        adbCommandsLayout.addView(adbCommand2)
-
-        val adbCommand3 = TextView(this).apply {
-            text = "appops set ${packageName} GET_USAGE_STATS allow"
-            textSize = 11f
-            setTextColor(accentColor)
-            setTypeface(Typeface.MONOSPACE)
-        }
-        adbCommandsLayout.addView(adbCommand3)
-
-        val adbNote = TextView(this).apply {
-            text = "Some permissions may require a reboot to take effect"
-            textSize = 11f
-            setTextColor(secondaryTextColor)
-            setPadding(0, dpToPx(8f), 0, 0)
-        }
-        adbCommandsLayout.addView(adbNote)
-
-        cardLayout.addView(adbCommandsLayout)
-
-        val rootGrantBtn = createAnimatedButton(
-            "Grant with Root (Auto)",
-            Color.WHITE,
-            Color.parseColor("#FF6B00"),
-            buttonHeightPx
-        ) {
-            dialog.dismiss()
-            grantPermissionsWithRoot()
-        }.apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
-        }
-        cardLayout.addView(rootGrantBtn)
-
-        val btnRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                buttonHeightPx
-            ).apply {
-                topMargin = dpToPx(12f)
-            }
-        }
-
-        val exitBtn = createAnimatedButton(
-            "Exit App",
-            primaryTextColor,
-            secondaryBtnColor,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        ) {
-            dialog.dismiss()
-            finish()
-        }.apply {
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                marginEnd = dpToPx(6f)
-            }
-        }
-
-        val checkBtn = createAnimatedButton(
-            "Check Again",
-            Color.WHITE,
-            accentColor,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        ) {
-            if (checkAllPermissions()) {
-                dialog.dismiss()
-                setupUI()
-                loadLogsAsync {}
-            } else {
-                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
-                dialog.dismiss()
-                showPermissionDialog()
-            }
-        }.apply {
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                marginStart = dpToPx(6f)
-            }
-        }
-
-        btnRow.addView(exitBtn)
-        btnRow.addView(checkBtn)
-        cardLayout.addView(btnRow)
-
-        dialog.setContentView(cardLayout)
-
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        dialog.setCancelable(false)
-        dialog.show()
+        setPadding(dpToPx(24f), dpToPx(28f), dpToPx(24f), dpToPx(24f))
     }
+
+    val lockDrawable = ContextCompat.getDrawable(this, R.drawable.lock_24px)?.apply {
+        setTint(primaryTextColor)
+    }
+    val iconIv = ImageView(this).apply {
+        setImageDrawable(lockDrawable)
+        layoutParams = LinearLayout.LayoutParams(dpToPx(60f), dpToPx(60f)).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = dpToPx(8f)
+        }
+    }
+    cardLayout.addView(iconIv)
+
+    val titleTv = TextView(this).apply {
+        text = "Permissions Required"
+        textSize = 22f
+        setTextColor(primaryTextColor)
+        setTypeface(null, Typeface.BOLD)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(4f))
+    }
+    cardLayout.addView(titleTv)
+
+    val subTv = TextView(this).apply {
+        text = "This app needs the following permissions to read crash logs"
+        textSize = 14f
+        setTextColor(secondaryTextColor)
+        gravity = Gravity.CENTER
+        setPadding(0, 0, 0, dpToPx(16f))
+    }
+    cardLayout.addView(subTv)
+
+    val permissions = listOf(
+        "READ_LOGS" to "Read system logs",
+        "READ_DROPBOX_DATA" to "Access crash data",
+        "PACKAGE_USAGE_STATS" to "App usage statistics"
+    )
+
+    for ((perm, desc) in permissions) {
+        val permLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                setColor(inputBgColor)
+                cornerRadius = dpToPx(12f).toFloat()
+            }
+            setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(8f)
+            }
+        }
+
+        val granted = isPermissionGranted(perm)
+        val iconRes = if (granted) R.drawable.check_circle_24px else R.drawable.cancel_24px
+        val statusDrawable = ContextCompat.getDrawable(this@CrashLogActivity, iconRes)?.apply {
+            setTint(if (granted) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+        }
+        val statusIv = ImageView(this).apply {
+            setImageDrawable(statusDrawable)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(24f), dpToPx(24f)).apply {
+                marginEnd = dpToPx(12f)
+            }
+        }
+        permLayout.addView(statusIv)
+
+        val textLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val permName = TextView(this).apply {
+            text = perm
+            textSize = 14f
+            setTextColor(primaryTextColor)
+            setTypeface(null, Typeface.BOLD)
+        }
+        textLayout.addView(permName)
+
+        val permDesc = TextView(this).apply {
+            text = desc
+            textSize = 12f
+            setTextColor(secondaryTextColor)
+        }
+        textLayout.addView(permDesc)
+
+        permLayout.addView(textLayout)
+        cardLayout.addView(permLayout)
+    }
+
+    // ADB SECTION
+    val adbShellLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(redBtnColor)
+            setAlpha(30)
+            cornerRadius = dpToPx(12f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = dpToPx(12f)
+            bottomMargin = dpToPx(8f)
+        }
+    }
+
+    val shellHeader = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    val shellTitle = TextView(this).apply {
+        text = "Enter ADB shell"
+        textSize = 14f
+        setTextColor(primaryTextColor)
+        setTypeface(null, Typeface.BOLD)
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+    }
+    shellHeader.addView(shellTitle)
+
+    val copyShellIcon = ImageView(this).apply {
+        setImageResource(R.drawable.content_copy_24px)
+        setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+        isClickable = true
+        isFocusable = true
+        setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+        layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f))
+        setOnClickListener {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("ADB Shell Command", "adb shell")
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this@CrashLogActivity, "ADB shell command copied", Toast.LENGTH_SHORT).show()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    shellHeader.addView(copyShellIcon)
+
+    adbShellLayout.addView(shellHeader)
+
+    val shellCommand = TextView(this).apply {
+        text = "adb shell"
+        textSize = 11f
+        setTextColor(accentColor)
+        setTypeface(Typeface.MONOSPACE)
+        setPadding(0, dpToPx(4f), 0, 0)
+    }
+    adbShellLayout.addView(shellCommand)
+    cardLayout.addView(adbShellLayout)
+
+    val adbCommandsLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            setColor(redBtnColor)
+            setAlpha(30)
+            cornerRadius = dpToPx(12f).toFloat()
+        }
+        setPadding(dpToPx(16f), dpToPx(14f), dpToPx(16f), dpToPx(14f))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = dpToPx(8f)
+            bottomMargin = dpToPx(12f)
+        }
+    }
+
+    val commandsHeader = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    val commandsTitle = TextView(this).apply {
+        text = "Run these commands inside ADB shell"
+        textSize = 14f
+        setTextColor(primaryTextColor)
+        setTypeface(null, Typeface.BOLD)
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+    }
+    commandsHeader.addView(commandsTitle)
+
+    val copyCommandsIcon = ImageView(this).apply {
+        setImageResource(R.drawable.content_copy_24px)
+        setColorFilter(primaryTextColor, PorterDuff.Mode.SRC_IN)
+        isClickable = true
+        isFocusable = true
+        setPadding(dpToPx(8f), dpToPx(8f), dpToPx(8f), dpToPx(8f))
+        layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f))
+        setOnClickListener {
+            val commands = listOf(
+                "pm grant ${packageName} android.permission.READ_LOGS",
+                "pm grant ${packageName} android.permission.READ_DROPBOX_DATA",
+                "appops set ${packageName} GET_USAGE_STATS allow"
+            )
+            val textToCopy = commands.joinToString("\n")
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("ADB Commands", textToCopy)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this@CrashLogActivity, "ADB commands copied", Toast.LENGTH_SHORT).show()
+        }
+        setOnTouchListener(pressScaleTouchListener)
+    }
+    commandsHeader.addView(copyCommandsIcon)
+
+    adbCommandsLayout.addView(commandsHeader)
+
+    val adbCommand1 = TextView(this).apply {
+        text = "pm grant ${packageName} android.permission.READ_LOGS"
+        textSize = 11f
+        setTextColor(accentColor)
+        setTypeface(Typeface.MONOSPACE)
+        setPadding(0, dpToPx(4f), 0, 0)
+    }
+    adbCommandsLayout.addView(adbCommand1)
+
+    val adbCommand2 = TextView(this).apply {
+        text = "pm grant ${packageName} android.permission.READ_DROPBOX_DATA"
+        textSize = 11f
+        setTextColor(accentColor)
+        setTypeface(Typeface.MONOSPACE)
+    }
+    adbCommandsLayout.addView(adbCommand2)
+
+    val adbCommand3 = TextView(this).apply {
+        text = "appops set ${packageName} GET_USAGE_STATS allow"
+        textSize = 11f
+        setTextColor(accentColor)
+        setTypeface(Typeface.MONOSPACE)
+    }
+    adbCommandsLayout.addView(adbCommand3)
+
+    val adbNote = TextView(this).apply {
+        text = "Some permissions may require a reboot to take effect"
+        textSize = 11f
+        setTextColor(secondaryTextColor)
+        setPadding(0, dpToPx(8f), 0, 0)
+    }
+    adbCommandsLayout.addView(adbNote)
+
+    cardLayout.addView(adbCommandsLayout)
+
+    val rootGrantBtn = createAnimatedButton(
+        "Grant with Root (Auto)",
+        Color.WHITE,
+        Color.parseColor("#FF6B00"),
+        buttonHeightPx
+    ) {
+        dialog.dismiss()
+        grantPermissionsWithRoot()
+    }.apply {
+        (layoutParams as LinearLayout.LayoutParams).topMargin = dpToPx(8f)
+    }
+    cardLayout.addView(rootGrantBtn)
+
+    val btnRow = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            buttonHeightPx
+        ).apply {
+            topMargin = dpToPx(12f)
+        }
+    }
+
+    val exitBtn = createAnimatedButton(
+        "Exit App",
+        primaryTextColor,
+        secondaryBtnColor,
+        LinearLayout.LayoutParams.MATCH_PARENT
+    ) {
+        dialog.dismiss()
+        finish()
+    }.apply {
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            marginEnd = dpToPx(6f)
+        }
+    }
+
+    // ★ Check Again 按钮：暗色模式文字为黑色，浅色模式为白色
+    val checkBtn = createAnimatedButton(
+        "Check Again",
+        if (isDarkMode) Color.BLACK else Color.WHITE,
+        accentColor,
+        LinearLayout.LayoutParams.MATCH_PARENT
+    ) {
+        if (checkAllPermissions()) {
+            dialog.dismiss()
+            setupUI()
+            loadLogsAsync {}
+        } else {
+            Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
+            dialog.dismiss()
+            showPermissionDialog()
+        }
+    }.apply {
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            marginStart = dpToPx(6f)
+        }
+    }
+
+    btnRow.addView(exitBtn)
+    btnRow.addView(checkBtn)
+    cardLayout.addView(btnRow)
+
+    dialog.setContentView(cardLayout)
+
+    dialog.window?.apply {
+        setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), FrameLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    dialog.setCancelable(false)
+    dialog.show()
+}
 
     private fun setupUI() {
         val rootBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
@@ -1696,14 +1700,14 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
     }
     btnRow.addView(leaveBtn)
 
-    // Enable 按钮（右）
+    // ★ Enable 按钮（右）—— 改为红色背景 + 白色文字（与 Clear Cache 一致）
     val enableBtn = TextView(this).apply {
         text = "Enable"
         textSize = 15f
-        setTextColor(Color.WHITE)
+        setTextColor(Color.WHITE)                       // 白色文字
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
-            setColor(accentColor)
+            setColor(redBtnColor)                       // 红色背景
             cornerRadius = dpToPx(100f).toFloat()
         }
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
@@ -1734,7 +1738,6 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
 
     dialog.show()
 }
-
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
         val x0 = filterAllBtn.left.toFloat()
