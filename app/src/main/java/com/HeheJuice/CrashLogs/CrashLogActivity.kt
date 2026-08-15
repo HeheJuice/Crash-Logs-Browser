@@ -738,27 +738,26 @@ class CrashLogActivity : Activity() {
             }
         }
 
-val checkBtn = createAnimatedButton(
-    "Check Again",
-    if (isDark) accentColor else Color.WHITE,
-    if (isDark) onPrimaryColor else accentColor,
-    LinearLayout.LayoutParams.MATCH_PARENT
-) {
-    if (checkAllPermissions()) {
-        dialog.dismiss()
-        setupUI()
-        loadLogsAsync {}
-    } else {
-        Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
-        dialog.dismiss()
-        showPermissionDialog()
-    }
-}.apply {
-    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-        marginStart = dpToPx(6f)
-    }
-}
-
+        val checkBtn = createAnimatedButton(
+            "Check Again",
+            Color.WHITE,
+            accentColor,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ) {
+            if (checkAllPermissions()) {
+                dialog.dismiss()
+                setupUI()
+                loadLogsAsync {}
+            } else {
+                Toast.makeText(this@CrashLogActivity, "Permissions still not granted. Please grant via ADB or Root.", Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+                showPermissionDialog()
+            }
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginStart = dpToPx(6f)
+            }
+        }
 
         btnRow.addView(exitBtn)
         btnRow.addView(checkBtn)
@@ -1701,8 +1700,7 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
     val enableBtn = TextView(this).apply {
         text = "Enable"
         textSize = 15f
-        // 强制暗色模式下使用与 Check for Updates 相同的 accentColor
-        setTextColor(if (isDark) accentColor else accentColor)
+        setTextColor(accentColor)
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
             setColor(onPrimaryColor)
@@ -1736,7 +1734,6 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
 
     dialog.show()
 }
-
 
     private fun updateFilterPillPosition(progress: Float) {
         val p = progress.coerceIn(0f, 1f)
