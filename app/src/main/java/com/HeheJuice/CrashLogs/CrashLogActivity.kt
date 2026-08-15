@@ -1082,7 +1082,7 @@ class CrashLogActivity : Activity() {
         val updatePill = TextView(this).apply {
             text = "Check for Updates"
             textSize = 13f
-            setTextColor(accentColor)
+            setTextColor(activePillBgColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
@@ -1152,7 +1152,7 @@ class CrashLogActivity : Activity() {
             }
         }
 
-        refreshButton = createAnimatedButton("Refresh Logs", onPrimaryColor, accentColor, LinearLayout.LayoutParams.MATCH_PARENT) {
+        refreshButton = createAnimatedButton("Refresh Logs", accentColor, onPrimaryColor, LinearLayout.LayoutParams.MATCH_PARENT) {
             performRefresh()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(0, buttonHeightPx, 1f).apply {
@@ -1703,7 +1703,7 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
         setTextColor(accentColor)
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
-            setColor(onPrimaryColor)
+            setColor(activePillBgColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
