@@ -2,6 +2,7 @@ package com.HeheJuice.CrashLogs
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
@@ -14,6 +15,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.*
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.MetricAffectingSpan
 import android.text.style.StyleSpan
 import android.util.Log
 import android.util.TypedValue
@@ -23,6 +25,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 import androidx.core.content.FileProvider
+import com.google.android.material.R as MaterialR
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -40,6 +43,37 @@ class DetailsActivity : Activity() {
     private var downloadTask: DownloadApkTask? = null
     private var downloadedApkFile: File? = null
 
+    // 颜色变量（与 DeveloperOptionsActivity 一致）
+    private var bgColor: Int = 0
+    private var cardBgColor: Int = 0
+    private var backBtnBgColor: Int = 0
+    private var primaryTextColor: Int = 0
+    private var secondaryTextColor: Int = 0
+    private var accentColor: Int = 0
+    private var onPrimaryColor: Int = 0
+    private var containerBgColor: Int = 0
+
+    private class CustomTypefaceSpan(private val typeface: Typeface) : MetricAffectingSpan() {
+        override fun updateDrawState(tp: TextPaint) {
+            applyCustomTypeface(tp)
+        }
+        override fun updateMeasureState(p: TextPaint) {
+            applyCustomTypeface(p)
+        }
+        private fun applyCustomTypeface(paint: TextPaint) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                paint.typeface = Typeface.create(typeface, 800, false)
+                paint.fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                paint.typeface = typeface
+                paint.fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                paint.typeface = typeface
+                paint.isFakeBoldText = true
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
@@ -52,15 +86,25 @@ class DetailsActivity : Activity() {
         isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
 
-        setStatusBarColors()
+        // 获取颜色（与 DeveloperOptionsActivity 完全一致）
+        accentColor = MonetColorHelper.getColor(this, MaterialR.attr.colorPrimary)
+        onPrimaryColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnPrimary)
+        bgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        cardBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
+        backBtnBgColor = MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerHigh)
+        primaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurface)
+        secondaryTextColor = MonetColorHelper.getColor(this, MaterialR.attr.colorOnSurfaceVariant)
+        containerBgColor = if (isDark) {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainer)
+        } else {
+            MonetColorHelper.getColor(this, MaterialR.attr.colorSurfaceContainerLowest)
+        }
 
-        val bgColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-        val cardBgColor = if (isDark) Color.parseColor("#1C1C1E") else Color.parseColor("#FFFFFF")
-        val cardBorderColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA")
-        val primaryTextColor = if (isDark) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-        val secondaryTextColor = if (isDark) Color.parseColor("#8E8E93") else Color.parseColor("#6C6C70")
-        val accentColor = if (isDark) Color.parseColor("#3E82F7") else Color.parseColor("#0066FF")
-        val backBtnBgColor = if (isDark) Color.parseColor("#3A3A3C") else Color.parseColor("#E5E5EA")
+        setStatusBarColors()
 
         val statusBarHeight = getStatusBarHeight()
         val dpToPx = { dp: Float ->
@@ -84,12 +128,11 @@ class DetailsActivity : Activity() {
             )
         }
 
-        // ----- Banner Card -----
+        // Banner Card
         val bannerCard = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(0, Color.TRANSPARENT)
             }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(
@@ -139,13 +182,12 @@ class DetailsActivity : Activity() {
         bannerCard.addView(titleText)
         scrollContent.addView(bannerCard)
 
-        // ----- Update Checker Card -----
+        // Update Checker Card
         val updateCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -154,7 +196,6 @@ class DetailsActivity : Activity() {
             ).apply { topMargin = dpToPx(16f) }
         }
 
-        // 状态文字 (初始无背景)
         updateStatusView = TextView(this).apply {
             text = getString(R.string.update_checking)
             textSize = 15f
@@ -164,7 +205,6 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(updateStatusView)
 
-        // 更新日志 (初始无背景)
         releaseNotesView = TextView(this).apply {
             visibility = View.GONE
             textSize = 14f
@@ -176,6 +216,13 @@ class DetailsActivity : Activity() {
                 } else {
                     typeface = googleSansFlexTypeface
                 }
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 0
+                bottomMargin = 0
             }
         }
         updateCard.addView(releaseNotesView)
@@ -197,11 +244,10 @@ class DetailsActivity : Activity() {
         }
         updateCard.addView(downloadProgressText)
 
-        // 下载按钮
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -211,7 +257,10 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                topMargin = 0
+                bottomMargin = 0
+            }
             isClickable = true
             isFocusable = true
             visibility = View.GONE
@@ -220,13 +269,12 @@ class DetailsActivity : Activity() {
         updateCard.addView(updateActionView)
         scrollContent.addView(updateCard)
 
-        // ----- Info Card (Source & License) -----
+        // Info Card (Source & License)
         val infoCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(20f), dpToPx(20f), dpToPx(20f), dpToPx(20f))
             layoutParams = LinearLayout.LayoutParams(
@@ -238,7 +286,7 @@ class DetailsActivity : Activity() {
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -261,7 +309,7 @@ class DetailsActivity : Activity() {
         val licenseBtn = TextView(this).apply {
             text = "View License"
             textSize = 15f
-            setTextColor(Color.WHITE)
+            setTextColor(onPrimaryColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(accentColor)
@@ -290,7 +338,6 @@ class DetailsActivity : Activity() {
             background = GradientDrawable().apply {
                 setColor(cardBgColor)
                 cornerRadius = dpToPx(28f).toFloat()
-                setStroke(dpToPx(1f), cardBorderColor)
             }
             setPadding(dpToPx(20f), dpToPx(24f), dpToPx(20f), dpToPx(24f))
             layoutParams = LinearLayout.LayoutParams(
@@ -303,7 +350,12 @@ class DetailsActivity : Activity() {
             text = "Acknowledgments"
             textSize = 20f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             setPadding(0, 0, 0, dpToPx(16f))
         }
         creditsCard.addView(creditsTitle)
@@ -374,11 +426,55 @@ class DetailsActivity : Activity() {
             text = hehejuiceName
             textSize = 17f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             isClickable = true
             isFocusable = true
-            setOnClickListener { openTelegram("HeheJuice") }
-            setOnTouchListener(pressScaleTouchListener)
+
+            setOnClickListener {
+                openTelegram("HeheJuice")
+                animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(350).start()
+                }.start()
+            }
+
+            var handler: android.os.Handler? = null
+            var runnable: Runnable? = null
+
+            setOnLongClickListener {
+                if (handler == null) {
+                    handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    runnable = Runnable {
+                        startActivity(Intent(this@DetailsActivity, DeveloperOptionsActivity::class.java))
+                        Toast.makeText(this@DetailsActivity, "Developer Options opened", Toast.LENGTH_SHORT).show()
+                        handler = null
+                        runnable = null
+                    }
+                    handler?.postDelayed(runnable!!, 10000)
+                    animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    return@setOnLongClickListener true
+                }
+                return@setOnLongClickListener false
+            }
+
+            setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        handler?.removeCallbacks(runnable!!)
+                        handler = null
+                        runnable = null
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(350).start()
+                    }
+                    MotionEvent.ACTION_DOWN -> {
+                        v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(120).start()
+                    }
+                }
+                false
+            }
         }
         textContainer1.addView(nameView1)
 
@@ -457,7 +553,12 @@ class DetailsActivity : Activity() {
             text = mortisName
             textSize = 17f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             isClickable = true
             isFocusable = true
             setOnClickListener { openTelegram("error_5649") }
@@ -477,7 +578,7 @@ class DetailsActivity : Activity() {
 
         // Credit 3: Material Design
         val materialName = "Material Design"
-        val materialDesc = "XML Vector Android Icon"
+        val materialDesc = "Material Design Library"
 
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -541,7 +642,12 @@ class DetailsActivity : Activity() {
             text = materialName
             textSize = 17f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             isClickable = true
             isFocusable = true
             setOnClickListener {
@@ -561,7 +667,7 @@ class DetailsActivity : Activity() {
         row2.addView(textContainer2)
         creditsCard.addView(row2)
 
-        // Credit 4: Google Sans Flex
+        // Credit 4: Google Sans Flex (使用 drawable/GoogleSansFlexImage)
         val fontCreditName = "Google Sans Flex"
         val fontCreditDesc = "Fonts Used in Some UI"
 
@@ -578,29 +684,45 @@ class DetailsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
                 marginEnd = dpToPx(16f)
             }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(accentColor)
+            val imageResId = resources.getIdentifier("googlesansfleximage", "drawable", packageName)
+            if (imageResId != 0) {
+                setImageResource(imageResId)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.TRANSPARENT)
+                }
+                clipToOutline = true
+            } else {
+                // fallback
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(accentColor)
+                }
+                setImageDrawable(null)
             }
         }
-
-        val fontInitialTv = TextView(this).apply {
-            text = "G"
-            textSize = 24f
-            setTextColor(Color.WHITE)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
-        }
-
-        val fontAvatarContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
-                marginEnd = dpToPx(16f)
+        // 如果图片不存在，需要添加初始字母
+        if (resources.getIdentifier("googlesansfleximage", "drawable", packageName) == 0) {
+            val initialTv = TextView(this).apply {
+                text = "G"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(dpToPx(48f), dpToPx(48f))
             }
-            addView(fontAvatar)
-            addView(fontInitialTv)
+            val avatarContainer = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(48f), dpToPx(48f)).apply {
+                    marginEnd = dpToPx(16f)
+                }
+                addView(fontAvatar)
+                addView(initialTv)
+            }
+            row3.addView(avatarContainer)
+        } else {
+            row3.addView(fontAvatar)
         }
-        row3.addView(fontAvatarContainer)
 
         val textContainer3 = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -611,7 +733,12 @@ class DetailsActivity : Activity() {
             text = fontCreditName
             textSize = 17f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             isClickable = true
             isFocusable = true
             setOnClickListener {
@@ -635,7 +762,7 @@ class DetailsActivity : Activity() {
         scrollView.addView(scrollContent)
         rootFrameLayout.addView(scrollView)
 
-        // ----- Top Bar -----
+        // Top Bar
         val topBarLayout = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -645,10 +772,15 @@ class DetailsActivity : Activity() {
         }
 
         val topBarTitle = TextView(this).apply {
-            text = getString(R.string.details_topbar_title)
+            text = "Details"
             textSize = 16f
             setTextColor(primaryTextColor)
-            if (googleSansFlexTypeface != null) typeface = googleSansFlexTypeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && googleSansFlexTypeface != null) {
+                typeface = Typeface.create(googleSansFlexTypeface, 800, false)
+                fontVariationSettings = "'wght' 800, 'ROND' 100, 'opsz' 14"
+            } else {
+                typeface = googleSansFlexTypeface ?: Typeface.DEFAULT_BOLD
+            }
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 setColor(backBtnBgColor)
@@ -714,7 +846,6 @@ class DetailsActivity : Activity() {
             downloadProgressText.visibility = View.GONE
         }
 
-        // 按钮点击逻辑
         updateActionView.setOnClickListener {
             if (updateActionView.text == "Install" && downloadedApkFile?.exists() == true) {
                 installApk(downloadedApkFile!!)
@@ -831,7 +962,6 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 安装 APK ==========
     private fun installApk(file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!packageManager.canRequestPackageInstalls()) {
@@ -862,7 +992,6 @@ class DetailsActivity : Activity() {
         }
     }
 
-    // ========== 删除缓存 APK ==========
     private fun deleteCachedApk() {
         try {
             val file = File(cacheDir, "app-release.apk")
@@ -878,8 +1007,46 @@ class DetailsActivity : Activity() {
         } catch (_: Exception) { }
     }
 
-    // ========== 检查更新（使用 GradientDrawable 固定圆角 20dp） ==========
     private fun checkForUpdates() {
+        val prefs = getSharedPreferences("developer_prefs", MODE_PRIVATE)
+        val fakeEnabled = prefs.getBoolean("fake_update_enabled", false)
+
+        if (fakeEnabled) {
+            runOnUiThread {
+                updateStatusView.text = getString(R.string.update_new_version, "9.9")
+                updateStatusView.background = GradientDrawable().apply {
+                    setColor(containerBgColor)
+                    cornerRadius = dpToPx(100f).toFloat()
+                }
+                updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+
+                val fakeBody = "## UpdateTest\n- Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                val formatted = formatReleaseNotes(fakeBody)
+                releaseNotesView.text = formatted
+                val bg = GradientDrawable().apply {
+                    setColor(containerBgColor)
+                    cornerRadius = dpToPx(20f).toFloat()
+                }
+                releaseNotesView.background = bg
+                releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
+                releaseNotesView.visibility = View.VISIBLE
+                val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
+                lp.topMargin = dpToPx(8f)
+                lp.bottomMargin = dpToPx(8f)
+                releaseNotesView.layoutParams = lp
+
+                updateActionView.text = "Download"
+                updateActionView.visibility = View.VISIBLE
+                updateActionView.isEnabled = true
+                val lpAct = updateActionView.layoutParams as LinearLayout.LayoutParams
+                lpAct.topMargin = dpToPx(8f)
+                updateActionView.layoutParams = lpAct
+
+                downloadedApkFile = null
+            }
+            return
+        }
+
         updateStatusView.text = getString(R.string.update_checking)
         updateActionView.visibility = View.GONE
         releaseNotesView.visibility = View.GONE
@@ -889,7 +1056,6 @@ class DetailsActivity : Activity() {
         releaseNotesView.background = null
         releaseNotesView.setPadding(0, 0, 0, 0)
 
-        // 重置间距
         val lpRelease = releaseNotesView.layoutParams as LinearLayout.LayoutParams
         lpRelease.topMargin = 0
         lpRelease.bottomMargin = 0
@@ -919,28 +1085,24 @@ class DetailsActivity : Activity() {
 
                     runOnUiThread {
                         if (comparison > 0) {
-                            // 新版本 – 状态胶囊（固定圆角100dp）
                             updateStatusView.text = getString(R.string.update_new_version, latestVersion)
                             updateStatusView.background = GradientDrawable().apply {
-                                setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                setColor(containerBgColor)
                                 cornerRadius = dpToPx(100f).toFloat()
                             }
                             updateStatusView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
 
-                            // 更新日志 – 使用 GradientDrawable 固定圆角 20dp（稳定且视觉清晰）
                             val releaseBody = json.optString("body", "")
                             if (releaseBody.isNotEmpty()) {
                                 val formatted = formatReleaseNotes(releaseBody)
                                 releaseNotesView.text = formatted
                                 val bg = GradientDrawable().apply {
-                                    setColor(if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#E5E5EA"))
+                                    setColor(containerBgColor)
                                     cornerRadius = dpToPx(20f).toFloat()
                                 }
                                 releaseNotesView.background = bg
                                 releaseNotesView.setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
                                 releaseNotesView.visibility = View.VISIBLE
-
-                                // 设置上下间距 8dp
                                 val lp = releaseNotesView.layoutParams as LinearLayout.LayoutParams
                                 lp.topMargin = dpToPx(8f)
                                 lp.bottomMargin = dpToPx(8f)
@@ -949,7 +1111,6 @@ class DetailsActivity : Activity() {
                                 releaseNotesView.visibility = View.GONE
                             }
 
-                            // 下载按钮 – 间距 8dp
                             updateActionView.text = "Download"
                             updateActionView.visibility = View.VISIBLE
                             updateActionView.isEnabled = true
@@ -959,7 +1120,6 @@ class DetailsActivity : Activity() {
 
                             downloadedApkFile = null
                         } else {
-                            // 最新版本 – 无背景
                             updateStatusView.text = getString(R.string.update_latest, currentVer)
                             updateStatusView.background = null
                             updateStatusView.setPadding(0, 0, 0, 0)
@@ -996,8 +1156,7 @@ class DetailsActivity : Activity() {
             }
         }.start()
     }
-
-    // ========== 格式化发布日志（普通粗体） ==========
+    // ========== 格式化发布日志 ==========
     private fun formatReleaseNotes(body: String): SpannableStringBuilder {
         val lines = body.split("\n")
         val spannable = SpannableStringBuilder()
@@ -1008,28 +1167,44 @@ class DetailsActivity : Activity() {
                     val text = trimmed.substring(5)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(16f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("### ") -> {
                     val text = trimmed.substring(4)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(18f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("## ") -> {
                     val text = trimmed.substring(3)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(20f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("# ") -> {
                     val text = trimmed.substring(2)
                     val span = SpannableString(text + "\n")
                     span.setSpan(AbsoluteSizeSpan(dpToPx(24f).toInt()), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (googleSansFlexTypeface != null) {
+                        span.setSpan(CustomTypefaceSpan(googleSansFlexTypeface!!), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else {
+                        span.setSpan(StyleSpan(Typeface.BOLD), 0, span.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
                     spannable.append(span)
                 }
                 trimmed.startsWith("- ") -> {
@@ -1044,7 +1219,6 @@ class DetailsActivity : Activity() {
         return spannable
     }
 
-    // ========== 辅助方法 ==========
     private fun getStatusBarHeight(): Int {
         val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else dpToPx(36f)
@@ -1242,8 +1416,7 @@ class DetailsActivity : Activity() {
     private fun setStatusBarColors() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            val statusColor = if (isDark) Color.parseColor("#000000") else Color.parseColor("#F2F2F7")
-            window.statusBarColor = statusColor
+            window.statusBarColor = bgColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val flags = window.decorView.systemUiVisibility
                 if (!isDark) {
