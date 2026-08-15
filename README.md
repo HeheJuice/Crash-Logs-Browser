@@ -32,6 +32,11 @@
 
 > [Google / Material Design Icons](https://m3.material.io/styles/icons)
 
+## Help Us Improve!
+> The DEV of this app isn't professional and may have some bugs
+
+> Feel free to report or we would like help from other developers 🩷
+
 ## Join Us
 [![Telegram](https://img.shields.io/badge/Telegram-Channel-26A5E4?logo=Telegram&style=for-the-badge)](https://t.me/channelhehejuice)[![Chat](https://img.shields.io/badge/Telegram-Chat-26A5E4?logo=Telegram&style=for-the-badge)](https://t.me/sechehe)
 
