@@ -247,10 +247,10 @@ class DetailsActivity : Activity() {
         updateActionView = TextView(this).apply {
             text = "Download"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(accentColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(onPrimaryColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -286,10 +286,10 @@ class DetailsActivity : Activity() {
         val sourceBtn = TextView(this).apply {
             text = "View Source Code"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(accentColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(onPrimaryColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -309,10 +309,10 @@ class DetailsActivity : Activity() {
         val licenseBtn = TextView(this).apply {
             text = "View License"
             textSize = 15f
-            setTextColor(onPrimaryColor)
+            setTextColor(accentColor)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
-                setColor(accentColor)
+                setColor(onPrimaryColor)
                 cornerRadius = dpToPx(100f).toFloat()
             }
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))

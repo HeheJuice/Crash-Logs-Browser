@@ -1082,13 +1082,13 @@ class CrashLogActivity : Activity() {
         val updatePill = TextView(this).apply {
             text = "Check for Updates"
             textSize = 13f
-            setTextColor(onPrimaryColor)
+            setTextColor(accentColor)
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(dpToPx(16f), dpToPx(8f), dpToPx(16f), dpToPx(8f))
             background = GradientDrawable().apply {
                 cornerRadius = dpToPx(100f).toFloat()
-                setColor(accentColor)
+                setColor(onPrimaryColor)
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -1700,10 +1700,10 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
     val enableBtn = TextView(this).apply {
         text = "Enable"
         textSize = 15f
-        setTextColor(Color.WHITE)
+        setTextColor(accentColor)
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
-            setColor(accentColor)
+            setColor(onPrimaryColor)
             cornerRadius = dpToPx(100f).toFloat()
         }
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
