@@ -1890,9 +1890,14 @@ private fun showAutoRefreshConfirmDialog(switch: MaterialSwitch, prefs: SharedPr
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 val timestamp = obj.getString("timestamp")
-                val appName = obj.getString("appName")
                 val type = obj.getString("type")
                 val details = obj.getString("details")
+                val cachedAppName = obj.getString("appName")
+                val appName = if (cachedAppName.isNotEmpty() && cachedAppName.all { it.isDigit() }) {
+                    extractPackageName(details.lines())
+                } else {
+                    cachedAppName
+                }
                 list.add(LogEntry(timestamp, appName, type, details))
             }
             list
@@ -2065,17 +2070,17 @@ private fun loadLogs() {
             val processMatch = Regex("(?:Process|Package|Process name):\\s*([\\w.:]+)").find(line)
             if (processMatch != null) {
                 val pkg = processMatch.groupValues[1].substringBefore(":")
-                if (pkg.isNotBlank() && pkg != "System") return pkg
+                if (pkg.isNotBlank() && pkg != "System" && !pkg.all { it.isDigit() }) return pkg
             }
             val bracketMatch = Regex(">>>\\s*([\\w.:]+)\\s*<<<").find(line)
             if (bracketMatch != null) {
                 val pkg = bracketMatch.groupValues[1].substringBefore(":")
-                if (pkg.isNotBlank()) return pkg
+                if (pkg.isNotBlank() && !pkg.all { it.isDigit() }) return pkg
             }
             val cmdlineMatch = Regex("Cmdline:\\s*([^\\s]+)").find(line)
             if (cmdlineMatch != null) {
                 val pkg = cmdlineMatch.groupValues[1].substringAfterLast("/").substringBefore(":")
-                if (pkg.isNotBlank()) return pkg
+                if (pkg.isNotBlank() && !pkg.all { it.isDigit() }) return pkg
             }
         }
         return "Unknown Process"
@@ -2102,7 +2107,7 @@ private fun loadDropBoxLogs() {
                     if (pkg == "Unknown Process") {
                         pkg = tag
                     }
-                    if (pkg != "System Process" && !pkg.startsWith("com.android.system")) {
+                    if (pkg != "System Process" && pkg != "com.android.system") {
                         val timeStr = SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault())
                             .format(Date(entry.timeMillis))
                         allLogs.add(0, LogEntry(timeStr, pkg, type, "[$tag]\n$text"))
