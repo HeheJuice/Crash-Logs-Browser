@@ -1,0 +1,16 @@
+app
+├── src/                    
+├──   main/                 AndroidManifest
+├──     java/               
+├──       com/              
+├──         HeheJuice/      
+├──           CrashLogs/    
+├──             app/        Cosine, EngineStart, TangentHome, WelcomeActivity
+├──             ui/         HomePageContent, UpdatePageContent
+├──             util/       MonetColorManager, OptimizeEngine, Sine
+├──     res/                
+├──       color/            hehejuicecolor
+├──       drawable/         add_photo_alternate_24px, admin_panel_settings_24px, alarm_24px, arrow_back_24px, arrow_downward_24px, arrow_forward_24px, art_rounded_bg, auto_awesome_motion_24px, autoplay_24px, battery_alert_24px, battery_profile_24px, bluetooth_searching_24px, blur_on_24px, border_style_24px, brand_family_24px, brightness_alert_24px, brightness_auto_24px, brightness_medium_24px, bug_report_24px, calendar_month_24px, charger_24px, check_24px, circle_24px, close_24px, code_24px, colorize_24px, dark_mode_24px, delete_24px, deployed_code_update_24px, devices_24px, digital_wellbeing_24px, do_not_disturb_on_24px, download_24px, emoticon_24px, explore_24px, filter_drama_24px, format_color_fill_24px, format_list_numbered_24px, format_quote_24px, gradient_24px, handyman_24px, healing_24px, hehejuice, hehejuiceback, hehejuicefront, hehejuicemono, ic_github, ic_hehe, ic_ig, ic_tg, info_24px, ink_eraser_24px, interests_24px, keyboard_arrow_down_24px, keyboard_arrow_left_24px, keyboard_arrow_right_24px, keyboard_arrow_up_24px, label_24px, language_24px, license_24px, lyrics_24px, menu_24px, moon_stars_24px, mortismi, motion_play_24px, music_cast_24px, music_note_2_24px, network_intel_node_24px, news_24px, newspaper_24px, open_in_new_24px, palette_24px, pause_24px, photo_prints_24px, play_arrow_24px, policy_24px, power_low_dismiss_bg, question_mark_24px, refresh_24px, remove_selection_24px, reset_wrench_24px, save_24px, search_24px, security_24px, sentiment_excited_24px, settings_24px, square_24px, style_24px, switch_thumb_icon, translate_24px, upload_24px, visibility_24px, visibility_off_24px, waving_hand_24px, web_traffic_24px, zoom_in_map_24px, zoom_out_map_24px
+├──       layout/           switch_material
+├──       values/           colors, strings, themes
+└──       xml/              file_paths

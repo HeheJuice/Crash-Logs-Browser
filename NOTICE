@@ -1,0 +1,17 @@
+# Third-Party Notices
+
+The APK includes or utilizes third-party components subject to their own open-source licenses. Those licenses apply only to their respective components.
+
+## 1. Material Design Library
+- **Copyright:** Copyright (c) Google LLC.
+- **License:** Apache License 2.0
+- **Source:** https://github.com/material-components/material-components-android
+
+## 2. Material Design Icons
+- **Copyright:** Copyright (c) Google LLC / Material Design Authors.
+- **License:** Apache License 2.0 / SIL Open Font License 1.1
+- **Source:** https://github.com/google/material-design-icons
+
+## 3. Material Color Utilities / MaterialKolor
+- **Copyright:** Copyright (c) Google LLC (Material Color Utilities), Copyright (c) Jordon de Hoog (MaterialKolor)
+- **License:** Apache License 2.0

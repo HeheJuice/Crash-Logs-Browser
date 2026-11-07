@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.HeheJuice.CrashLogs">
+
+    <!-- ────────────────────────────────────────────────────────────
+         Permissions
+         ──────────────────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+        <uses-permission android:name="android.permission.READ_LOGS" />
+    <uses-permission android:name="android.permission.READ_DROPBOX_DATA" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" 
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- ────────────────────────────────────────────────────────────
+         Package visibility (Android 11+)
+         ──────────────────────────────────────────────────────────── -->
+    <queries>
+        <!-- 瀏覽器：Cosine / Updater 開啟 GitHub、Releases -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+
+        <!-- APK 安裝器：UpdatePageContent.installApk() 用 resolveActivity 檢查 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".app.EngineStart"
+        android:allowBackup="false"
+        android:icon="@drawable/ic_hehe"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.IntelligentWidget">
+
+        <!-- ────────────────────────────────────────────────────────
+             LAUNCHER — 主畫面（僅 Home / Updater 兩個 tab）
+             ──────────────────────────────────────────────────────── -->
+        <activity
+            android:name=".app.TangentHome"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.IntelligentWidget">
+
+
+            <!-- 普通啟動 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Welcome 引導頁 -->
+        <activity
+            android:name=".app.WelcomeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IntelligentWidget" />
+                        <activity
+    android:name=".app.TangentLogsDetail"
+    android:exported="false"
+            android:icon="@drawable/ic_hehe_unknown"
+    android:theme="@style/Theme.IntelligentWidget" />
+
+        <!-- Cosine — 開發者詳細頁 -->
+        <activity
+            android:name=".app.Cosine"
+            android:exported="false"
+            android:theme="@style/Theme.IntelligentWidget" />
+
+        <!-- ────────────────────────────────────────────────────────
+             FileProvider — 供 Updater 下載 APK 後安裝
+             ──────────────────────────────────────────────────────── -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>

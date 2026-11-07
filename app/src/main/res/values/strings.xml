@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Crash Logs Browser</string>
+    <string name="back_content_desc">Back</string>
+    <string name="app_desc_short">A Simple Android Crash or ANRs Logs Viewer</string>
+
+    <!-- ═══════ Bottom navigation ═══════ -->
+    <string name="nav_home">Home</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_updater">Updater</string>
+
+    <!-- ═══════ Settings ═══════ -->
+    <string name="settings_group_general">General</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_desc">Choose the app display language</string>
+    <string name="language_picker_title">Select language</string>
+    <string name="language_picker_subtitle">Choose a display language for the app</string>
+    <string name="lang_follow_system">Follow system</string>
+    <string name="lang_english">English</string>
+    <string name="lang_japanese">日本語</string>
+    <string name="lang_korean">한국어</string>
+    <string name="lang_zh_hk">繁體中文（香港）</string>
+    <string name="lang_zh_tw">繁體中文（台灣）</string>
+    <string name="lang_zh_cn">简体中文</string>
+    <string name="lang_zh_fake">偽中國語</string>
+    <string name="lang_yue">粵語</string>
+    <string name="lang_yue_cn">粵語（簡體）</string>
+
+    <!-- ═══════ Home — Crash Logs ═══════ -->
+    <string name="home_group_crash_logs">Recent Crash Logs</string>
+    <string name="home_no_crash_logs">No crash logs found</string>
+    
+    <!-- ═══════ Shared dialog buttons ═══════ -->
+    <string name="tangent_cancel">Cancel</string>
+    <string name="action_select">Select</string>
+
+    <!-- ═══════ Updater — Header / version ═══════ -->
+    <string name="setting_updates_and_about">Check for Updates &amp; About App</string>
+    <string name="version_format">Version %1$s</string>
+    <string name="version_tag_release">Release</string>
+
+    <!-- ═══════ Updater — Status ═══════ -->
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_new_version">New version available: %1$s</string>
+    <string name="update_latest">You are on the latest version (%1$s)</string>
+    <string name="update_server_error">Failed to check updates (server error)</string>
+    <string name="update_connection_error">Could not connect to GitHub</string>
+    <string name="sign_unmatches">Update checker disabled due to unofficial app version</string>
+
+    <!-- ═══════ Updater — Download / Install ═══════ -->
+    <string name="zero_percent">0%</string>
+    <string name="progress_format">%1$d%%</string>
+    <string name="action_download">Download</string>
+    <string name="action_install">Install</string>
+    <string name="download_failed">Download failed</string>
+    <string name="allow_unknown_sources">Please allow installation from unknown sources</string>
+    <string name="no_app_found_install">No app found to install APK</string>
+    <string name="install_error">Install error: %1$s</string>
+
+    <!-- ═══════ Updater — Info group ═══════ -->
+    <string name="view_source_code">View Repository</string>
+    <string name="desc_source">Check for repository of this app on GitHub</string>
+    <string name="view_license">View License</string>
+    <string name="desc_license">View 3rd Party Usage and License for them and this app</string>
+    <string name="view_privacy">Review Privacy Policy</string>
+    <string name="desc_privacy">Learn how this application manages user data</string>
+
+    <!-- ═══════ Updater — Acknowledgments ═══════ -->
+    <string name="acknowledgments">Acknowledgments</string>
+    <string name="credit_hehejuice_desc">Developer of this App</string>
+    <string name="credit_mortis_desc">Monet Color Helps</string>
+    <string name="credit_material_desc">Material Design components used in this app</string>
+    <string name="credit_google_desc">Uses Material Design icons</string>
+    <string name="credit_noto_desc">Noto Fonts are used in this app</string>
+
+    <!-- ═══════ Cosine — Details of Acknowledge ═══════ -->
+    <string name="cosine_details_title">Details of Acknowledge</string>
+    <string name="cosine_group_data">Data</string>
+    <string name="cosine_group_links">Related Links</string>
+    <string name="cosine_github_title">GitHub</string>
+    <string name="cosine_github_desc">View the repository and profile on GitHub</string>
+    <string name="cosine_open_failed">No app found to open this link</string>
+    <string name="cosine_other_projects_title">Check out other projects by "%1$s"</string>
+
+    <!-- ═══════ Welcome — Page 1 ═══════ -->
+    <string name="welcome_to">Welcome to</string>
+    <string name="welcome_line_1">Crash Logs Browser</string>
+    <string name="welcome_disclaimer">A Simple / Light-Weight Android Crash or ANRs Logs Viewer</string>
+    <string name="welcome_continue">Continue</string>
+    <string name="tangent_exit">Exit</string>
+
+    <!-- ═══════ Welcome — Page 2 (Review) ═══════ -->
+    <string name="welcome_for_your_review">For your review</string>
+    <string name="welcome_agree_to_terms">I agree to the Privacy Policy and License</string>
+
+    <!-- ═══════ Welcome — Page 3 (Permissions) ═══════ -->
+    <string name="welcome_perm_title">Permissions Required</string>
+    <string name="welcome_perm_desc">Crash Logs Browser needs the following permissions to read crash logs and DropBox entries. Tap "Grant with Root" if your device is rooted, or copy the ADB command and run it on a PC. The app will not continue until all are granted.</string>
+    <string name="welcome_perm_required_title">Required permissions</string>
+    <string name="welcome_perm_copy_adb">Copy ADB command</string>
+    <string name="welcome_perm_grant_root">Grant with Root</string>
+    <string name="welcome_perm_granting">Granting…</string>
+    <string name="welcome_perm_grant_success">Permissions granted</string>
+    <string name="welcome_perm_grant_failed">Root grant failed:\n%1$s</string>
+    <string name="welcome_perm_grant_failed_no_root">Root grant failed — no root access or permission denied</string>
+    <string name="welcome_perm_copied">Grant commands copied to clipboard</string>
+    <string name="welcome_perm_refresh">Refresh status</string>
+    <string name="welcome_perm_still_missing">Some permissions are still missing</string>
+    <string name="welcome_perm_denied_toast">Grant all permissions before continuing</string>
+
+    <!-- ═══════ Welcome — Page 5 (Unknown Signature) ═══════ -->
+    <string name="welcome_unknown_signature_title">Unknown Signature</string>
+    <string name="welcome_unknown_signature_desc">This app is not signed by the official developer. It may be a modified or repackaged build, and could pose a security risk. We strongly recommend downloading the official version from the repository below.</string>
+    <string name="welcome_unknown_signature_acknowledge">I understand the danger and want to continue anyway</string>
+    <string name="welcome_continue_anyway">Continue Anyway</string>
+
+    <!-- ═══════ Welcome — Page 4 (All Set / Updated) ═══════ -->
+    <string name="all_set_up">All Set!</string>
+    <string name="all_set_up_desc">Everything is ready.</string>
+    <string name="all_set_up_icon_desc">All set</string>
+    <string name="enter_app">Enter App</string>
+    <string name="update_success_title">Updated Successfully</string>
+    <string name="update_success_desc">We hope you enjoy the new version!</string>
+    <string name="whats_new_title">What\'s New?</string>
+    <string name="whats_new_desc">Tap to explore what\'s new</string>
+    <string name="log_copy">Copy Log</string>
+<string name="log_copied">Log copied to clipboard</string>
+<string name="log_extract">Export as TXT</string>
+<string name="log_saved">Log saved successfully</string>
+<string name="log_save_failed">Failed to save log</string>
+<!-- ═══════ Crash Log Types ═══════ -->
+<string name="log_type_app_crash">App Crash</string>
+<string name="log_type_app_native_crash">App Native Crash</string>
+<string name="log_type_app_anr">App ANR</string>
+<string name="log_type_sys_crash">System App Crash</string>
+<string name="log_type_sys_native_crash">System App Native Crash</string>
+<string name="log_type_sys_anr">System ANR</string>
+<string name="log_type_server_crash">Server Crash</string>
+<string name="log_type_server_anr">Server ANR</string>
+<string name="log_type_tombstone">Tombstone</string>
+<string name="log_type_watchdog">Watchdog</string>
+<string name="log_type_all">All</string>
+</resources>

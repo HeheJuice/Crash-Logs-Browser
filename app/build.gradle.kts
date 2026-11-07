@@ -1,0 +1,62 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.HeheJuice.CrashLogs"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.HeheJuice.CrashLogs"
+        minSdk = 33
+        targetSdk = 36
+        versionCode = 14
+        versionName = "V.1.4"
+    }
+
+    signingConfigs {
+        create("stableDebug") {
+            storeFile = file("debug.keystore")
+            storePassword = System.getenv("RELEASE_SIGNING_PASSWORD") ?: "android"
+            keyAlias = System.getenv("RELEASE_SIGNING_KEY_ALIAS") ?: "HeheJuice"
+            keyPassword = System.getenv("RELEASE_SIGNING_KEY_PASSWORD") ?: "android"
+            
+            // Explicitly enable V1, V2, and V3 signing schemes
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("stableDebug")
+        }
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.14.0")
+    implementation("com.materialkolor:material-color-utilities-android:4.0.5")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+}

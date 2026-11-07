@@ -1,0 +1,156 @@
+================================================================================
+                           PRIVACY POLICY
+                        Crash Logs Browser
+================================================================================
+                          Effective Date: November 5, 2026
+================================================================================
+
+[ 1. OUR COMMITMENT TO PRIVACY ]
+================================================================================
+
+The App is built on a "Local-First" principle. We do not collect, transmit, or
+share your personal content. Crash logs, ANR records, app language preferences,
+and theme settings are processed and stored strictly on your local device.
+
+Internet connectivity is used *exclusively* for optional application software
+updates (including signature verification) and for loading the public HeheJuice
+avatars shown in the credits screen. It is never required for core functionality
+such as viewing crash logs or theme customization.
+
+---
+
+[ 2. LOCAL DATA STORAGE & HANDLING ]
+================================================================================
+
+All data remains within your device's private storage directories:
+
+  * Crash Logs & Package Data
+    When you open the App, it accesses the Android system's DropBoxManager to
+    read local crash, ANR, and tombstone logs. It also uses the PackageManager
+    to retrieve app names and icons for display. This data is processed in
+    memory and is never uploaded to any server.
+
+  * Exported Text Files
+    The logs you choose to export are saved to the location you select via
+    Android's Storage Access Framework (SAF). The App does not upload these
+    text files to any server.
+
+  * App-Level Preferences
+    Onboarding state (whether the welcome screen and permissions have been
+    acknowledged) and UI settings (such as selected language) are stored
+    locally in:
+    app_prefs
+
+  * Cached Update Files
+    Downloaded update packages are stored temporarily in:
+    cacheDir/app-release.apk
+    This file is used only for user-initiated installation of an update.
+
+  * Cached GitHub Avatars
+    Public GitHub avatars for the credits screen are cached locally in the
+    App's cache directory. These are used only for the credits section.
+
+---
+
+[ 3. NETWORK ACCESS & APP UPDATES ]
+================================================================================
+
+  * Purpose of Internet Permission
+    The App connects to the internet solely to check for, verify, and download
+    application update packages from the project's GitHub Releases page
+    (api.github.com and github.com), and to load public GitHub avatars.
+
+  * Complete User Control
+    Network access is entirely optional. You can disable internet permissions
+    for the App at any time via your device settings, or use the App
+    completely offline without affecting log viewing.
+
+  * Zero Personal Data Transmitted
+    Update checks send only standard version-related requests. Your crash logs,
+    package lists, and personal data are never transmitted to any server.
+
+  * Signature Verification
+    Before checking for updates, the App verifies its own digital signature
+    against the official release certificate SHA-256:
+    bbd053c0a67dbfc7938a3086d13325bfa212d550d6e6cbf39e48edf6b52bfc0d
+    This ensures you are running an authentic, untampered version.
+
+---
+
+[ 4. DATA TRANSMISSION & THIRD-PARTY ACCESS ]
+================================================================================
+
+  * No Sharing
+    Your crash logs and exported text files never leave your physical device.
+
+  * No Analytics or Tracking
+    The App contains no third-party tracking SDKs, advertising networks, or
+    behavioral telemetry services. We do not monitor how you use the App.
+
+  * No Advertising
+    The App does not display ads and does not use advertising identifiers.
+
+---
+
+[ 5. DEVICE PERMISSIONS & SYSTEM INTEGRATION ]
+================================================================================
+
+The App requests native Android permissions and special access only when
+strictly necessary:
+
+  * READ_LOGS & READ_DROPBOX_DATA
+    Core permissions required to read crash logs, ANR records, and tombstones
+    from the Android system. These must be manually granted via ADB or Root.
+
+  * PACKAGE_USAGE_STATS
+    Required to access usage statistics and support the log reading process.
+
+  * Internet Access
+    Used exclusively for optional update checks, APK downloads, and signature
+    verification. Can be restricted or disabled without breaking offline core
+    functionality.
+
+  * Install Unknown Apps / Request Install Packages
+    Used only when you choose to download and install an update. The App shares
+    the downloaded APK with the system package installer via FileProvider.
+
+---
+
+[ 6. DATA RETENTION & DELETION ]
+================================================================================
+
+  * User Control
+    You may clear the App's cache or clear all App data at any time through
+    Android System Settings or the App's own settings.
+
+  * Permanent Deletion
+    Clearing App data or uninstalling the App permanently removes all stored
+    preferences, cached APK files, and cached avatar images from your device.
+
+  * No Server-Side Data
+    The App does not create accounts, does not upload user data, and does not
+    maintain any server-side profile or backup.
+
+---
+
+[ 7. CHANGES TO THIS POLICY ]
+================================================================================
+
+This Privacy Policy may be updated periodically to reflect software
+improvements or functional updates. Revisions will be versioned alongside app
+releases.
+
+---
+
+[ 8. CONTACT INFORMATION ]
+================================================================================
+
+If you have questions regarding this Privacy Policy or how your local data is
+handled, please reach out through:
+
+  * GitHub Issues:
+    https://github.com/HeheJuice/Crash-Logs-Browser/issues
+
+================================================================================
+                              END OF POLICY
+================================================================================
