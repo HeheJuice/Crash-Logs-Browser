@@ -104,12 +104,14 @@ class HomePageContent(private val activity: AppCompatActivity) {
         }
     }
 
+    // ★ 提前把時間字串算好，減輕 UI 執行緒負擔
     private data class CrashLog(
         val appName: String,
         val packageName: String,
         val crashType: String,
         val icon: Drawable?,
         val timestamp: Long,
+        val formattedTime: String, 
         val rawText: String
     )
 
@@ -253,8 +255,14 @@ class HomePageContent(private val activity: AppCompatActivity) {
                     OptimizeEngine.vibrateTick(activity)
                     val oldIndex = chipTags.indexOf(activeFilter)
                     activeFilter = tag
+                    
+                    // ★ 優化：先讓膠囊 UI 平滑移動，避免阻塞
                     updateChipsSelection(index)
-                    triggerLogFilterAnimation(tag, index > oldIndex)
+                    
+                    // ★ 延遲 16ms (等待下一幀) 再執行耗時的新列表生成與滑動，保證動畫不掉幀
+                    logsWrapper.post {
+                        triggerLogFilterAnimation(tag, index > oldIndex)
+                    }
                 }
             }
 
@@ -272,14 +280,40 @@ class HomePageContent(private val activity: AppCompatActivity) {
     private fun updateChipsSelection(selectedIndex: Int, animate: Boolean = true) {
         val targetView = chipViews.getOrNull(selectedIndex) ?: return
 
+        if (targetView.width == 0) {
+            targetView.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(dpToPx(36f), View.MeasureSpec.EXACTLY)
+            )
+            var newLeft = 0
+            for (i in 0 until selectedIndex) {
+                val tv = chipViews[i]
+                if (tv.width == 0) {
+                    tv.measure(
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                        View.MeasureSpec.makeMeasureSpec(dpToPx(36f), View.MeasureSpec.EXACTLY)
+                    )
+                }
+                newLeft += tv.measuredWidth
+            }
+            targetView.layout(newLeft, 0, newLeft + targetView.measuredWidth, targetView.measuredHeight)
+        }
+
+        val targetX = targetView.left.toFloat()
+        val targetW = targetView.width
+        if (targetW <= 0) return
+
+        slidingPill.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dpToPx(100f).toFloat()
+            setColor(primaryContainerColor)
+        }
+
         chipViews.forEachIndexed { i, tv ->
             val isSel = i == selectedIndex
             tv.setTextColor(if (isSel) onPrimaryContainerColor else onSurfaceVariantColor)
             tv.setTypeface(null, if (isSel) Typeface.BOLD else Typeface.NORMAL)
         }
-
-        val targetX = targetView.left.toFloat()
-        val targetW = targetView.width
 
         if (animate) {
             slidingPill.animate()
@@ -304,6 +338,7 @@ class HomePageContent(private val activity: AppCompatActivity) {
             val lp = slidingPill.layoutParams
             lp.width = targetW
             slidingPill.layoutParams = lp
+            slidingPill.requestLayout()
         }
     }
 
@@ -323,6 +358,8 @@ class HomePageContent(private val activity: AppCompatActivity) {
         }
 
         val filtered = if (tag == "ALL") allLogs else allLogs.filter { it.crashType == tag }
+        
+        // 這一步現在被延遲執行了，不會卡住藥丸的滑動
         renderLogsToContainer(newContainer, filtered)
         
         logsWrapper.addView(newContainer)
@@ -335,27 +372,25 @@ class HomePageContent(private val activity: AppCompatActivity) {
         newContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         oldContainer.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        logsWrapper.post {
-            newContainer.animate()
-                .translationX(0f)
-                .setDuration(duration)
-                .setInterpolator(tabTransitionInterpolator)
-                .withEndAction {
-                    logsWrapper.removeView(oldContainer)
-                    currentLogsContainer = newContainer
-                    newContainer.translationX = 0f
-                    oldContainer.translationX = 0f
-                    isFilterAnimating = false
-                    newContainer.setLayerType(View.LAYER_TYPE_NONE, null)
-                    oldContainer.setLayerType(View.LAYER_TYPE_NONE, null)
-                }.start()
-            
-            oldContainer.animate()
-                .translationX(-startX)
-                .setDuration(duration)
-                .setInterpolator(tabTransitionInterpolator)
-                .start()
-        }
+        newContainer.animate()
+            .translationX(0f)
+            .setDuration(duration)
+            .setInterpolator(tabTransitionInterpolator)
+            .withEndAction {
+                logsWrapper.removeView(oldContainer)
+                currentLogsContainer = newContainer
+                newContainer.translationX = 0f
+                oldContainer.translationX = 0f
+                isFilterAnimating = false
+                newContainer.setLayerType(View.LAYER_TYPE_NONE, null)
+                oldContainer.setLayerType(View.LAYER_TYPE_NONE, null)
+            }.start()
+        
+        oldContainer.animate()
+            .translationX(-startX)
+            .setDuration(duration)
+            .setInterpolator(tabTransitionInterpolator)
+            .start()
     }
 
     private fun fetchLogs(animateEntrance: Boolean = false) {
@@ -445,7 +480,9 @@ class HomePageContent(private val activity: AppCompatActivity) {
                                 }
 
                                 if (!logs.any { it.timestamp == entry.timeMillis && it.packageName == pkgName }) {
-                                    logs.add(CrashLog(appName, pkgName, tag, icon, entry.timeMillis, text))
+                                    // ★ 在背景執行緒預先處理時間格式
+                                    val formattedTime = timeFormat.format(Date(entry.timeMillis))
+                                    logs.add(CrashLog(appName, pkgName, tag, icon, entry.timeMillis, formattedTime, text))
                                 }
                             }
                         }
@@ -540,6 +577,13 @@ class HomePageContent(private val activity: AppCompatActivity) {
             return
         }
 
+        // ★ 優化：將共用的參數拉到迴圈外，減少 GC 壓力
+        val rowParams = LinearLayout.LayoutParams(MP, WC)
+        val iconParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f)).apply { marginEnd = dpToPx(16f) }
+        val textColParams = LinearLayout.LayoutParams(0, WC, 1f)
+        val timeParams = LinearLayout.LayoutParams(MP, WC).apply { topMargin = dpToPx(2f) }
+        val pillParams = LinearLayout.LayoutParams(WC, WC).apply { marginStart = dpToPx(12f) }
+
         logs.forEachIndexed { index, log ->
             val (topR, botR) = when {
                 totalLogs == 1 -> outerR to outerR
@@ -555,7 +599,7 @@ class HomePageContent(private val activity: AppCompatActivity) {
                 setPadding(dpToPx(20f), dpToPx(14f), dpToPx(20f), dpToPx(14f))
                 setMinimumHeight(dpToPx(72f))
                 isClickable = true; isFocusable = true
-                layoutParams = LinearLayout.LayoutParams(MP, WC).apply {
+                layoutParams = rowParams.apply {
                     if (index < totalLogs - 1) bottomMargin = dpToPx(2f)
                 }
                 setOnClickListener {
@@ -570,13 +614,12 @@ class HomePageContent(private val activity: AppCompatActivity) {
 
             row.addView(ImageView(activity).apply {
                 setImageDrawable(log.icon)
-                layoutParams = LinearLayout.LayoutParams(dpToPx(32f), dpToPx(32f))
-                    .apply { marginEnd = dpToPx(16f) }
+                layoutParams = iconParams
             })
 
             val textCol = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
+                layoutParams = textColParams
             }
             
             textCol.addView(TextView(activity).apply {
@@ -589,17 +632,15 @@ class HomePageContent(private val activity: AppCompatActivity) {
                 ellipsize = android.text.TextUtils.TruncateAt.END
             })
 
-            val timeString = timeFormat.format(Date(log.timestamp))
             textCol.addView(TextView(activity).apply {
-                text = timeString
+                // ★ 優化：直接使用預先格式化好的時間字串
+                text = log.formattedTime
                 textSize = 14f
                 setTextColor(onSurfaceVariantColor)
                 alpha = 0.7f
                 includeFontPadding = false
                 maxLines = 1
-                layoutParams = LinearLayout.LayoutParams(MP, WC).apply {
-                    topMargin = dpToPx(2f)
-                }
+                layoutParams = timeParams
             })
             row.addView(textCol)
 
@@ -611,9 +652,7 @@ class HomePageContent(private val activity: AppCompatActivity) {
                 gravity = Gravity.CENTER
                 background = OptimizeEngine.pillBackground(primaryContainerColor)
                 setPadding(dpToPx(12f), dpToPx(6f), dpToPx(12f), dpToPx(6f))
-                layoutParams = LinearLayout.LayoutParams(WC, WC).apply {
-                    marginStart = dpToPx(12f)
-                }
+                layoutParams = pillParams
             }
             row.addView(pillText)
 

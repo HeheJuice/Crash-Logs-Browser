@@ -24,10 +24,10 @@
 ## Screenshots
 
 <p align="center">
-  <a href="res/screenshots/SS1.jpg"><img src="res/screenshots/SS1.jpg" width="22%" alt="Screenshot 1"></a>
-  <a href="res/screenshots/SS2.jpg"><img src="res/screenshots/SS2.jpg" width="22%" alt="Screenshot 2"></a>
-  <a href="res/screenshots/SS3.jpg"><img src="res/screenshots/SS3.jpg" width="22%" alt="Screenshot 3"></a>
-  <a href="res/screenshots/SS4.jpg"><img src="res/screenshots/SS4.jpg" width="22%" alt="Screenshot 4"></a>
+  <a href="res/screenshots/SS1.png"><img src="res/screenshots/SS1.png" width="22%" alt="Screenshot 1"></a>
+  <a href="res/screenshots/SS2.png"><img src="res/screenshots/SS2.png" width="22%" alt="Screenshot 2"></a>
+  <a href="res/screenshots/SS3.png"><img src="res/screenshots/SS3.png" width="22%" alt="Screenshot 3"></a>
+  <a href="res/screenshots/SS4.png"><img src="res/screenshots/SS4.png" width="22%" alt="Screenshot 4"></a>
 </p>
 
 ## Downloads

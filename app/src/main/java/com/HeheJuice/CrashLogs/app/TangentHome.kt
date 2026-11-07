@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.Window
+import android.view.WindowInsets
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
@@ -90,15 +91,20 @@ class TangentHome : AppCompatActivity() {
 
     private var welcomeLaunchGuard = false
 
+    // ★ 完美还原参考代码的同步启动逻辑，不搞任何延迟
     private fun ensureWelcomeShown() {
         if (welcomeLaunchGuard) return
         if (isWelcomeLaunched()) return
+
         welcomeLaunchGuard = true
+
         try {
             startActivity(Intent(this, WelcomeActivity::class.java))
         } catch (_: Exception) {
         } finally {
-            Handler(Looper.getMainLooper()).postDelayed({ welcomeLaunchGuard = false }, 500L)
+            Handler(Looper.getMainLooper()).postDelayed({
+                welcomeLaunchGuard = false
+            }, 500L)
         }
     }
 
@@ -117,7 +123,9 @@ class TangentHome : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
 
+        // ★ 核心修复：在最顶层同步拉起欢迎页，绝不闪主页
         ensureWelcomeShown()
+
         MonetColorManager.applyToActivity(this)
 
         val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -421,6 +429,7 @@ class TangentHome : AppCompatActivity() {
 
         rootFrame.setOnApplyWindowInsetsListener { _, insets ->
             val statusTop = insets.getInsets(android.view.WindowInsets.Type.statusBars()).top
+            // ★ 修复点：拼写错误 Window.Type -> WindowInsets.Type
             val navBottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
             currentTopInset = statusTop
             contentHolder.setPadding(0, currentTopInset, 0, 0)
@@ -437,13 +446,23 @@ class TangentHome : AppCompatActivity() {
         }
     }
 
+    // ★ 核心修复：切后台再回来时，强制检查向导
     override fun onPostResume() {
         super.onPostResume()
+        ensureWelcomeShown()
+
         if (::homePage.isInitialized) {
             homePage.refreshStatusIcons()
         }
         if (::settingsPage.isInitialized) settingsPage.refreshStatusIcons()
         if (::updaterPageContent.isInitialized) updaterPageContent.refreshIfNeeded()
+    }
+
+    // ★ 核心修复：singleTask 返回时，强制检查向导
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ensureWelcomeShown()
     }
 
     override fun onDestroy() {
